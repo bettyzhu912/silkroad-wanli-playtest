@@ -63,4 +63,5 @@
 @media(max-height:620px){.home-choice{padding:14px 12px}.home-choice h2{margin-bottom:12px}.home-choice .start-choices{gap:8px}.pack-status{width:68%;margin-bottom:8px}.pack-status-row .info-row{padding:4px 0}.paper-panel:is([data-panel-id="pack"],[data-panel-id="commission"],[data-panel-id="message"])>.panel-header{min-height:48px}.market-product .goods-art{width:76px;height:76px}}
 
 .paper-panel[data-panel-id="commission"]>.panel-header h2{transform:translateY(calc(var(--viewport-height)*.022))}
+.paper-panel[data-panel-id="commission"]{padding-bottom:calc(var(--viewport-height)*.1)}
 .pack-status>.info-row{font-size:.83rem;gap:6px}.pack-status>.info-row>.row-value{max-width:68%}
