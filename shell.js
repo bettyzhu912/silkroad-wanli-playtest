@@ -203,7 +203,7 @@
     if(renderer)renderer(context(),parts.body,current);
     else if(current.text||current.body||current.lines){if(current.text||current.body)paragraph(parts.body,current.text||current.body);for(const line of current.lines||[])paragraph(parts.body,typeof line==='string'?line:line.text||'');}
     else paragraph(parts.body,'工程提示：业务结果已保存，结果字段的展示尚待接入。','engineering-note');
-    if(renderer&&renderer.footer)renderer.footer(context(),parts.footer,current);else parts.footer.append(button(current.continueLabel||'继续',()=>dispatch('result.ack',{resultId:current.id}),{natural:false}));if(ui.error)paragraph(parts.body,ui.error,'inline-error');
+    if(renderer&&renderer.footer)renderer.footer(context(),parts.footer,current);else parts.footer.append(button(current.continueLabel||(current.kind==='event'&&p()?.world.route?'继续赶路':'继续'),()=>dispatch('result.ack',{resultId:current.id}),{natural:false}));if(ui.error)paragraph(parts.body,ui.error,'inline-error');
   }
   function noticeKind(n) {return n.kind||n.type||'compact';}
   function noticeRank(n) {const k=noticeKind(n);return k==='loan'||k==='risk'||k==='major'||k==='commissionFailure'?0:k==='tutorial'?1:2;}
