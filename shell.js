@@ -139,32 +139,23 @@
   function fitScene() {
     if(!nodes.sceneWorld)return;const width=nodes.scene.clientWidth,height=nodes.scene.clientHeight;if(!width||!height)return;
     if(p()?.world.route){
-      // Journey art (657×1183): contain by default; on taller screens grow toward cover, cropping at most 12% per side so both route endpoints (14%–90%) stay visible.
-      const ratio=657/1183;let travelWidth=Math.min(width,height*ratio);if(height*ratio>width)travelWidth=Math.min(height*ratio,width/0.76);const travelHeight=travelWidth/ratio;
+      // Journey art (657×1183): contain — the whole illustration stays visible at its own aspect ratio, centred with letterbox bands (never cropped or stretched).
+      const ratio=657/1183,travelWidth=Math.min(width,height*ratio),travelHeight=travelWidth/ratio;
       nodes.sceneWorld.style.width=travelWidth+'px';nodes.sceneWorld.style.height=travelHeight+'px';nodes.sceneWorld.style.left=(width-travelWidth)/2+'px';nodes.sceneWorld.style.top=(height-travelHeight)/2+'px';return;
     }
-    // City art (941×1672): width-fit by default; on taller screens grow toward cover while every hotspot plaque stays fully inside the viewport (asymmetric crop when needed).
-    const ratio=941/1672,spots=hotspots[ui.sceneCity]||[],half=41;let worldW=width,worldH=width/ratio,left=0;
-    if(worldH<height&&spots.length){
-      const xs=spots.map(s=>s[2]/941),minX=Math.min(...xs),maxX=Math.max(...xs);
-      worldW=Math.min(height*ratio,Math.max(width,(width-2*half)/(maxX-minX)));worldH=worldW/ratio;
-      left=(width-worldW)/2;const spanL=minX*worldW-half,spanR=maxX*worldW+half;
-      if(left+spanR>width)left=width-spanR;if(left+spanL<0)left=-spanL;left=Math.min(0,Math.max(width-worldW,left));
-    }
-    const top=height*0.58-worldH*0.58;
+    // City art (941×1672): contain — the complete artwork at its own aspect ratio, centred; on tall phones the HUD sits on the top band and the map button on the bottom band.
+    const ratio=941/1672,worldW=Math.min(width,height*ratio),worldH=worldW/ratio,left=(width-worldW)/2,top=(height-worldH)/2;
     nodes.sceneWorld.style.left=left+'px';nodes.sceneWorld.style.width=worldW+'px';nodes.sceneWorld.style.height=worldH+'px';nodes.sceneWorld.style.top=top+'px';
-    // keep every plaque fully on screen: position hotspots in px and clamp them to the visible part of the art (a few px on very narrow screens)
+    // hotspots in px on the art; plaques are kept fully inside the viewport (only matters for plaques near the art edge on very narrow screens)
     for(const hot of nodes.sceneWorld.querySelectorAll('.city-hotspot')){const ax=Number(hot.dataset.artX),ay=Number(hot.dataset.artY);if(!ax)continue;const hw=(hot.offsetWidth||82)/2+2,hh=(hot.offsetHeight||44)/2+2;
       const cx=Math.min(Math.max(ax/941*worldW,-left+hw),-left+width-hw),cy=Math.min(Math.max(ay/1672*worldH,-top+hh),-top+height-hh);hot.style.left=cx+'px';hot.style.top=cy+'px';}
   }
   function fitHome() {
     const frame=nodes.start&&nodes.start.querySelector('.home-art-frame');if(!frame||nodes.start.hidden)return;
     const cs=getComputedStyle(nodes.start),availW=nodes.start.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),availH=nodes.start.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);if(!(availW>0&&availH>0))return;
-    // Home art (941×1672): contain by default; on taller screens grow toward cover while 启程 (25%–78%) and the corner buttons (up to 97.8%) stay inside the viewport.
-    const ratio=941/1672;let artW=Math.min(availW,availH*ratio),left=(availW-artW)/2;
-    // hotspot extents in px: 启程 left edge 25% of the art; 设置 right edge 93.3% + half of its 44px minimum size (+ margin)
-    if(availH*ratio>availW){const pad=26;artW=Math.min(availH*ratio,(availW-pad)/(0.933-0.25));left=(availW-artW)/2;if(left+0.933*artW+pad>availW)left=availW-0.933*artW-pad;if(left+0.25*artW<0)left=-0.25*artW;left=Math.min(0,Math.max(availW-artW,left));}
-    frame.style.width=artW+'px';frame.style.height=artW/ratio+'px';frame.style.marginLeft=left+'px';
+    // Home art (941×1672): contain — the complete illustration at its own aspect ratio, centred with letterbox bands; never cropped or stretched.
+    const ratio=941/1672,artW=Math.min(availW,availH*ratio);
+    frame.style.width=artW+'px';frame.style.height=artW/ratio+'px';frame.style.marginLeft=(availW-artW)/2+'px';
   }
   function describe() {return S.time&&S.time.describe?S.time.describe(p()):{yearLabel:'贞元十六年',dateLabel:p().world.tick===0?'三月十一日':date(p().world.tick),phaseLabel:['晨','午','暮'][p().world.tick%3],tripLabel:p().trip?'商旅进行中':'商期 未启程'};}
   function renderHUD() {
@@ -295,7 +286,7 @@
     document.documentElement.style.setProperty('--viewport-height',height+'px');
     const wasKeyboard=ui.keyboard;
     ui.keyboard=Boolean(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))||Boolean(vv&&window.innerHeight-height>140);
-    nodes.root&&nodes.root.classList.toggle('keyboard-open',ui.keyboard);fitScene();fitHome();if(wasKeyboard!==ui.keyboard)renderNotices();
+    if(nodes.root){nodes.root.classList.toggle('keyboard-open',ui.keyboard);nodes.root.style.setProperty('--art-scale',String(Math.max(.3,(nodes.root.clientWidth-24)/768)));}fitScene();fitHome();if(wasKeyboard!==ui.keyboard)renderNotices();
     if(ui.keyboard&&document.activeElement&&document.activeElement.scrollIntoView)document.activeElement.scrollIntoView({block:'nearest'});
   }
   function keyboardHandler(event) {

@@ -50,6 +50,8 @@ const METRICS = `(() => {
       await clickText('市场', 'page'); await sleep(700); await capture('04-market'); await closeAll();
       await clickText('客舍', 'page'); await sleep(300); await capture('05-inn'); await closeAll();
       await clickText('委托', 'page'); await sleep(300); await capture('06-commissions'); await closeAll();
+      await clickText('行囊', 'page'); await sleep(300); await capture('06b-pack'); await closeAll();
+      await clickText('消息', 'page'); await sleep(300); await capture('06c-message'); await closeAll();
       await clickText('柜坊', 'page'); await sleep(300); await capture('07-guifang'); await closeAll();
       await clickText('出发', 'page'); await sleep(300); await capture('08-depart'); await clickText('敦煌'); await sleep(500); await capture('09-draft'); await closeAll();
       await clickText('地图', 'page'); await sleep(400); await capture('10-map'); await closeAll();
