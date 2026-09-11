@@ -48,9 +48,12 @@
       if (p.eventSession && ['AWAITING_CHOICE', 'AWAITING_SKILL'].includes(p.eventSession.status) && !safeUI) ensure(command.type.startsWith('EVENT_') || command.type.startsWith('RM_'), 'EVENT_PENDING', '请先处理当前事件');
       const tracked = command.type.startsWith('finance.') || command.type.startsWith('merchant.');
       const before = tracked ? { cash:p.cash, finance:S.finance?.snapshot(p) } : null;
+      // RC3 BUG-04: the city-event roll is keyed by the world day at which the action started.
+      const cityCtx = { tick: p.world.tick, day: Math.floor(p.world.tick / 3), city: p.world.city, onRoute: Boolean(p.world.route) };
       if(S.trip?.authorizeGraceAdvance)S.trip.authorizeGraceAdvance(p,command,context);
       let result = handlers.get(command.type)(p, command.payload || {}, context);
       if(S.market?.settlePurchaseTurnover)S.market.settlePurchaseTurnover(p);
+      if(S.events?.afterCityAction)S.events.afterCityAction(p,command,cityCtx,context);
       if(S.trip?.afterCommand)result=S.trip.afterCommand(p,command,result,context);
       if (tracked) p.journal.push({type:command.type.startsWith('finance.')?'finance':'merchant',operation:command.type,tripId:p.trip?.id||null,tick:p.world.tick,cashDelta:p.cash-before.cash,before,after:{cash:p.cash,finance:S.finance?.snapshot(p)},result:clone(result)});
       if (p.reputation.value >= 5 && !p.commissions.starterGenerated && S.commissions?.generateStarterIfNeeded) S.commissions.generateStarterIfNeeded(p, context);
@@ -68,7 +71,7 @@
     longStories30Runtime: 'BLOCK', npcAffinity: 'BLOCK', futureCities: 'BLOCK', goodsQuality: 'DELETED', legacyProject: 'REFERENCE_ONLY'
   });
   S.core = {
-    versions: Object.freeze({ releaseVersion: 'v0.3.0-competition-rc2', schemaVersion: 2, balanceVersion: '2026-09-10-g01-g05' }),
+    versions: Object.freeze({ releaseVersion: 'v0.3.0-competition-rc3', schemaVersion: 2, balanceVersion: '2026-09-11-rc3-logic-patch' }),
     emptyEnvelope() { return { meta: { ...S.core.versions, generation: 0, revision: 0 }, preferences: { tutorialEnabled: true, soundEnabled: true }, progress: null, ledger: {}, pending: null, results: {} }; },
     upgradeEnvelope(envelope) {
       S.core.validate(envelope);
@@ -84,6 +87,10 @@
         if(S.stories?.migrate)S.stories.migrate(p);
         if(S.pricing)S.pricing.initialise(p);
         if(S.trip?.migrate)S.trip.migrate(p);
+        // RC3 logic patch migrations (BUG-02 urgent windows, BUG-06/07 transport flags, BUG-04 city rolls, BUG-14 archive).
+        if(S.inventory?.migrate)S.inventory.migrate(p);
+        if(S.events?.migrate)S.events.migrate(p);
+        if(S.commissions?.migrate)S.commissions.migrate(p);
       }
       next.meta.migrations=[...(next.meta.migrations||[]),{from:envelope.meta.balanceVersion,to:S.core.versions.balanceVersion,atRevision:envelope.meta.revision}];
       Object.assign(next.meta,S.core.versions);next.meta.revision++;
@@ -97,7 +104,7 @@
         world: { tick: 0, city: 'changan', route: null }, cash: 200,
         inventory: { lots: [], provisions: 0, camelCount: 1 },
         reputation: { value: 0, turnover: 0, milestones: {}, firstVisits: {} },
-        trip: null, tripHistory: [], market: { visit: null, prices: {}, scheduled: [], purchaseTurnoverLots: {}, pendingPurchaseTurnover: 0 },
+        trip: null, departureDraft: null, tripHistory: [], market: { visit: null, prices: {}, scheduled: [], purchaseTurnoverLots: {}, pendingPurchaseTurnover: 0 },
         commissions: S.commissions ? S.commissions.initial() : { pool: [], active: [], results: [], starterGenerated: false },
         stories: S.stories?S.stories.initial():{ lines: {}, lastNewChapterTrip: null, activeCargoChapter: null },
         inn: S.inn ? S.inn.initial() : { daily: {}, recentTalks: [], chains: {}, prepared: false },
@@ -131,6 +138,7 @@
       }
       if(S.inventory?.available)ensure(S.inventory.available(p)>=0,'CAPACITY_EXCEEDED','存档中的货物超过实际货位');
       if (S.finance?.validate) S.finance.validate(p);
+      if (S.trip?.validate) S.trip.validate(p);
       if (S.merchant?.validate) S.merchant.validate(p);
       if (S.inn?.validate) S.inn.validate(p);
       if (S.commissions?.validate) S.commissions.validate(p);
@@ -145,6 +153,8 @@
         sourceId,
         advance(p, count, reason) { return S.time.advance(p, count, { ...this, reason }); },
         graceEligibility(p, commission) { return S.trip.graceEligibility(p, commission); },
+        // RC3 BUG-04: a formal inn stay uses the same once-per-city-day 50% roll, with the inn context attached.
+        innNight(p) { return S.events?.innNight ? S.events.innNight(p, this) : null; },
         marketPrice(p, city, goodId, worldDay) {
           if(S.pricing)return S.pricing.quote(p,city,goodId,worldDay);
           const prices = p.market.prices[city];

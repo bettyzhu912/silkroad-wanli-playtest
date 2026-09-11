@@ -287,7 +287,7 @@
     ui.app=app;nodes.root=document.getElementById('game-root');if(!nodes.root)throw new Error('game-root missing');nodes.root.replaceChildren();
     journeyController=S.createJourneyController?.({getState:()=>ui.app.state,isBlocked:()=>blocking()||ui.app.busy||Boolean(ui.secondary)||Boolean(ui.primary)||document.hidden,dispatch});
     document.addEventListener('visibilitychange',()=>journeyController?.refresh());
-    const banner=el('div','engineering-banner','Competition RC2 · approved UI recovery · 待人工复测');banner.setAttribute('role','note');
+    const banner=el('div','engineering-banner','Competition RC3 · logic patch · 待人工复测');banner.setAttribute('role','note');
     const stage=el('div','game-stage');nodes.start=el('section','start-screen');nodes.scene=el('section','city-scene');nodes.sceneWorld=el('div','scene-world');nodes.scene.append(nodes.sceneWorld);
     nodes.hud=el('header','global-hud');nodes.hudTop=el('div','hud-top');nodes.hudNav=el('nav','hud-nav');nodes.hudNav.setAttribute('aria-label','全局功能');nodes.hud.append(nodes.hudTop,nodes.hudNav);
     stage.append(nodes.scene,nodes.start,nodes.hud);
@@ -355,7 +355,10 @@
     const field=el('label','form-field','输入金额');const input=el('input');input.type='text';input.inputMode='numeric';input.pattern='[0-9]*';input.name='finance-amount';input.autocomplete='off';input.maxLength=15;input.required=true;input.setAttribute('aria-describedby','finance-limit');field.append(input);form.append(field);
     const hint=el('p','form-hint');hint.id='finance-limit';form.append(hint);
     function max(){return financeLimit(data.operation,financeView(),data.loanId,sourceSelect?sourceSelect.value:'cash');}
-    function validate(clamp=false){const limit=max();if(clamp){input.value=input.value.replace(/[^0-9]/g,'');if(Number(input.value)>limit)input.value=String(limit);}hint.textContent='当前可办理上限：'+formatMoney(limit);const ok=/^[0-9]+$/.test(input.value)&&Number.isSafeInteger(Number(input.value))&&Number(input.value)>0&&Number(input.value)<=limit;const submit=document.getElementById('finance-submit');if(submit)submit.disabled=!ok||ui.busy;return ok;}
+    function validate(clamp=false){const limit=max();if(clamp){input.value=input.value.replace(/[^0-9]/g,'');if(Number(input.value)>limit)input.value=String(limit);}hint.textContent='当前可办理上限：'+formatMoney(limit);let ok=/^[0-9]+$/.test(input.value)&&Number.isSafeInteger(Number(input.value))&&Number(input.value)>0&&Number(input.value)<=limit;
+      // RC3 BUG-11: the same fee function as the reducer decides the minimum face value (redeemable must be ≥ 1).
+      if(data.operation==='issueVoucher'&&S.finance?.voucherQuote){const q=S.finance.voucherQuote(c.p,Number(input.value)||0);hint.textContent='当前可办理上限：'+formatMoney(limit)+'；最低面额'+q.minimumFace+'钱。'+(Number(input.value)>0?'手续费'+formatMoney(q.feeAmount)+'，到地可兑'+formatMoney(q.redeemableAmount)+(q.valid?'':'（兑付金额不足1钱，无法办理）'):'');ok=ok&&q.valid;}
+      const submit=document.getElementById('finance-submit');if(submit)submit.disabled=!ok||ui.busy;return ok;}
     input.addEventListener('input',()=>validate(true));if(sourceSelect)sourceSelect.addEventListener('change',()=>validate(true));
     form.addEventListener('submit',e=>{e.preventDefault();if(!validate()||ui.busy)return;const payload={amount:Number(input.value)};if(data.loanId)payload.loanId=data.loanId;if(sourceSelect){payload.source=sourceSelect.value;payload.destinationCity=destinationSelect.value;}dispatch('finance.'+data.operation,payload);});
     b.append(form);validate();

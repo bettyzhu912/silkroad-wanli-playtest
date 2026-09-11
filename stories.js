@@ -13,7 +13,6 @@
   function cargo(p, id) { return p.inventory.lots.filter(l => l.ownership === 'storyOwned' && l.storyLineId === id); }
   function units(lot) { return lot.storyUnits || Array.from({ length: lot.sampleQuantity || lot.quantity }, () => ({ goodId: lot.sampleGoodId || lot.goodId, condition: lot.condition })); }
   function allUnits(p, id) { return cargo(p, id).flatMap(units); }
-  function missing(key) { throw new S.util.DomainError('MISSING_STORY_AUTHORITY', '该货物处理尚缺已确认规则：' + key, { authorityKey: key }); }
   function location(p, city) { E(!p.world.route && p.world.city === city, 'STORY_WRONG_CITY', '请到指定城市继续。'); }
   function priorDamageExperience(p) {
     const prior = p.tripHistory.at(-1); if (!prior) return false;
@@ -50,7 +49,8 @@
   }
   function removeCargo(p, id) { const removed = cargo(p, id).map(l => S.inventory.take(p, l.id, l.quantity)); if (!p.inventory.lots.some(l => l.ownership === 'storyOwned')) state(p).activeCargoChapter = null; return removed; }
   function requireCargo(p, id, quantity) { const rows = allUnits(p, id); E(rows.length === quantity, 'STORY_CARGO_REQUIRED', '这批剧情货物尚未齐备。'); return rows; }
-  function intactInitial(p, id) { const rows = allUnits(p, id); E(rows.length, 'STORY_CARGO_REQUIRED'); if (rows.some(u => u.condition !== 'intact')) missing(id + '初始唯一纸样／试料的受损补救结果'); }
+  // RC3 BUG-03: the initial QY01 纸样 / QY02 试料 is at worst "damaged" and always settles (intact or degraded reward).
+  function sampleCondition(p, id) { const rows = allUnits(p, id); E(rows.length, 'STORY_CARGO_REQUIRED', '这批剧情货物尚未齐备。'); return rows.some(u => u.condition !== 'intact') ? 'damaged' : 'intact'; }
   function displayChapter(chapter) { return chapter ? { chapterId: chapter.id, number: chapter.chapter, title: chapter.title, location: chapter.location, text: chapter.text.replace(/storyOwned\s*/g, '') } : null; }
   function openResult(id, chapter, extra = {}) { return { kind: 'storyChapterOpened', lineId: id, chapterId: chapter.id, title: displayName(id) + ' · ' + chapter.title, text: displayChapter(chapter).text, actualCash: 0, actualReputation: 0, elapsed: 0, ...extra }; }
   function finalVisit(p, line) {
@@ -80,8 +80,8 @@
     if (slots) cargoCheck(p, d.id, slots);
     const chapter = d.chapters[next - 1]; E(chapter, 'STORY_COMPLETE');
     const active = { chapter: next, chapterId: chapter.id, begunTick: p.world.tick, begunTrip: budgetKey(p), beginChoice: choice.id, phase: 'active' }, additions = [];
-    if (d.id === 'QY01' && next === 1) { additions.push(addCargo(p, d.id, next, '西行纸样', '纸张', 1, 1)); line.flags.qy01_reinforced = choice.id === 'reinforce'; }
-    if (d.id === 'QY02' && next === 1) additions.push(addCargo(p, d.id, next, '玉料试料', '于阗玉', 1, 1, { valuable: true, storyCargoKind: 'QY02_TRIAL' }));
+    if (d.id === 'QY01' && next === 1) { additions.push(addCargo(p, d.id, next, '西行纸样', '纸张', 1, 1, { storyCargoKind: 'QY01_SAMPLE', storyMaxCondition: 'damaged' })); line.flags.qy01_reinforced = choice.id === 'reinforce'; line.flags.qy01_protectionCharges = choice.id === 'reinforce' ? 1 : 0; }
+    if (d.id === 'QY02' && next === 1) additions.push(addCargo(p, d.id, next, '玉料试料', '于阗玉', 1, 1, { valuable: true, storyCargoKind: 'QY02_TRIAL', storyMaxCondition: 'damaged' }));
     if (d.id === 'QY03' && next === 1) { additions.push(addCargo(p, d.id, next, '旧木匣', '旧木匣', 1, 1, { storyMaxCondition: 'damaged' })); line.flags.qy03_repacked = choice.id === 'repack'; }
     if (d.id === 'QY04' && next === 1) { additions.push(addCargo(p, d.id, next, '于阗丝织样品', '于阗丝织', 2, slots, { storyCargoKind: 'QY04_SAMPLES', storyPacking: choice.id, storyMaxCondition: 'damaged' })); line.flags.packing = choice.id; }
     if (d.id === 'QY02' && next === 4) {
@@ -142,14 +142,14 @@
     const choice = actionChoices(p, id).find(c => c.id === (x.choiceId || 'continue')); E(choice, 'STORY_CHOICE');
     let cash = 0, rep = 0, consumed = [], extra = {};
     if (id === 'QY01') {
-      if (n === 1) { location(p, 'dunhuang'); intactInitial(p, id); cash = 8; rep = 1; consumed = removeCargo(p, id); }
+      if (n === 1) { location(p, 'dunhuang'); const sample = sampleCondition(p, id); cash = sample === 'intact' ? 8 : 4; rep = 1; extra.sampleCondition = sample; consumed = removeCargo(p, id); }
       if (n === 2) { location(p, 'khotan'); f.qy01_exaggerated = choice.id === 'exaggerate'; if (f.qy01_exaggerated) cash = 4; else rep = 1; }
       if (n === 3) { location(p, 'dunhuang'); const plan = ownedPlan(p, '于阗丝织', 1); consumed = plan.map(l => S.inventory.take(p, l.id, l.quantity)); cash = 10; rep = 1; }
       if (n === 4) { location(p, 'dunhuang'); E(p.trip?.routeIndex === 3, 'STORY_RETURN_VISIT_REQUIRED'); if (choice.id === 'admit') { cash = 4; f.qy01_admitted = true; } else if (choice.id === 'insist') cash = 8; else { cash = 8; rep = 2; } }
       if (n === 5) { location(p, 'changan'); cash = (f.qy01_exaggerated ? 12 : 16) + (f.qy01_reinforced ? 2 : 0); rep = f.qy01_exaggerated ? 2 : 3; f.ending = f.qy01_exaggerated ? 'exaggerated' : 'truthful'; }
     } else if (id === 'QY02') {
-      if (n <= 3) { location(p, n === 3 ? 'changan' : 'dunhuang'); intactInitial(p, id); }
-      if (n === 1) { cash = 6; rep = 1; }
+      if (n <= 3) { location(p, n === 3 ? 'changan' : 'dunhuang'); extra.sampleCondition = sampleCondition(p, id); }
+      if (n === 1) { cash = extra.sampleCondition === 'intact' ? 6 : 3; rep = 1; }
       if (n === 2) { f.branch = choice.id; if (choice.id === 'conceal') cash = 6; }
       if (n === 3) { f.qy02_report = choice.id; if (choice.id === 'full') rep = 2; else cash = 8; }
       if (n === 4) {
@@ -220,10 +220,14 @@
   function damage(p, id, tag, options = {}) {
     const lot = p.inventory.lots.find(l => l.id === id); if (lot?.ownership !== 'storyOwned' || !lot.storyLineId) return null;
     const line = progress(p, lot.storyLineId); E(line, 'STORY_STATE_REQUIRED');
-    if (lot.storyLineId === 'QY01' && line.flags.qy01_reinforced) missing('QY01加固的保护次数、成功率和兼容货损类型');
     const damageId = options.incidentId || p.eventSession?.id || 'damage:' + tag + ':' + p.world.tick;
     lot.storyDamageResults ||= {}; if (lot.storyDamageResults[damageId]) return clone(lot.storyDamageResults[damageId]);
     const compatible = ['impact', 'crush', 'drop', 'roughHandling', 'moisture'].includes(tag);
+    // RC3 BUG-03: 加固包扎 grants exactly one 100% protection against the first compatible damage or loss hit; nothing transfers.
+    if (lot.storyCargoKind === 'QY01_SAMPLE' && (compatible || tag === 'loss') && (line.flags.qy01_protectionCharges || 0) > 0) {
+      line.flags.qy01_protectionCharges -= 1; line.flags.qy01_protectionUsed = { tag, tick: p.world.tick, incidentId: damageId };
+      const r = { ...clone(lot), storyProtected: true, protectedQuantity: 1, damageQuantity: 0 }; delete r.storyDamageResults; lot.storyDamageResults[damageId] = clone(r); return r;
+    }
     if (compatible && lot.storyLineId === 'QY03' && damageChoices(p).length) {
       const selected = options.storyProtectionChoice || p.eventSession?.node?.storyProtectionChoice;
       E(['protect', 'packingExperience'].includes(selected), 'STORY_PROTECTION_CHOICE_REQUIRED', '请先选择如何护住旧箱。');
@@ -286,6 +290,22 @@
       if (id === 'QY02') lot.storyCargoKind ||= 'QY02_TRIAL';
       if (id === 'QY03') lot.storyMaxCondition = 'damaged';
       if (id === 'QY04') { lot.storyCargoKind ||= 'QY04_SAMPLES'; lot.storyMaxCondition = 'damaged'; lot.storyPacking ||= progress(p, id)?.flags.packing || 'safe'; }
+    }
+    // RC3 BUG-03 legacy repair: destroyed / missing initial samples become the single "damaged" logical sample the chapter waits for.
+    for (const [id, kind, label, goodId] of [['QY01', 'QY01_SAMPLE', '西行纸样', '纸张'], ['QY02', 'QY02_TRIAL', '玉料试料', '于阗玉']]) {
+      const line = progress(p, id); if (!line) continue;
+      if (id === 'QY01' && line.flags.qy01_protectionCharges === undefined) line.flags.qy01_protectionCharges = line.flags.qy01_reinforced ? 1 : 0;
+      const a = line.activeChapter, expected = id === 'QY01' ? a?.chapter === 1 : line.completedChapters.length < 4 && (a ? a.chapter <= 4 && a.phase !== 'delivery' : line.completedChapters.length >= 1);
+      const lots = cargo(p, id).filter(l => l.storyCargoKind === kind || (id === 'QY01' && !l.storyCargoKind) || (id === 'QY02' && !l.storyCargoKind));
+      for (const lot of lots) {
+        lot.storyCargoKind ||= kind; lot.storyMaxCondition = 'damaged';
+        if (lot.storyUnits.some(u => u.condition === 'destroyed') || lot.condition === 'destroyed') { for (const u of lot.storyUnits) if (u.condition === 'destroyed') u.condition = 'damaged'; lot.condition = 'damaged'; lot.restoredByRc3 = true; }
+      }
+      if (expected && !lots.length) {
+        const blocked = p.inventory.lots.some(l => l.ownership === 'storyOwned' && l.storyLineId !== id) || S.inventory.available(p) < 1;
+        if (blocked) line.flags.sampleRestorePending = true;
+        else { S.inventory.add(p, { goodId, storyLabel: label, quantity: 1, acquisitionPrice: 0, slotCost: 1, fragile: false, ownership: 'storyOwned', nonMarketable: true, condition: 'damaged', storyLineId: id, storyChapterId: id + '_1', storyCargoKind: kind, storyMaxCondition: 'damaged', restoredByRc3: true, storyUnits: [{ goodId, condition: 'damaged' }], ...(id === 'QY02' ? { valuable: true } : {}) }); line.flags.sampleRestorePending = false; }
+      }
     }
     return true;
   }

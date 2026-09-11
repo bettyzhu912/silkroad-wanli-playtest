@@ -10,22 +10,41 @@
   const graceWarningText='继续过夜将结束本次返程宽限，尚未交付的冻结委托会按未完成处理。';
   function departureView(p){
     const leg=plan[p.trip?p.trip.routeIndex:0];
-    return {leg:leg?clone(leg):null,requiresSupplyWarning:Boolean(leg&&p.inventory.provisions<leg.days),requiresCargoWarning:!p.inventory.lots.some(l=>l.ownership==='playerOwned'&&!l.nonMarketable&&l.condition!=='destroyed'),pendingPickupIds:S.commissions?.departureWarnings(p)||[],canDepart:!p.world.route&&(!p.market.visit||p.market.visit.settled)&&(!p.trip||p.trip.phase==='in_city')&&S.time.phase(p)!==2};
+    return {leg:leg?clone(leg):null,requiresSupplyWarning:Boolean(leg&&p.inventory.provisions<leg.days),requiresCargoWarning:!p.inventory.lots.some(l=>l.ownership==='playerOwned'&&!l.nonMarketable&&l.condition!=='destroyed'),pendingPickupIds:S.commissions?.departureWarnings(p)||[],canDepart:!p.world.route&&(!p.market.visit||p.market.visit.settled)&&(!p.trip||p.trip.phase==='in_city')&&S.time.phase(p)!==2,draft:!p.trip&&S.commissions?.draftView?S.commissions.draftView(p):null};
+  }
+  // RC3 BUG-08: preparing a departure only builds a persisted draft. Nothing about the 22-day period starts here.
+  function ensureDraft(p,ctx){
+    if(p.departureDraft)return p.departureDraft;
+    ensure(p.world.city==='changan','TRIP_START_CITY','商旅只能从长安出发。');
+    const draft={id:S.util.id(p,'draft'),createdTick:p.world.tick,city:'changan',reputation:p.reputation.value,pool:[],selectedIds:[]};
+    draft.pool=p.reputation.value>=5&&S.commissions?.draftPool?S.commissions.draftPool(p,ctx,draft):[];
+    p.departureDraft=draft;return draft;
   }
   function begin(p,a,ctx){
     ensure(!p.world.route,'ON_ROUTE','当前已经在路上');
     ensure(!p.market.visit||p.market.visit.settled,'MARKET_VISIT_OPEN','请先完整离开市场');
-    ensure(S.time.phase(p)!==2,'DEPARTURE_AT_DUSK','请先过夜，次晨再出发');
-    if(!p.trip){
-      ensure(p.world.city==='changan','TRIP_START_CITY');
-      p.trip={id:S.util.id(p,'trip'),startedAt:p.world.tick,deadlineTick:p.world.tick+66,routeIndex:0,routePlan:clone(plan),routeHistory:['changan'],arrivedChanganTick:null,returnStatus:null,graceIds:[],phase:'in_city',overduePenaltyApplied:false,initialReputation:p.reputation.value,initialMilestones:clone(p.reputation.milestones),initialFunds:S.finance.snapshot(p),initialMerchantLedgerIndex:p.merchant.ledger?.length||0,summary:null};
-      if(p.reputation.value>=5){ensure(S.commissions?.generatePool,'COMMISSION_NOT_CONNECTED','委托候选尚未完成接入');S.commissions.generatePool(p,ctx);}
-      if(S.stories?.onTripStart)S.stories.onTripStart(p);
-    }
-    return {kind:'tripPrepared',modal:false};
+    if(p.trip)return {kind:'tripPrepared',modal:false};
+    ensureDraft(p,ctx);
+    return {kind:'departureDraft',modal:false,draft:S.commissions.draftView(p)};
+  }
+  function draftSelect(p,a,ctx){
+    ensure(!p.trip&&p.departureDraft,'NO_DEPARTURE_DRAFT','请先打开出发准备。');
+    return S.commissions.draftToggle(p,a);
+  }
+  // The single atomic transaction that really starts a trip: currentTrip, deadline, pool, selected commissions.
+  function startTrip(p,ctx){
+    ensure(p.world.city==='changan','TRIP_START_CITY','商旅只能从长安出发。');
+    const draft=ensureDraft(p,ctx);
+    p.trip={id:S.util.id(p,'trip'),startedAt:p.world.tick,deadlineTick:p.world.tick+66,routeIndex:0,routePlan:clone(plan),routeHistory:['changan'],arrivedChanganTick:null,returnStatus:null,graceIds:[],phase:'in_city',overduePenaltyApplied:false,initialReputation:p.reputation.value,initialMilestones:clone(p.reputation.milestones),initialFunds:S.finance.snapshot(p),initialMerchantLedgerIndex:p.merchant.ledger?.length||0,summary:null,draftId:draft.id};
+    ensure(S.commissions?.activateDraft,'COMMISSION_NOT_CONNECTED','委托候选尚未完成接入');
+    S.commissions.activateDraft(p,ctx,p.trip);
+    if(S.stories?.onTripStart)S.stories.onTripStart(p);
   }
   function depart(p,a,ctx){
-    begin(p,a,ctx);
+    ensure(!p.world.route,'ON_ROUTE','当前已经在路上');
+    ensure(!p.market.visit||p.market.visit.settled,'MARKET_VISIT_OPEN','请先完整离开市场');
+    ensure(S.time.phase(p)!==2,'DEPARTURE_AT_DUSK','请先过夜，次晨再出发');
+    if(!p.trip)startTrip(p,ctx);
     ensure(p.trip.phase==='in_city'&&p.trip.routeIndex<plan.length,'RETURN_TASKS_PENDING','请先结束本次商旅');
     const leg=plan[p.trip.routeIndex];ensure(leg.from===p.world.city,'ROUTE_MISMATCH');
     ensure(!a.destinationCity||a.destinationCity===leg.to,'ROUTE_DESTINATION_MISMATCH','本趟商旅沿长安、敦煌、于阗、敦煌、长安的路线行进。');
@@ -34,6 +53,8 @@
     if(missed.length){ensure(a.confirmMissedPickup===true,'PICKUP_WARNING_REQUIRED','本次离城后将无法再领取这些委托货物');S.commissions.finalizeFailures(p,missed,{reason:'pickup_city_missed'});}
     p.world.route={id:S.util.id(p,'route'),index:p.trip.routeIndex,...clone(leg),startedTick:p.world.tick,remainingTicks:leg.days*3,traveledTicks:0,provisionTicks:0,eventCount:0,targetEvents:p.tripHistory.length===0?3:(S.random.next(p)<(leg.days===3?.6:.4)?2:3),eventDays:[],lastStarvationDay:null,prepared:Boolean(p.inn.prepared)};
     p.inn.prepared=false;p.trip.phase='traveling';p.presentation.tutorialSeen.preparation=true;
+    // RC3 BUG-06/07: cargo bought in this city has now really left it.
+    if(S.inventory?.departed)S.inventory.departed(p,leg.from);
     if(S.stories?.onDepart)S.stories.onDepart(p);
     S.events?.enteredRoute?.(p);
     return {kind:'departed',modal:false,route:clone(p.world.route)};
@@ -82,7 +103,14 @@
     const r=p.world.route,t=p.trip,leg=r&&plan.find(x=>x.from===r.from&&x.to===r.to);
     return Boolean(r&&t&&leg&&r.index===plan.indexOf(leg)&&t.routeIndex===r.index&&t.phase==='traveling'&&p.world.city===r.from&&S.util.integer(r.startedTick)&&r.startedTick<=p.world.tick&&S.util.integer(r.remainingTicks)&&S.util.integer(r.traveledTicks)&&S.util.integer(r.provisionTicks,0,2)&&r.days===leg.days&&r.id);
   }
+  function validate(p){
+    const d=p.departureDraft;
+    if(d===undefined||d===null)return true;
+    ensure(!p.trip&&typeof d.id==='string'&&Array.isArray(d.pool)&&Array.isArray(d.selectedIds)&&S.util.integer(d.createdTick,0,p.world.tick)&&d.selectedIds.every(id=>d.pool.some(c=>c.commissionId===id)),'INVALID_DEPARTURE_DRAFT','出发草稿记录无效');
+    return true;
+  }
   function migrate(p){
+    if(p.departureDraft===undefined)p.departureDraft=null;
     const r=p.world.route;if(!r)return;
     // Recover only redundant fields from a valid persisted endpoint pair. Never
     // manufacture movement, money, event outcomes or a new random seed.
@@ -212,6 +240,7 @@
     ensure(!view.requiresWarning||a.confirmOutstanding===true,'RETURN_WARNING_REQUIRED','请先确认未处理委托');
     ensure(S.commissions?.finalizeFailures,'COMMISSION_NOT_CONNECTED');
     const trip=p.trip,ids=activeCommissionIds(p);
+    // RC3 BUG-14 order: 1) settle outstanding commissions, 2) immutable summary snapshot; archiving happens in finish().
     const failures=S.commissions.finalizeFailures(p,ids,{reason:'tripEnded',sourceId:ctx.sourceId});
     if(trip.returnStatus==='on_time'&&!trip.onTimeRewardApplied){S.reputation.change(p,1,{type:'onTimeTrip',tripId:trip.id});trip.onTimeReward=1;trip.onTimeRewardApplied=true;}
     const snapshot=summary(p,trip,failures);trip.summary=clone(snapshot);trip.phase='summary';
@@ -223,8 +252,11 @@
     const trip=p.trip;
     ensure(!p.tripHistory.some(t=>t.id===trip.id),'TRIP_ALREADY_FINALIZED');
     p.tripHistory.push({id:trip.id,status:'completed',onTimeReturn:trip.returnStatus==='on_time',startedAt:trip.startedAt,arrivedAt:trip.arrivedChanganTick,summary:clone(trip.summary)});
-    p.trip=null;p.commissions.pool=[];
-    return {kind:'tripFinished',modal:false};
+    // RC3 BUG-14 order: 3) terminal records into history, 4) remove them from active, 5) clear the pool, then close the trip.
+    const archived=S.commissions?.archiveTrip?S.commissions.archiveTrip(p,trip.id):null;
+    p.commissions.pool=[];
+    p.trip=null;
+    return {kind:'tripFinished',modal:false,archived};
   }
   function settleOverdue(p){
     const t=p.trip;if(!t||t.arrivedChanganTick!==null||p.world.tick<=t.deadlineTick)return;
@@ -235,8 +267,8 @@
     t.overduePenaltyApplied=true;t.overduePenaltyLevel=target;t.overdueTick??=p.world.tick;
     t.overdueActualPenalty=(t.overdueActualPenalty||0)+change.actual;
   }
-  S.trip={plan,departureView,depart,arrive,advanceRoute,journey,routeStateValid,migrate,graceDeadline,graceEligibility,graceAdvanceWarning,authorizeGraceAdvance,afterCommand,returnTaskStatus,resolveReturnTask,returnView,summary,requestEnd,finalize,finish,settleOverdue};
-  for(const [name,fn]of Object.entries({begin,depart,journey,resolveReturnTask,requestEnd,finalize,finish}))S.commands.register('trip.'+name,fn);
+  S.trip={plan,departureView,ensureDraft,begin,depart,arrive,advanceRoute,journey,routeStateValid,validate,migrate,graceDeadline,graceEligibility,graceAdvanceWarning,authorizeGraceAdvance,afterCommand,returnTaskStatus,resolveReturnTask,returnView,summary,requestEnd,finalize,finish,settleOverdue};
+  for(const [name,fn]of Object.entries({begin,draftSelect,depart,journey,resolveReturnTask,requestEnd,finalize,finish}))S.commands.register('trip.'+name,fn);
   S.time.register('trip',{
     beforeTick(p,ctx){
       const deadline=graceDeadline(p);

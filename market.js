@@ -16,9 +16,12 @@
     const rows=purchaseRecords(p),holdings=heldLots(p),day=S.time.day(p),confirmed=[];
     for(const {lot,city,travelling} of holdings){
       if(!lot.purchaseTurnoverPending||!rows[lot.purchaseTurnoverId]||lot.condition==='destroyed')continue;
-      if(day>lot.acquisitionWorldDay||city!==lot.acquisitionCity||travelling)confirmed.push(confirmPurchase(p,lot,day>lot.acquisitionWorldDay?'heldAcrossDay':'leftPurchaseCity'));
+      // RC3 BUG-07 (overrides G01.4): a purchase amount is confirmed only once the cargo has really left its purchase city
+      // (carried on the road away from it, or held in another city). Merely holding it across a world day no longer confirms it.
+      const left=lot.hasLeftAcquisitionCity===true||city!==lot.acquisitionCity||(travelling&&city===lot.acquisitionCity);
+      if(left)confirmed.push(confirmPurchase(p,lot,'leftPurchaseCity'));
     }
-    // A removed/destroyed unit cannot later qualify as cargo held across a day.
+    // A removed/destroyed unit cannot later qualify as transported cargo.
     // Transfers and damage splitting finish before this reconciliation runs.
     const pending={};for(const {lot} of holdings)if(lot.purchaseTurnoverPending&&lot.condition!=='destroyed')pending[lot.purchaseTurnoverId]=(pending[lot.purchaseTurnoverId]||0)+lot.quantity;
     for(const row of Object.values(rows)){
@@ -99,13 +102,15 @@
     const normal = price(p, lot.goodId, ctx);
     const unitPrice = sellUnitPrice(p, lot, normal);
     const total = unitPrice * payload.quantity; ensure(integer(total), 'INVALID_AMOUNT');
-    const sameOriginDay = lot.acquisitionCity === p.world.city && lot.acquisitionWorldDay === S.time.day(p);
-    if(!sameOriginDay)confirmPurchase(p,lot,'beforeOtherCityOrDaySale');
-    const cancelledPurchaseTurnover=sameOriginDay?cancelResale(p,lot,payload.quantity):0;
+    // RC3 BUG-07: only cargo that has really left its purchase city earns turnover. Selling an unmoved lot in its
+    // purchase city (same day or days later) cancels the pending purchase amount and earns no sale turnover either.
+    const transported = S.inventory.transportQualified(lot, p.world.city);
+    if(transported)confirmPurchase(p,lot,'beforeSale');
+    const cancelledPurchaseTurnover=transported?0:cancelResale(p,lot,payload.quantity);
     const sold = S.inventory.take(p, lot.id, payload.quantity); p.cash += total; v.hadActivity = true;
-    const reputation = S.reputation.addTurnover(p, sameOriginDay ? 0 : total, { type: 'marketSell', lotId: sold.id });
+    const reputation = S.reputation.addTurnover(p, transported ? total : 0, { type: 'marketSell', lotId: sold.id });
     const cost = sold.acquisitionPrice * sold.quantity;
-    const entry = { type: 'marketSell', goodId: sold.goodId, lotId: sold.id, quantity: sold.quantity, unitPrice, total, cost, profit: total - cost, city: p.world.city, acquisitionCity:sold.acquisitionCity,crossCity:sold.acquisitionCity!==p.world.city, tick: p.world.tick, tripId: p.trip?.id || null };
+    const entry = { type: 'marketSell', goodId: sold.goodId, lotId: sold.id, quantity: sold.quantity, unitPrice, total, cost, profit: total - cost, city: p.world.city, acquisitionCity:sold.acquisitionCity,crossCity:sold.acquisitionCity!==p.world.city, transportQualified: transported, tick: p.world.tick, tripId: p.trip?.id || null };
     p.journal.push(entry);
     return { kind: 'marketSell', ...entry, cashDelta: total, reputation, cancelledPurchaseTurnover };
   }

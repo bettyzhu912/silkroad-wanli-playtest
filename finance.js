@@ -87,6 +87,14 @@
     queueReminders(p);
   }
   function getLoan(p, id) { const l = p.finance.loans.find(x => x.loanId === id); ensure(l && l.status !== 'repaid', 'LOAN_UNAVAILABLE', '该借款已经结清或不存在。'); return l; }
+  // Single fee function shared by the reducer and the UI (RC3 BUG-11): fee = max(1, round(face * rate)).
+  function voucherFee(rate, n) { return Math.max(1, round(n * rate)); }
+  function voucherQuote(p, n) {
+    const feeRate = band(p).feeRate;
+    let minimumFace = 1; while (minimumFace - voucherFee(feeRate, minimumFace) < 1) minimumFace++;
+    const face = Number.isSafeInteger(n) && n > 0 ? n : minimumFace, feeAmount = voucherFee(feeRate, face);
+    return { feeRate, faceAmount: face, feeAmount, redeemableAmount: face - feeAmount, minimumFace, valid: face - feeAmount >= 1 };
+  }
   function transfer(p, payload, direction) {
     const c = city(p); const n = amount(payload.amount); settle(p);
     p.finance.deposits[c] = round(p.finance.deposits[c]);
@@ -124,7 +132,9 @@
     if (payload.source === 'deposit') p.finance.deposits[c] = round(p.finance.deposits[c]);
     const balance = payload.source === 'cash' ? p.cash : p.finance.deposits[c];
     ensure(balance >= n, 'INSUFFICIENT_FUNDS', '可用钱款不足。');
-    const feeRate = band(p).feeRate, feeAmount = Math.max(1, round(n * feeRate));
+    const quote = voucherQuote(p, n), feeRate = quote.feeRate, feeAmount = quote.feeAmount;
+    // RC3 BUG-11: a new voucher must redeem at least 1 coin after the fee; nothing is charged otherwise.
+    ensure(quote.redeemableAmount >= 1, 'VOUCHER_TOO_SMALL', '面额扣除手续费后须至少可兑1钱，本档最低面额为' + quote.minimumFace + '钱。');
     if (payload.source === 'cash') p.cash -= n; else p.finance.deposits[c] -= n;
     const voucher = { voucherId: S.util.id(p, 'voucher'), originCity: c, destinationCity: payload.destinationCity, faceAmount: n, feeRate, feeAmount, redeemableAmount: n - feeAmount, issuedTick: p.world.tick, status: 'issued' };
     p.finance.vouchers.push(voucher);
@@ -159,7 +169,7 @@
   }
   const reducers = { 'finance.deposit': (p, x) => transfer(p, x, 'deposit'), 'finance.withdraw': (p, x) => transfer(p, x, 'withdraw'), 'finance.borrow': borrow, 'finance.repay': repay, 'finance.issueVoucher': issue, 'finance.redeemVoucher': redeem };
   function reduce(p, command, ctx) { ensure(Object.hasOwn(reducers, command.type), 'UNKNOWN_COMMAND', '无法办理该业务。'); const result = reducers[command.type](p, command.payload || {}, ctx); return { ...result, kind: result.type, financeSnapshot: snapshot(p) }; }
-  S.finance = { initial, validate, reduce, settle, snapshot, fundsSnapshot, bands, queueReminders, acknowledgeNotices };
+  S.finance = { initial, validate, reduce, settle, snapshot, fundsSnapshot, bands, queueReminders, acknowledgeNotices, voucherQuote };
   for (const [type, fn] of Object.entries(reducers)) S.commands.register(type, (p, x, ctx) => reduce(p, { type, payload: x }, ctx));
   S.time.register('finance', { afterTick: p => settle(p) });
 })(globalThis.Silk = globalThis.Silk || {});

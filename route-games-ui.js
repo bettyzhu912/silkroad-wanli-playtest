@@ -121,6 +121,10 @@
     const v = current(); if (!v || v.result || operation) return;
     if (await send("RM_SKIP", { sessionId: v.sessionId }) !== null) await settle();
   }
+  // RC3 BUG-05: skipping settles the module's MISSED outcome; the player confirms first.
+  function confirmSkip(c, run) {
+    c.showModal({ title: "跳过小游戏？", body: "跳过将按本次小游戏未完成的结果结算。", actions: [{ label: "返回", run: c.dismissModal }, { label: "确认跳过", run: async () => { c.dismissModal(); await run(); } }] });
+  }
   function controls(c, target, v) {
     refs.controls = [];
     const add = (label, action, className) => {
@@ -167,7 +171,7 @@
     },
     footer(c, footer) {
       const e = c.p.eventSession;
-      if (e?.status === "AWAITING_SKILL") footer.append(c.button("开始", () => start(e),{disabled:Boolean(e.storyProtectionChoices?.length&&!e.node?.storyProtectionChoice)}), c.button("跳过", () => start(e, true), { className: "text-button" }));
+      if (e?.status === "AWAITING_SKILL") footer.append(c.button("开始", () => start(e),{disabled:Boolean(e.storyProtectionChoices?.length&&!e.node?.storyProtectionChoice)}), c.button("跳过", () => confirmSkip(c, () => start(e, true)), { className: "text-button", disabled: Boolean(e.storyProtectionChoices?.length && !e.node?.storyProtectionChoice) }));
       else if (!e || e.status === "ACKNOWLEDGED") footer.append(c.button("继续", () => c.closePanel()));
     }
   });
@@ -203,7 +207,7 @@
     footer(c, footer) {
       const v = S.minigames.view(c.p); if (!v) { footer.append(c.button("返回", () => c.closePanel())); return; }
       if (local.failed || local.hold || v.phase === "PAUSED") footer.append(c.button(local.failed ? "重试保存" : "继续", resume));
-      else if (!v.result) footer.append(c.button("暂歇", pause, { className: "text-button" }), c.button("跳过", skipCurrent, { className: "text-button" }));
+      else if (!v.result) footer.append(c.button("暂歇", pause, { className: "text-button" }), c.button("跳过", () => confirmSkip(c, skipCurrent), { className: "text-button" }));
       else if (v.result.worldEffectsCommitted) footer.append(c.button("继续", () => c.closePanel()));
     }
   });

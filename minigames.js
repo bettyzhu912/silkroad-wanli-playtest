@@ -21,7 +21,10 @@
     ensure(Object.hasOwn(specs, a.moduleId), "RM_MODULE", "无效路线小游戏");
     const e = p.eventSession;
     ensure(e && e.eventId === a.moduleId && e.id === a.eventSessionId && e.status === "AWAITING_SKILL",
-      "RM_EVENT_REQUIRED", "小游戏只能由当前路线事件开启");
+      "RM_EVENT_REQUIRED", "小游戏只能由当前路线事件开启")
+
+    // RC3: mirror the UI — a pending story protection choice must be recorded before the skill game starts, so its settlement can never be blocked afterwards.
+    ensure(!(e.storyProtectionChoices && e.storyProtectionChoices.length) || Boolean(e.node && e.node.storyProtectionChoice), "STORY_PROTECTION_CHOICE_REQUIRED", "请先选择如何护住旧箱。");
     const w = work(p);
     ensure(!w.tavern || !["READY", "QUESTION", "FEEDBACK", "WAIT", "PAUSED"].includes(w.tavern.phase), "WORK_ACTIVE", "已有营生进行中");
     if (w.routeGame && w.routeGame.eventSessionId === e.id) return snapshot(w.routeGame);

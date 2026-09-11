@@ -1,7 +1,8 @@
 (function (S) {
   'use strict';
   const active = new Set(['accepted', 'pending_pickup', 'in_transit', 'ready_to_turn_in']);
-  const trades = new Set(['market.buy', 'market.sell', 'market.sellAll', 'market.provisions', 'newspaper.purchase']);
+  // RC3 BUG-10: buying or re-reading a newspaper is a 0-tick action and never counts as market activity.
+  const trades = new Set(['market.buy', 'market.sell', 'market.sellAll', 'market.provisions']);
   const daytime = new Set(['inn.talk', 'inn.prepare']);
   const overnight = new Set(['inn.stay', 'inn.camp', 'inn.restOutside', 'inn.home']);
 
@@ -62,8 +63,9 @@
     const ordinary = candidates.filter(c => !grace.has(c.commissionId || c.id));
     const expiring = ordinary.filter(c => now <= c.deadlineTick && after > c.deadlineTick);
     if (expiring.length) lines.push('尚有普通委托将在商期结束后立即失效：' + expiring.map(c => c.title).join('、') + '。');
-    const urgent = ordinary.filter(c => !expiring.includes(c) && c.urgent && c.urgentArrivalTick !== null && c.urgentArrivalTick === now);
-    if (urgent.length) lines.push('继续后将错过加急委托的交接时段：' + urgent.map(c => c.title).join('、') + '。');
+    // RC3 BUG-02: warn only when this action would push past the open urgent window of the current delivery stop.
+    const urgent = ordinary.filter(c => !expiring.includes(c) && c.urgent && c.urgentWindow && now <= c.urgentWindow.deadlineTick && after > c.urgentWindow.deadlineTick);
+    if (urgent.length) lines.push('继续后将错过加急委托的交付窗口：' + urgent.map(c => c.title).join('、') + '。');
 
     const returned = trip.arrivedChanganTick !== null && trip.arrivedChanganTick !== undefined;
     if (!returned) {

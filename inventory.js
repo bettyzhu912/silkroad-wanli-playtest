@@ -25,10 +25,23 @@
       ...clone(input), id: S.util.id(p, 'lot'), slotCost, fragile: item.fragile,
       ownership: input.ownership || 'playerOwned', condition: input.condition || 'intact',
       acquisitionCity: input.acquisitionCity || p.world.city, acquisitionWorldDay: input.acquisitionWorldDay ?? S.time.day(p), acquisitionTripId: input.acquisitionTripId ?? p.trip?.id ?? null,
-      nonMarketable: Boolean(input.nonMarketable), hasTransportedToOtherCity: Boolean(input.hasTransportedToOtherCity)
+      nonMarketable: Boolean(input.nonMarketable), hasTransportedToOtherCity: Boolean(input.hasTransportedToOtherCity),
+      // RC3 BUG-06/07: transport provenance. Set once the lot has really left its purchase city.
+      hasLeftAcquisitionCity: Boolean(input.hasLeftAcquisitionCity)
     };
     ensure(!Object.hasOwn(lot, 'quality'), 'DELETED_QUALITY');
     p.inventory.lots.push(lot); return lot;
+  }
+  // A lot qualifies as transported cargo for the city it is judged in when it was bought elsewhere or has left its purchase city.
+  function transportQualified(lot, city) { return lot.acquisitionCity !== city || lot.hasLeftAcquisitionCity === true; }
+  function departed(p, from) { for (const lot of p.inventory.lots) if (lot.acquisitionCity === from) lot.hasLeftAcquisitionCity = true; }
+  function migrate(p) {
+    const held = [...p.inventory.lots.map(l => ({ lot: l, city: p.world.city, travelling: Boolean(p.world.route) })), ...(p.merchant?.cabinets || []).flatMap(c => c.lots.map(l => ({ lot: l, city: 'changan', travelling: false })))];
+    for (const { lot, city, travelling } of held) {
+      if (typeof lot.hasLeftAcquisitionCity === 'boolean') continue;
+      // RC2 saves cannot prove provenance: only cargo already away from its purchase city (or on the road) is qualified.
+      lot.hasLeftAcquisitionCity = Boolean(lot.hasTransportedToOtherCity) || (travelling && lot.acquisitionCity === city) || lot.acquisitionCity !== city;
+    }
   }
   function take(p, id, quantity) {
     const lot = p.inventory.lots.find(l => l.id === id); ensure(lot && integer(quantity, 1, lot.quantity), 'LOT_UNAVAILABLE', '这批货物或数量已经改变');
@@ -51,7 +64,7 @@
     p.inventory.lots.push(detached);
     return clone(detached);
   }
-  function transported(p, city) { for (const lot of p.inventory.lots) if (lot.acquisitionCity !== city) lot.hasTransportedToOtherCity = true; }
+  function transported(p, city) { for (const lot of p.inventory.lots) if (lot.acquisitionCity !== city) { lot.hasTransportedToOtherCity = true; lot.hasLeftAcquisitionCity = true; } }
   function lose(p,id,quantity=1,options={}){if(S.stories?.lose){const result=S.stories.lose(p,id,{...options,quantity});if(result!==null&&result!==undefined)return result;}return take(p,id,quantity);}
-  S.inventory = { goods, good, capacity, used, available, unlocked, add, take, damage, lose, transported };
+  S.inventory = { goods, good, capacity, used, available, unlocked, add, take, damage, lose, transported, transportQualified, departed, migrate };
 })(globalThis.Silk = globalThis.Silk || {});

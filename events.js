@@ -16,7 +16,7 @@
   for (const e of all) for (const c of e.choices) for (const o of c.outcomes) for (const effect of o.effects) if (effect.formula) formulas.add(effect.formula);
   for (const e of campDefinitions) for (const effect of e.effects) if (effect.formula) formulas.add(effect.formula);
   function initial() { return { history: [], moneyHistory: [], flags: {}, consumedGoodwill: {}, lossCounts: {}, consecutiveLosses: 0,
-    segmentModifiers: {}, routeCounts: {}, routeTargets: {}, routeRollDays: {}, mainDays: {}, campNights: {}, conditionalDays: {} }; }
+    segmentModifiers: {}, routeCounts: {}, routeTargets: {}, routeRollDays: {}, mainDays: {}, campNights: {}, conditionalDays: {}, cityRollDays: {}, pendingCityRoll: null }; }
   function state(p) { return p.events || (p.events = initial()); }
   const day = p => Math.floor(p.world.tick / 3);
   const tripKey = p => p.trip ? p.trip.id : "interlude-" + p.tripHistory.length;
@@ -80,12 +80,12 @@
     switch (id) {
       case "M01": inRoute(); repeat("trip"); break;
       case "M02": inRoute(); require(node?.terrain !== "nonSand", "当前明确不是沙地情境"); require(!has("majorSandCrisis"), "正在大型风沙事件"); repeat("route"); break;
-      case "M03": require(node?.kind === "overnight" && ["inn", "camp"].includes(node?.lodgingContext) && node?.lodgingSettled === true, "需要已结算住宿节点"); repeat("trip"); break;
+      case "M03": require(["inn", "camp"].includes(node?.lodgingContext) && node?.lodgingSettled === true, "需要已结算住宿节点"); repeat("trip"); break;
       case "M04": require(p.inventory.camelCount >= 1 && edge, "需要有骆驼的出发/抵达/近郊节点"); repeat("trip"); break;
       case "M05": require((route || edge) && !has("pureCityMenu"), "需要路线/城门路检情境"); repeat("route"); break;
       case "M06": inRoute(); require(!has("citySafeZone"), "城市安全区不触发"); repeat("trip"); break;
       case "M07": { inRoute(); const last = lastRecord(p, id); require(!last || tripNumber(p) - last.tripNumber >= 2, "两趟内已经出现"); break; }
-      case "M08": require(node?.kind === "overnight" && node?.lodgingContext === "inn" && node?.lodgingSettled === true, "需要已结算客舍住宿"); repeat("cityTrip"); break;
+      case "M08": require(node?.lodgingContext === "inn" && node?.lodgingSettled === true, "需要已结算客舍住宿"); repeat("cityTrip"); break;
       case "G09": inRoute(); repeat("trip"); break;
       case "G10": inRoute(); repeat("trip"); break;
       case "G11": require(node?.kind === "route" || node?.kind === "city", "需要普通主事件节点"); repeat("trip"); break;
@@ -323,14 +323,12 @@
     const s = active(p, payload.eventSessionId), result = p.work?.routeGame?.result;
     ensure(s.status === "AWAITING_SKILL" && result && result.sessionId === payload.rmSessionId
       && result.eventSessionId === s.id && result.moduleId === s.eventId && !result.worldEffectsCommitted, "RM_RESULT_REQUIRED", "没有当前事件的未消费小游戏结果");
-    if (result.completionStatus !== "COMPLETED") {
-      ensure(["SKIPPED", "ABORTED"].includes(result.completionStatus), "RM_RESULT_STATUS");
-      result.worldEffectsCommitted = true; s.status = "ACKNOWLEDGED"; s.resultCardAcknowledged = true;
-      return { kind: "routeGameSkipped", modal: false, eventSessionId: s.id, completionStatus: result.completionStatus, effects: [] };
-    }
-    const choice = definitions[s.eventId].choices[0], outcome = choice.outcomes.find(o => o.outcomeId === result.tier);
+    // RC3 BUG-05: skipping or aborting a route minigame settles the module's approved MISSED outcome, exactly once.
+    if (result.completionStatus !== "COMPLETED") ensure(["SKIPPED", "ABORTED"].includes(result.completionStatus), "RM_RESULT_STATUS");
+    const tier = result.completionStatus === "COMPLETED" ? result.tier : "MISSED";
+    const choice = definitions[s.eventId].choices[0], outcome = choice.outcomes.find(o => o.outcomeId === tier);
     ensure(outcome, "RM_RESULT_TIER");
-    const snapshot = settle(p, s, choice, outcome, ctx); result.worldEffectsCommitted = true; return snapshot;
+    const snapshot = settle(p, s, choice, outcome, ctx); result.worldEffectsCommitted = true; result.settledAs = tier; snapshot.settledAs = tier; snapshot.completionStatus = result.completionStatus; return snapshot;
   }
   function ack(p, id) {
     const s = active(p, id); ensure(s.status === "RESOLVED" || s.status === "ACKNOWLEDGED", "EVENT_UNRESOLVED");
@@ -388,9 +386,50 @@
   }
   function enteredRoute(p){for(const m of Object.values(p.events?.segmentModifiers||{}))if(!m.routeId&&!m.consumed)m.routeId=p.world.route.id;}
   function arrivedRoute(p,routeId){for(const m of Object.values(p.events?.segmentModifiers||{}))if(m.routeId===routeId){m.consumed=true;m.consumedAt=p.world.tick;m.reason='arrival';}}
-  function cityDecision() { missing("cityEventProbability:25–50%"); }
+  // ---- RC3 BUG-04: city event scheduler. Locked probability 50%, one judgement per (city, world day), result persisted.
+  const CITY_EVENT_PROBABILITY = 0.5;
+  const cityRollKey = (city, worldDay) => city + ':' + worldDay;
+  function cityDecision(p, ctx, options = {}) {
+    const st = state(p); st.cityRollDays ||= {};
+    const city = options.city || p.world.city, worldDay = Number.isSafeInteger(options.day) ? options.day : day(p), key = cityRollKey(city, worldDay);
+    if (Object.hasOwn(st.cityRollDays, key)) return copy(st.cityRollDays[key]);
+    ensure(!p.world.route && p.world.city === city, 'CITY_EVENT_CONTEXT', '城市事件只能在城内判定');
+    const roll = S.random.next(p), trigger = roll < CITY_EVENT_PROBABILITY;
+    const record = { key, city, day: worldDay, roll, probability: CITY_EVENT_PROBABILITY, trigger, innNight: Boolean(options.innNight), eventId: null, sessionId: null, tick: p.world.tick, reason: trigger ? null : 'noTrigger' };
+    st.cityRollDays[key] = record; // Saved before candidate filtering: a failed draw is never re-rolled.
+    if (!trigger) return copy(record);
+    const node = { kind: 'city', tags: [], city, innNight: Boolean(options.innNight), ...(options.innNight ? { lodgingContext: 'inn', lodgingSettled: true } : {}) };
+    const eventId = chooseMain(p, node);
+    if (!eventId) { record.reason = 'noCandidate'; return copy(record); }
+    const opened = open(p, eventId, node);
+    record.eventId = eventId; record.sessionId = opened.eventSessionId;
+    return { ...copy(record), opened };
+  }
+  // A formal inn stay shares the same daily judgement; the node carries the inn lodging context (M08 etc.).
+  function innNight(p, ctx) { const decision = cityDecision(p, ctx, { innNight: true }); return decision.opened || null; }
+  function blockedForCityRoll(p) {
+    if (p.world.route) return true;
+    if (p.eventSession && p.eventSession.status !== 'ACKNOWLEDGED') return true;
+    const tavern = p.work?.tavern; if (tavern && (!tavern.result || tavern.result.completionStatus === 'COMPLETED' && !tavern.resultAcknowledged)) return true;
+    if (p.work?.routeGame && !p.work.routeGame.result) return true;
+    if (p.market?.visit && !p.market.visit.settled) return true;
+    const deadline = S.trip?.graceDeadline ? S.trip.graceDeadline(p) : null; if (deadline !== null && deadline !== undefined && p.world.tick > deadline) return true;
+    return false;
+  }
+  // Called after every command. Only a successful, time-advancing in-city action earns a judgement (keyed by its start day).
+  function afterCityAction(p, command, before, ctx) {
+    const st = state(p); st.cityRollDays ||= {};
+    const advanced = p.world.tick > before.tick && !before.onRoute && !p.world.route && command.type !== 'trip.journey';
+    if (advanced && !Object.hasOwn(st.cityRollDays, cityRollKey(before.city, before.day)) && !st.pendingCityRoll) st.pendingCityRoll = { city: before.city, day: before.day, tick: before.tick, command: command.type };
+    const pending = st.pendingCityRoll; if (!pending) return null;
+    if (pending.city !== p.world.city || pending.day < day(p) - 1 || Object.hasOwn(st.cityRollDays, cityRollKey(pending.city, pending.day))) { st.pendingCityRoll = null; return null; }
+    if (blockedForCityRoll(p)) return null;
+    st.pendingCityRoll = null;
+    return cityDecision(p, ctx, { city: pending.city, day: pending.day });
+  }
+  function migrate(p) { const st = state(p); st.cityRollDays ||= {}; if (st.pendingCityRoll === undefined) st.pendingCityRoll = null; }
   S.events = { initial, definitions, eligibility, choiceAllowed, selectLots, preflight, cashFormula, applyEffects,
-    open, resolve, resolveRM, ack, campPool, resolveCamp, routeTarget, routeDecision, chooseMain, cityDecision, selectStoryProtection, modifierApplies, enteredRoute, arrivedRoute };
+    open, resolve, resolveRM, ack, campPool, resolveCamp, routeTarget, routeDecision, chooseMain, cityDecision, innNight, afterCityAction, cityRollKey, CITY_EVENT_PROBABILITY, migrate, selectStoryProtection, modifierApplies, enteredRoute, arrivedRoute };
   S.commands.register('EVENT_STORY_PROTECTION_SELECT',selectStoryProtection);
   S.commands.register("EVENT_CHOOSE", (p, payload, ctx) => resolve(p, payload, ctx));
   S.commands.register("EVENT_RM_RESOLVE", (p, payload, ctx) => resolveRM(p, payload, ctx));
