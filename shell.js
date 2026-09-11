@@ -129,7 +129,7 @@
       const img=el('img','city-background');img.src=asset('B7_city_'+city+'_bg_v0'+(city==='changan'?'2':'1'));img.alt=cities[city]+'城市景观';img.draggable=false;nodes.sceneWorld.append(img);
       for(const [id,label,x,y] of hotspots[city]){
         const hot=button('',()=>{if(id==='work'&&city!=='changan'){showModal({title:label,body:'敬请期待',actions:[{label:'返回',run:dismissModal}]});return;}openPanel(id);},{className:'city-hotspot text-hotspot',label});
-        hot.dataset.hotspot=id;hot.style.left=(x/941*100)+'%';hot.style.top=(y/1672*100)+'%';
+        hot.dataset.hotspot=id;hot.dataset.artX=x;hot.dataset.artY=y;hot.style.left=(x/941*100)+'%';hot.style.top=(y/1672*100)+'%';
         {const plaque=el('span','hotspot-visual '+(['guifang','inn'].includes(id)?'global-plaque':'b7-plaque'));const frame=el('img','plaque-frame');frame.src=asset(['guifang','inn'].includes(id)?'global_scene_hotspot_label_frame_v01':'city_marker_frame_v01');frame.alt='';plaque.append(frame,el('span','hotspot-label',label));hot.append(plaque);}
         nodes.sceneWorld.append(hot);
       }
@@ -137,10 +137,34 @@
     fitScene();
   }
   function fitScene() {
-    if(!nodes.sceneWorld)return;const width=nodes.scene.clientWidth,height=nodes.scene.clientHeight,imageHeight=width*1672/941;
-    if(p()?.world.route){const travelWidth=Math.min(width,height*657/1183),travelHeight=travelWidth*1183/657;nodes.sceneWorld.style.width=travelWidth+'px';nodes.sceneWorld.style.height=travelHeight+'px';nodes.sceneWorld.style.left=(width-travelWidth)/2+'px';nodes.sceneWorld.style.top=(height-travelHeight)/2+'px';return;}
-    const top=height*0.58-imageHeight*0.58;
-    nodes.sceneWorld.style.left='0px';nodes.sceneWorld.style.width=width+'px';nodes.sceneWorld.style.height=imageHeight+'px';nodes.sceneWorld.style.top=top+'px';
+    if(!nodes.sceneWorld)return;const width=nodes.scene.clientWidth,height=nodes.scene.clientHeight;if(!width||!height)return;
+    if(p()?.world.route){
+      // Journey art (657×1183): contain by default; on taller screens grow toward cover, cropping at most 12% per side so both route endpoints (14%–90%) stay visible.
+      const ratio=657/1183;let travelWidth=Math.min(width,height*ratio);if(height*ratio>width)travelWidth=Math.min(height*ratio,width/0.76);const travelHeight=travelWidth/ratio;
+      nodes.sceneWorld.style.width=travelWidth+'px';nodes.sceneWorld.style.height=travelHeight+'px';nodes.sceneWorld.style.left=(width-travelWidth)/2+'px';nodes.sceneWorld.style.top=(height-travelHeight)/2+'px';return;
+    }
+    // City art (941×1672): width-fit by default; on taller screens grow toward cover while every hotspot plaque stays fully inside the viewport (asymmetric crop when needed).
+    const ratio=941/1672,spots=hotspots[ui.sceneCity]||[],half=41;let worldW=width,worldH=width/ratio,left=0;
+    if(worldH<height&&spots.length){
+      const xs=spots.map(s=>s[2]/941),minX=Math.min(...xs),maxX=Math.max(...xs);
+      worldW=Math.min(height*ratio,Math.max(width,(width-2*half)/(maxX-minX)));worldH=worldW/ratio;
+      left=(width-worldW)/2;const spanL=minX*worldW-half,spanR=maxX*worldW+half;
+      if(left+spanR>width)left=width-spanR;if(left+spanL<0)left=-spanL;left=Math.min(0,Math.max(width-worldW,left));
+    }
+    const top=height*0.58-worldH*0.58;
+    nodes.sceneWorld.style.left=left+'px';nodes.sceneWorld.style.width=worldW+'px';nodes.sceneWorld.style.height=worldH+'px';nodes.sceneWorld.style.top=top+'px';
+    // keep every plaque fully on screen: position hotspots in px and clamp them to the visible part of the art (a few px on very narrow screens)
+    for(const hot of nodes.sceneWorld.querySelectorAll('.city-hotspot')){const ax=Number(hot.dataset.artX),ay=Number(hot.dataset.artY);if(!ax)continue;const hw=(hot.offsetWidth||82)/2+2,hh=(hot.offsetHeight||44)/2+2;
+      const cx=Math.min(Math.max(ax/941*worldW,-left+hw),-left+width-hw),cy=Math.min(Math.max(ay/1672*worldH,-top+hh),-top+height-hh);hot.style.left=cx+'px';hot.style.top=cy+'px';}
+  }
+  function fitHome() {
+    const frame=nodes.start&&nodes.start.querySelector('.home-art-frame');if(!frame||nodes.start.hidden)return;
+    const cs=getComputedStyle(nodes.start),availW=nodes.start.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),availH=nodes.start.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);if(!(availW>0&&availH>0))return;
+    // Home art (941×1672): contain by default; on taller screens grow toward cover while 启程 (25%–78%) and the corner buttons (up to 97.8%) stay inside the viewport.
+    const ratio=941/1672;let artW=Math.min(availW,availH*ratio),left=(availW-artW)/2;
+    // hotspot extents in px: 启程 left edge 25% of the art; 设置 right edge 93.3% + half of its 44px minimum size (+ margin)
+    if(availH*ratio>availW){const pad=26;artW=Math.min(availH*ratio,(availW-pad)/(0.933-0.25));left=(availW-artW)/2;if(left+0.933*artW+pad>availW)left=availW-0.933*artW-pad;if(left+0.25*artW<0)left=-0.25*artW;left=Math.min(0,Math.max(availW-artW,left));}
+    frame.style.width=artW+'px';frame.style.height=artW/ratio+'px';frame.style.marginLeft=left+'px';
   }
   function describe() {return S.time&&S.time.describe?S.time.describe(p()):{yearLabel:'贞元十六年',dateLabel:p().world.tick===0?'三月十一日':date(p().world.tick),phaseLabel:['晨','午','暮'][p().world.tick%3],tripLabel:p().trip?'商旅进行中':'商期 未启程'};}
   function renderHUD() {
@@ -158,9 +182,9 @@
       const hot=button('',action,{className:'home-hotspot home-'+id,label});hot.append(el('span','visually-hidden',label));frame.append(hot);
     }
     if(ui.startChoice){const card=el('section','home-choice paper-panel');card.setAttribute('role','dialog');card.setAttribute('aria-label','选择开局方式');card.append(el('h2','','启程'));
-      const choices=el('div','start-choices');choices.append(button('按指引开始',()=>dispatch('game.start',{mode:'guided'})),button('自行探索',()=>dispatch('game.start',{mode:'explore'}),{className:'ui-button secondary-button'}),button('返回首页',()=>{ui.startChoice=false;renderStart();},{className:'text-button'}));card.append(choices);if(ui.error)paragraph(card,ui.error,'inline-error');frame.append(card);
+      const choices=el('div','start-choices');choices.append(button('按指引开始',()=>dispatch('game.start',{mode:'guided'})),button('自行探索',()=>dispatch('game.start',{mode:'explore'}),{className:'ui-button secondary-button'}),button('返回首页',()=>{ui.startChoice=false;renderStart();},{className:'text-button'}));card.append(choices);if(ui.error)paragraph(card,ui.error,'inline-error');nodes.start.append(frame,card);fitHome();return;
     }else if(ui.error)paragraph(frame,ui.error,'home-error inline-error');
-    nodes.start.append(frame);
+    nodes.start.append(frame);fitHome();
   }
   function renderPanelContent(current,parts,isSecondary) {
     parts.header.replaceChildren();parts.body.replaceChildren();parts.footer.replaceChildren();
@@ -271,7 +295,7 @@
     document.documentElement.style.setProperty('--viewport-height',height+'px');
     const wasKeyboard=ui.keyboard;
     ui.keyboard=Boolean(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))||Boolean(vv&&window.innerHeight-height>140);
-    nodes.root&&nodes.root.classList.toggle('keyboard-open',ui.keyboard);fitScene();if(wasKeyboard!==ui.keyboard)renderNotices();
+    nodes.root&&nodes.root.classList.toggle('keyboard-open',ui.keyboard);fitScene();fitHome();if(wasKeyboard!==ui.keyboard)renderNotices();
     if(ui.keyboard&&document.activeElement&&document.activeElement.scrollIntoView)document.activeElement.scrollIntoView({block:'nearest'});
   }
   function keyboardHandler(event) {
@@ -287,12 +311,12 @@
     ui.app=app;nodes.root=document.getElementById('game-root');if(!nodes.root)throw new Error('game-root missing');nodes.root.replaceChildren();
     journeyController=S.createJourneyController?.({getState:()=>ui.app.state,isBlocked:()=>blocking()||ui.app.busy||Boolean(ui.secondary)||Boolean(ui.primary)||document.hidden,dispatch});
     document.addEventListener('visibilitychange',()=>journeyController?.refresh());
-    const banner=el('div','engineering-banner','Competition RC3 · logic patch · 待人工复测');banner.setAttribute('role','note');
+    const rotateHint=el('div','rotate-hint');rotateHint.setAttribute('role','status');rotateHint.append(el('p','rotate-title','请将手机竖屏使用'),el('p','rotate-sub','本作按竖屏画面设计，横屏时暂停显示，转回竖屏即可继续。'));
     const stage=el('div','game-stage');nodes.start=el('section','start-screen');nodes.scene=el('section','city-scene');nodes.sceneWorld=el('div','scene-world');nodes.scene.append(nodes.sceneWorld);
     nodes.hud=el('header','global-hud');nodes.hudTop=el('div','hud-top');nodes.hudNav=el('nav','hud-nav');nodes.hudNav.setAttribute('aria-label','全局功能');nodes.hud.append(nodes.hudTop,nodes.hudNav);
     stage.append(nodes.scene,nodes.start,nodes.hud);
     for(const key of ['primary','secondary','result','modal']){const parts=makePanel(key);nodes[key+'Parts']=parts;nodes[key]=parts.layer;nodes[key+'Body']=parts.body;stage.append(parts.layer);}
-    nodes.notice=el('aside','notice-card paper-panel');nodes.notice.hidden=true;stage.append(nodes.notice);nodes.root.append(banner,stage);
+    nodes.notice=el('aside','notice-card paper-panel');nodes.notice.hidden=true;stage.append(nodes.notice);nodes.root.append(stage,rotateHint);
     document.addEventListener('keydown',keyboardHandler);document.addEventListener('focusin',viewportChanged);document.addEventListener('focusout',()=>setTimeout(viewportChanged,0));window.addEventListener('resize',viewportChanged);if(window.visualViewport){window.visualViewport.addEventListener('resize',viewportChanged);window.visualViewport.addEventListener('scroll',viewportChanged);}
     ui.mounted=true;viewportChanged();render(app.state);
   }

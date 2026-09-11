@@ -5,7 +5,9 @@ const fs = require('fs'), path = require('path'), os = require('os'), http = req
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 function getJSON(url) { return new Promise((res, rej) => http.get(url, r => { let b = ''; r.on('data', d => b += d); r.on('end', () => { try { res(JSON.parse(b)); } catch (e) { rej(e); } }); }).on('error', rej)); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function portFree(port) { try { await getJSON('http://127.0.0.1:' + port + '/json/version'); return false; } catch (_) { return true; } }
 async function launch({ port = 9333, width = 1280, height = 900, mobile = false, profile } = {}) {
+  while (!(await portFree(port))) port++; // never attach to a stale Chrome left behind by an interrupted run
   const dir = profile || fs.mkdtempSync(path.join(os.tmpdir(), 'silk-cdp-'));
   const args = ['--headless=new', '--remote-debugging-port=' + port, '--user-data-dir=' + dir, '--window-size=' + width + ',' + height, '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--hide-scrollbars', 'about:blank'];
   const proc = spawn(CHROME, args, { stdio: ['ignore', 'ignore', 'pipe'] }); let err = ''; proc.stderr.on('data', d => { err += d; });
@@ -29,7 +31,7 @@ function connect(url) {
       async eval(expression, { awaitPromise = true } = {}) { const r = await client.send('Runtime.evaluate', { expression, awaitPromise, returnByValue: true }); if (r.exceptionDetails) throw new Error('eval: ' + (r.exceptionDetails.exception?.description || r.exceptionDetails.text)); return r.result.value; },
       async screenshot(file, { fullPage = false } = {}) { const params = { format: 'png', captureBeyondViewport: fullPage }; if (fullPage) { const m = await client.send('Page.getLayoutMetrics'); const w = Math.ceil(m.cssContentSize.width), h = Math.ceil(m.cssContentSize.height); params.clip = { x: 0, y: 0, width: w, height: h, scale: 1 }; } const r = await client.send('Page.captureScreenshot', params); fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, Buffer.from(r.data, 'base64')); return file; },
       async navigate(url) { const loaded = new Promise(res => { const h = m => { if (m.method === 'Page.loadEventFired') { res(); } }; listeners.push(h); }); await client.send('Page.navigate', { url }); await loaded; await sleep(300); },
-      async close() { try { await client.send('Browser.close'); } catch (_) { } try { ws.close(); } catch (_) { } try { client.proc?.kill(); } catch (_) { } }
+      async close() { const timeout = ms => new Promise(r => setTimeout(r, ms)); try { await Promise.race([client.send('Browser.close'), timeout(3000)]); } catch (_) { } try { ws.close(); } catch (_) { } try { client.proc?.kill(); } catch (_) { } await timeout(200); }
     };
     ws.onopen = () => resolve(client); ws.onerror = e => reject(new Error('ws error ' + (e.message || '')));
     ws.onmessage = ev => { const m = JSON.parse(ev.data); if (m.id && pending.has(m.id)) { const { res, rej, method } = pending.get(m.id); pending.delete(m.id); if (m.error) rej(new Error(method + ': ' + m.error.message)); else res(m.result); return; }
