@@ -63,8 +63,8 @@
   }});
   S.ui.registerPanel('pack',{title:'行囊',render(c,b){
     const status=c.el('section','pack-status');header(c,status,'驼队概况');
-    for(const [name,label,value] of [['icon_camel_status_v01','骆驼',c.p.inventory.camelCount+'匹'],['icon_packgear_status_v01','行装',c.p.inn?.prepared?'已整理':'尚未整理']]){const item=c.el('div','pack-status-row'),art=c.el('img','pack-status-icon');art.src=S.assets[name];art.alt='';item.append(art);c.row(label,value,item);status.append(item);}b.append(status);
-    c.row('货位',S.inventory.used(c.p)+' / '+S.inventory.capacity(c.p),b);c.row('补给',c.p.inventory.provisions+'日份'+(c.p.inventory.provisions?' · 占1货位':''),b);header(c,b,'随行货物');
+    for(const [name,label,value] of [['icon_camel_status_v01','骆驼',c.p.inventory.camelCount+'匹'],['icon_packgear_status_v01','行装',c.p.inn?.prepared?'已整理':'尚未整理']]){const item=c.el('div','pack-status-row'),art=c.el('img','pack-status-icon');art.src=S.assets[name];art.alt='';item.append(art);c.row(label,value,item);status.append(item);}
+    c.row('货位',S.inventory.used(c.p)+' / '+S.inventory.capacity(c.p),status);c.row('补给',c.p.inventory.provisions+'日份'+(c.p.inventory.provisions?' · 占1货位':''),status);b.append(status);header(c,b,'随行货物');
     for(const lot of c.p.inventory.lots){const card=c.el('section','voucher-card');if(S.assets['goods_'+lot.goodId]){const art=c.el('img','goods-art');art.src=S.assets['goods_'+lot.goodId];art.alt=lot.goodId;card.append(art);}c.row(lot.storyLabel||lot.goodId,(lot.storyUnits?.length||lot.quantity)+'件 · '+conditions[lot.condition],card);if(lot.storyUnits)info(c,card,Object.entries(conditions).map(([key,label])=>label+lot.storyUnits.filter(u=>u.condition===key).length+'件').join(' · '));c.row('所属',ownership[lot.ownership],card);if(lot.ownership==='playerOwned'){money(c,card,'实际买入单价',lot.acquisitionPrice);c.row('购入地',cities[lot.acquisitionCity],card);}c.row('占用货位',lot.condition==='destroyed'?0:lot.quantity*lot.slotCost,card);if(lot.nonMarketable)info(c,card,'此物不可用于市场交易或商号上柜。');b.append(card);}
     if(!c.p.inventory.lots.length)info(c,b,'行囊里还没有货物。');
   }});
