@@ -68,7 +68,7 @@
     longStories30Runtime: 'BLOCK', npcAffinity: 'BLOCK', futureCities: 'BLOCK', goodsQuality: 'DELETED', legacyProject: 'REFERENCE_ONLY'
   });
   S.core = {
-    versions: Object.freeze({ releaseVersion: 'v0.3.0-competition-rc1', schemaVersion: 2, balanceVersion: '2026-09-10-g01-g05' }),
+    versions: Object.freeze({ releaseVersion: 'v0.3.0-competition-rc2', schemaVersion: 2, balanceVersion: '2026-09-10-g01-g05' }),
     emptyEnvelope() { return { meta: { ...S.core.versions, generation: 0, revision: 0 }, preferences: { tutorialEnabled: true, soundEnabled: true }, progress: null, ledger: {}, pending: null, results: {} }; },
     upgradeEnvelope(envelope) {
       S.core.validate(envelope);

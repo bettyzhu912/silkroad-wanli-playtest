@@ -36,3 +36,28 @@
 .tavern-answer{background:#faf2e0e6;border:1px solid #c79a55e6;box-shadow:0 3px 10px #3c2d2312;text-align:center;letter-spacing:.035em;min-height:48px;font-size:16px}
 .tavern-feedback{border:0;background:transparent;text-align:center;padding:4px;margin-top:5px}.tavern-feedback>strong{color:#a7442e}
 @media(max-height:620px){.market-product{padding:9px;margin-bottom:8px}.market-header-meta{font-size:.73rem}[data-panel-id="work"]>.panel-body{padding:7px 10px}.tavern-question{padding:8px;margin-bottom:6px}.tavern-progress{margin:5px 0 8px}.tavern-feedback{font-size:.8rem}.tavern-answer{min-height:44px;padding:5px 8px}}
+/* Competition RC approved artwork. Existing HUD and panel layering remain the navigation owners. */
+.start-screen{padding:var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);background:#d7bc85}
+.home-art-frame{position:relative;width:min(100%,calc((var(--viewport-height) - 24px - var(--safe-top) - var(--safe-bottom))*941/1672));aspect-ratio:941/1672;flex:none}
+.home-art{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none}
+.home-hotspot{position:absolute;transform:translate(-50%,-50%);min-width:44px;min-height:44px;border:0;background:transparent;padding:0;box-shadow:none;border-radius:12px}
+.home-hotspot:hover{background:#fff2ce12}.home-hotspot:focus-visible{outline:3px solid #275f58;outline-offset:2px}
+.home-depart{left:51.5%;top:86.7%;width:53%;height:8%}.home-announcement{left:83.3%;top:5.1%;width:9%;height:6.5%}.home-settings{left:93.3%;top:5.1%;width:9%;height:6.5%}
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.home-choice{position:absolute;z-index:3;left:8%;right:8%;top:50%;transform:translateY(-50%);padding:22px 16px;max-height:90%;overflow:auto;text-align:center;box-shadow:0 0 0 100vmax #36271555}
+.home-choice h2{margin-bottom:20px}.home-error{position:absolute;bottom:5%;left:8%;right:8%}
+.paper-panel:is([data-panel-id="pack"],[data-panel-id="commission"],[data-panel-id="message"]){padding:0 5% 7%;border:0;border-radius:0;background-color:transparent;background-size:100% 100%;box-shadow:none}
+.paper-panel[data-panel-id="pack"]{background-image:url('B2_bag_panel_bg_v01.png')}
+.paper-panel[data-panel-id="commission"]{background-image:url('B3_commission_panel_bg_v01.png')}
+.paper-panel[data-panel-id="message"]{background-image:url('B4_message_panel_bg_v01.png')}
+.paper-panel:is([data-panel-id="pack"],[data-panel-id="commission"],[data-panel-id="message"])::before,.paper-panel:is([data-panel-id="pack"],[data-panel-id="commission"],[data-panel-id="message"])::after{display:none}
+.paper-panel:is([data-panel-id="pack"],[data-panel-id="commission"],[data-panel-id="message"])>.panel-header{position:relative;flex:0 0 16%;min-height:54px;padding:4% 44px 0;border:0;justify-content:center}
+.paper-panel[data-panel-id="pack"]>.panel-header{flex-basis:10%;padding-top:0}
+.paper-panel:is([data-panel-id="pack"],[data-panel-id="commission"],[data-panel-id="message"])>.panel-header h2{text-align:center;letter-spacing:.15em}
+.paper-panel:is([data-panel-id="pack"],[data-panel-id="commission"],[data-panel-id="message"])>.panel-header>.close-button{position:absolute;right:0;top:50%;transform:translateY(-50%)}
+.paper-panel:is([data-panel-id="pack"],[data-panel-id="commission"],[data-panel-id="message"])>.panel-header>.text-button{position:absolute;left:0;top:50%;transform:translateY(-50%)}
+.paper-panel:is([data-panel-id="pack"],[data-panel-id="commission"],[data-panel-id="message"])>.panel-body{padding:8px 6px 14px}
+.pack-status{width:64%;margin-bottom:16px}.pack-status .section-title{margin:0 0 8px}.pack-status-row{display:flex;align-items:center;gap:5px}.pack-status-icon{width:28px;height:28px;object-fit:contain;flex-shrink:0}.pack-status-row .info-row{padding:6px 0;font-size:.83rem;gap:6px}
+.pack-status-row .row-value{max-width:65%}.paper-panel[data-panel-id="pack"] .voucher-card{overflow:hidden;background:#fff5dbe0}
+.market-product .goods-art{width:88px;height:88px;margin-right:12px}.market-product.locked-product .goods-art{filter:grayscale(.55)}
+@media(max-height:620px){.home-choice{padding:14px 12px}.home-choice h2{margin-bottom:12px}.home-choice .start-choices{gap:8px}.pack-status{width:68%;margin-bottom:8px}.pack-status-row .info-row{padding:4px 0}.paper-panel:is([data-panel-id="pack"],[data-panel-id="commission"],[data-panel-id="message"])>.panel-header{min-height:48px}.market-product .goods-art{width:76px;height:76px}}

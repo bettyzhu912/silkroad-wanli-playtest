@@ -118,7 +118,6 @@
       nodes.scene.querySelector(':scope > .world-map-button')?.remove();nodes.sceneWorld.replaceChildren();
       renderTravelArt(context(),nodes.sceneWorld,progress.world.route);
       const status=el('div','journey-status');status.setAttribute('aria-live','polite');
-      paragraph(status,'行进中 · '+Math.round(routeFraction(progress.world.route)*100)+'%');
       if(ui.error){paragraph(status,ui.error,'inline-error');status.append(button('重试行程',()=>{ui.error='';journeyController?.retry();render(ui.state);}));status.append(button('重新载入存档',()=>location.reload()));}
       nodes.sceneWorld.append(status);fitScene();return;
     }
@@ -152,12 +151,16 @@
     nodes.hudNav.replaceChildren();for(const id of ['pack','commission','message','merchant_business','more']){const b=button('',()=>openPanel(id),{className:'hud-tool',label:titles[id]});b.dataset.panel=id;b.setAttribute('aria-pressed',String(Boolean(ui.primary&&ui.primary.id===id)));b.append(icon(id),el('span','hud-label',titles[id]));const flags=p().presentation.badges||{};if(flags[id]){const dot=el('span','notification-dot');dot.setAttribute('aria-label','有待处理内容');b.append(dot);}nodes.hudNav.append(b);}
   }
   function renderStart() {
-    nodes.start.replaceChildren();const card=el('section','start-card paper-panel');card.append(el('p','eyebrow','丝路万里'),el('h1','','我在大唐经商'));
-    const choices=el('div','start-choices');
-    if(ui.startChoice){choices.append(button('按指引开始',()=>dispatch('game.start',{mode:'guided'})),button('自行探索',()=>dispatch('game.start',{mode:'explore'}),{className:'ui-button secondary-button'}),button('返回首页',()=>{ui.startChoice=false;renderStart();},{className:'text-button'}));}
-    else choices.append(button('启程',()=>{ui.startChoice=true;renderStart();}));
-    card.append(choices);
-    if(ui.error)paragraph(card,ui.error,'inline-error');nodes.start.append(card);
+    nodes.start.replaceChildren();const frame=el('div','home-art-frame'),art=el('img','home-art');
+    art.src=asset('home_screen_visual_reference_v01');art.alt='丝路万里——我在大唐经商';art.draggable=false;frame.append(art);
+    // Hotspots follow the complete approved 941×1672 artwork; the illustration is not sliced or redesigned.
+    for(const [id,label,action] of [['depart','启程',()=>{ui.startChoice=true;renderStart();}],['announcement','公告',()=>openPanel('notification')],['settings','设置',()=>openPanel('settings')]]){
+      const hot=button('',action,{className:'home-hotspot home-'+id,label});hot.append(el('span','visually-hidden',label));frame.append(hot);
+    }
+    if(ui.startChoice){const card=el('section','home-choice paper-panel');card.setAttribute('role','dialog');card.setAttribute('aria-label','选择开局方式');card.append(el('h2','','启程'));
+      const choices=el('div','start-choices');choices.append(button('按指引开始',()=>dispatch('game.start',{mode:'guided'})),button('自行探索',()=>dispatch('game.start',{mode:'explore'}),{className:'ui-button secondary-button'}),button('返回首页',()=>{ui.startChoice=false;renderStart();},{className:'text-button'}));card.append(choices);if(ui.error)paragraph(card,ui.error,'inline-error');frame.append(card);
+    }else if(ui.error)paragraph(frame,ui.error,'home-error inline-error');
+    nodes.start.append(frame);
   }
   function renderPanelContent(current,parts,isSecondary) {
     parts.header.replaceChildren();parts.body.replaceChildren();parts.footer.replaceChildren();
@@ -258,7 +261,7 @@
       ui.secondary=null;ui.back=[];ui.lastResultId=nextResult.id;
     }else if(!nextResult&&ui.lastResultId){if(ui.resultReturn){ui.secondary=ui.resultReturn.secondary;ui.back=ui.resultReturn.back;}ui.lastResultId=null;ui.resultReturn=null;}
     const hasProgress=Boolean(p());nodes.start.hidden=hasProgress;nodes.hud.hidden=!hasProgress;nodes.scene.hidden=!hasProgress;
-    if(!hasProgress){ui.primary=null;ui.secondary=null;ui.modals=[];renderStart();}
+    if(!hasProgress){renderStart();}
     else {renderScene();renderHUD();}
     renderPanels();renderResult();renderModals();renderNotices();renderControls();
     journeyController?.refresh();
@@ -284,7 +287,7 @@
     ui.app=app;nodes.root=document.getElementById('game-root');if(!nodes.root)throw new Error('game-root missing');nodes.root.replaceChildren();
     journeyController=S.createJourneyController?.({getState:()=>ui.app.state,isBlocked:()=>blocking()||ui.app.busy||Boolean(ui.secondary)||Boolean(ui.primary)||document.hidden,dispatch});
     document.addEventListener('visibilitychange',()=>journeyController?.refresh());
-    const banner=el('div','engineering-banner','Competition RC1 · v1.2 recovery · 待人工复测');banner.setAttribute('role','note');
+    const banner=el('div','engineering-banner','Competition RC2 · approved UI recovery · 待人工复测');banner.setAttribute('role','note');
     const stage=el('div','game-stage');nodes.start=el('section','start-screen');nodes.scene=el('section','city-scene');nodes.sceneWorld=el('div','scene-world');nodes.scene.append(nodes.sceneWorld);
     nodes.hud=el('header','global-hud');nodes.hudTop=el('div','hud-top');nodes.hudNav=el('nav','hud-nav');nodes.hudNav.setAttribute('aria-label','全局功能');nodes.hud.append(nodes.hudTop,nodes.hudNav);
     stage.append(nodes.scene,nodes.start,nodes.hud);
@@ -318,7 +321,7 @@
   registerPanel('time',{title:'时间与商期',render(c,b){const d=describe();row('当前日期',d.yearLabel+' '+d.dateLabel,b);row('当前时段',d.phaseLabel,b);row('当前商期',d.tripLabel,b);if(d.remainingLabel)row('商期剩余',d.remainingLabel,b);if(c.p.trip)row('本商期截止',date(c.p.trip.deadlineTick),b);const loans=S.finance?.snapshot(c.p).loans||[];for(const loan of loans)row(cities[loan.originCity]+'柜坊 · '+loan.loanId,date(loan.dueTick)+(loan.status==='overdue'?' · 已逾期':''),b);for(const task of c.p.commissions.active.filter(x=>['accepted','pending_pickup','in_transit','ready_to_turn_in'].includes(x.status)))row(task.title,date(task.deadlineTick)+(task.handoffPhase!==null?' · 约定'+['晨','午'][task.handoffPhase]+'交':''),b);for(const item of c.p.presentation.deadlines||[])row(item.label,item.value,b);}});
   registerPanel('pack',{title:'行囊',render(c,b){row('补给',c.p.inventory.provisions+'日份',b);row('骆驼',c.p.inventory.camelCount+'匹',b);if(!c.p.inventory.lots.length)paragraph(b,'行囊中暂无货物。');for(const lot of c.p.inventory.lots)row(lot.label||lot.goodId,lot.quantity+'份'+(lot.condition==='damaged'?' · 受损':''),b);}});
   registerPanel('message',{title:'消息',render(c,b){for(const x of [...c.p.messages.reports,...c.p.messages.observations]){const item=el('article','message-entry');if(x.title)item.append(el('h3','',x.title));paragraph(item,x.text||x.body||'');b.append(item);}if(!b.childNodes.length)paragraph(b,'暂无消息。');}});
-  registerPanel('notification',{title:'系统通知',render(c,b){const rows=c.p.presentation.notices||[];if(!rows.length)paragraph(b,'暂无新通知。');for(const n of rows){b.append(el('h3','',n.title||'提示'));paragraph(b,n.text||n.body||'');}}});
+  registerPanel('notification',{title:'系统通知',render(c,b){const rows=c.p?.presentation.notices||[];if(!rows.length)paragraph(b,'暂无新通知。');for(const n of rows){b.append(el('h3','',n.title||'提示'));paragraph(b,n.text||n.body||'');}}});
   registerPanel('archive',{title:'丝路之录',render(c,b){paragraph(b,'敬请期待');}});
   registerPanel('settings',{title:'设置',render(c,b){paragraph(b,'游戏设置会在重新开始游戏后保留。');if(!panels.has('settings-controls'))paragraph(b,'工程接入尚未完成：设置控件尚未连接。','engineering-note');else panels.get('settings-controls').render(c,b);}});
   registerPanel('help',{title:'玩法说明',render(c,b){if(S.content&&S.content.helpText)paragraph(b,S.content.helpText);else paragraph(b,'工程接入尚未完成：完整正式玩法说明正文尚未连接。','engineering-note');}});

@@ -30,7 +30,7 @@
     const latestReport=S.newspapers.latest(c.p);
     for(const {good,lots,held,unlocked,rank}of marketRows(c.p)){
       const price=currentPrice(c.p,good.id),card=c.el('section','market-product'+(!unlocked?' locked-product':''));card.dataset.goodId=good.id;card.dataset.sortGroup=rank;
-      if(S.assets?.['goods_'+good.id]){const art=c.el('img','goods-art');art.src=S.assets['goods_'+good.id];art.alt=good.name;card.append(art);}
+      const art=c.el('img','goods-art');art.src=S.assets['goods_'+good.id];art.alt=good.name;art.draggable=false;card.append(art);
       header(c,card,good.name);card.append(c.el('span','specialty-tag',cities[good.originCity]+'特产'));
       c.row('当前价',c.formatMoney(price),card);c.row('持有',held+'件',card);info(c,card,'每件'+good.slotCost+'货位'+(good.fragile?' · 易碎':''));
       if(held){const cost=lots.reduce((n,l)=>n+l.acquisitionPrice*l.quantity,0),value=lots.reduce((n,l)=>n+S.market.sellUnitPrice(c.p,l,price)*l.quantity,0);money(c,card,'持有货物成本',cost);money(c,card,'当前可售价值',value);money(c,card,'持仓盈亏',value-cost);}
@@ -62,8 +62,10 @@
     quantityForm(c,b,{id:'provisions',label:'日份',button:'购买补给',max:c.p.inventory.provisions>0||S.inventory.available(c.p)>=1?c.p.cash:0,preview:n=>'支出'+c.formatMoney(Number.isSafeInteger(n)?n:0),submit:quantity=>c.dispatch('market.provisions',{visitId:c.p.market.visit.id,quantity})});
   }});
   S.ui.registerPanel('pack',{title:'行囊',render(c,b){
-    c.row('货位',S.inventory.used(c.p)+' / '+S.inventory.capacity(c.p),b);c.row('补给',c.p.inventory.provisions+'日份'+(c.p.inventory.provisions?' · 占1货位':''),b);c.row('骆驼',c.p.inventory.camelCount+'匹',b);
-    for(const lot of c.p.inventory.lots){const card=c.el('section','voucher-card');c.row(lot.storyLabel||lot.goodId,(lot.storyUnits?.length||lot.quantity)+'件 · '+conditions[lot.condition],card);if(lot.storyUnits)info(c,card,Object.entries(conditions).map(([key,label])=>label+lot.storyUnits.filter(u=>u.condition===key).length+'件').join(' · '));c.row('所属',ownership[lot.ownership],card);if(lot.ownership==='playerOwned'){money(c,card,'实际买入单价',lot.acquisitionPrice);c.row('购入地',cities[lot.acquisitionCity],card);}c.row('占用货位',lot.condition==='destroyed'?0:lot.quantity*lot.slotCost,card);if(lot.nonMarketable)info(c,card,'此物不可用于市场交易或商号上柜。');b.append(card);}
+    const status=c.el('section','pack-status');header(c,status,'驼队概况');
+    for(const [name,label,value] of [['icon_camel_status_v01','骆驼',c.p.inventory.camelCount+'匹'],['icon_packgear_status_v01','行装',c.p.inn?.prepared?'已整理':'尚未整理']]){const item=c.el('div','pack-status-row'),art=c.el('img','pack-status-icon');art.src=S.assets[name];art.alt='';item.append(art);c.row(label,value,item);status.append(item);}b.append(status);
+    c.row('货位',S.inventory.used(c.p)+' / '+S.inventory.capacity(c.p),b);c.row('补给',c.p.inventory.provisions+'日份'+(c.p.inventory.provisions?' · 占1货位':''),b);header(c,b,'随行货物');
+    for(const lot of c.p.inventory.lots){const card=c.el('section','voucher-card');if(S.assets['goods_'+lot.goodId]){const art=c.el('img','goods-art');art.src=S.assets['goods_'+lot.goodId];art.alt=lot.goodId;card.append(art);}c.row(lot.storyLabel||lot.goodId,(lot.storyUnits?.length||lot.quantity)+'件 · '+conditions[lot.condition],card);if(lot.storyUnits)info(c,card,Object.entries(conditions).map(([key,label])=>label+lot.storyUnits.filter(u=>u.condition===key).length+'件').join(' · '));c.row('所属',ownership[lot.ownership],card);if(lot.ownership==='playerOwned'){money(c,card,'实际买入单价',lot.acquisitionPrice);c.row('购入地',cities[lot.acquisitionCity],card);}c.row('占用货位',lot.condition==='destroyed'?0:lot.quantity*lot.slotCost,card);if(lot.nonMarketable)info(c,card,'此物不可用于市场交易或商号上柜。');b.append(card);}
     if(!c.p.inventory.lots.length)info(c,b,'行囊里还没有货物。');
   }});
   function endTrip(c){
