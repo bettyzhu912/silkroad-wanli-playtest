@@ -66,14 +66,17 @@
     ensure(!p.world.route, 'CITY_REQUIRED');
     if (p.market.visit && !p.market.visit.settled) return { kind: 'marketEntered', visit: p.market.visit, modal: false };
     ensure(S.time.phase(p) !== 2, 'MARKET_CLOSED', '暮时市场已经收市');
-    p.market.visit = { id: S.util.id(p, 'market'), city: p.world.city, enteredTick: p.world.tick, hadActivity: false, settled: false };
+    p.market.visit = { id: S.util.id(p, 'market'), city: p.world.city, enteredTick: p.world.tick, journalStart:p.journal.length, initialSlots:S.inventory.used(p), hadActivity: false, settled: false };
     return { kind: 'marketEntered', visit: p.market.visit, modal: false };
   }
   function leave(p, payload, ctx) {
     const v = visit(p, payload); const elapsed = v.hadActivity ? 1 : 0;
     v.settled = true; v.closedTick = p.world.tick;
     if (elapsed) ctx.advance(p, elapsed, 'marketVisit');
-    return { kind: 'marketLeft', visitId: v.id, elapsed, modal: false };
+    if(!elapsed)return {kind:'marketLeft',visitId:v.id,elapsed:0,modal:false};
+    const records=Number.isInteger(v.journalStart)?p.journal.slice(v.journalStart).filter(r=>['marketBuy','marketSell','provisions'].includes(r.type)):[];
+    const summary={kind:'marketSummary',title:'本次市场交易',visitId:v.id,elapsed,currentTick:p.world.tick,cashDelta:records.reduce((n,r)=>n+(r.type==='marketBuy'?-r.total:r.type==='marketSell'?r.total:r.amount),0),bought:records.filter(r=>r.type==='marketBuy'),sold:records.filter(r=>r.type==='marketSell'),provisions:records.filter(r=>r.type==='provisions').reduce((n,r)=>n-r.amount,0),slots:S.inventory.used(p),slotsChanged:v.initialSlots!==S.inventory.used(p),continueLabel:'确认'};
+    v.summary=S.util.clone(summary);return summary;
   }
   function buy(p, payload, ctx) {
     const v = visit(p, payload); const row = S.inventory.good(payload.goodId);

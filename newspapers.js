@@ -160,8 +160,8 @@
     return { issue: { id: plan.id, city: plan.city, issueWorldDay: plan.issueWorldDay, price: 2, messages, productJudgements, planSignature: S.util.stable(plan) }, events: newEvents, existing: false };
   }
   function purchase(p, payload, ctx) {
-    const visit = p.market.visit;
-    E(visit && !visit.settled && visit.id === payload.visitId && visit.city === p.world.city && !p.world.route, "STALE_MARKET_VISIT", "请重新打开当前市场");
+    E(!p.world.route, 'CITY_REQUIRED', '请抵达城市后查看商情。');
+    if(payload.visitId!==undefined)E(p.market.visit?.id===payload.visitId&&!p.market.visit.settled&&p.market.visit.city===p.world.city,'STALE_MARKET_VISIT','当前市场访问已结束，请从商情购买。');
     const current=availability(p);
     if(current.owned)return {kind:'newspaper',modal:false,report:current.latest,text:'本期已购',alreadyOwned:true,cashDelta:0,elapsed:0};
     if(!current.canGenerate)return {kind:'newspaperUnavailable',modal:false,text:insufficient,cashDelta:0,elapsed:0};
@@ -174,7 +174,7 @@
     draft.cash-=2;draft.market.scheduled.push(...clone(prepared.events));
     if (!prepared.existing) { draft.market.reportIssues = draft.market.reportIssues || []; draft.market.reportIssues.push(clone(prepared.issue)); }
     const acquired = { ...clone(prepared.issue), acquiredWorldDay: day(draft), acquiredTick: draft.world.tick };
-    draft.messages.reports.push(acquired);draft.market.visit.hadActivity = true;
+    draft.messages.reports.push(acquired);
     draft.journal.push({ type: "newspaper", tripId: draft.trip?.id || null, tick: draft.world.tick, city: draft.world.city, reportId: acquired.id, cashDelta: -2 });
     Object.assign(p,draft);
     return { kind: "newspaper", modal: false, report: visibleIssue(acquired), cashDelta: -2, elapsed: 0 };

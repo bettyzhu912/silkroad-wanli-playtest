@@ -12,7 +12,7 @@
     const leg=plan[p.trip?p.trip.routeIndex:0];
     return {leg:leg?clone(leg):null,requiresSupplyWarning:Boolean(leg&&p.inventory.provisions<leg.days),requiresCargoWarning:!p.inventory.lots.some(l=>l.ownership==='playerOwned'&&!l.nonMarketable&&l.condition!=='destroyed'),pendingPickupIds:S.commissions?.departureWarnings(p)||[],canDepart:!p.world.route&&(!p.market.visit||p.market.visit.settled)&&(!p.trip||p.trip.phase==='in_city')&&S.time.phase(p)!==2};
   }
-  function depart(p,a,ctx){
+  function begin(p,a,ctx){
     ensure(!p.world.route,'ON_ROUTE','当前已经在路上');
     ensure(!p.market.visit||p.market.visit.settled,'MARKET_VISIT_OPEN','请先完整离开市场');
     ensure(S.time.phase(p)!==2,'DEPARTURE_AT_DUSK','请先过夜，次晨再出发');
@@ -22,8 +22,13 @@
       if(p.reputation.value>=5){ensure(S.commissions?.generatePool,'COMMISSION_NOT_CONNECTED','委托候选尚未完成接入');S.commissions.generatePool(p,ctx);}
       if(S.stories?.onTripStart)S.stories.onTripStart(p);
     }
+    return {kind:'tripPrepared',modal:false};
+  }
+  function depart(p,a,ctx){
+    begin(p,a,ctx);
     ensure(p.trip.phase==='in_city'&&p.trip.routeIndex<plan.length,'RETURN_TASKS_PENDING','请先结束本次商旅');
     const leg=plan[p.trip.routeIndex];ensure(leg.from===p.world.city,'ROUTE_MISMATCH');
+    ensure(!a.destinationCity||a.destinationCity===leg.to,'ROUTE_DESTINATION_MISMATCH','本趟商旅沿长安、敦煌、于阗、敦煌、长安的路线行进。');
     if(p.inventory.provisions<leg.days)ensure(a.acknowledgeSupplyWarning===true,'SUPPLY_WARNING_REQUIRED','补给少于下一段基础路程，请确认后再出发');
     const missed=S.commissions?.departureWarnings(p)||[];
     if(missed.length){ensure(a.confirmMissedPickup===true,'PICKUP_WARNING_REQUIRED','本次离城后将无法再领取这些委托货物');S.commissions.finalizeFailures(p,missed,{reason:'pickup_city_missed'});}
@@ -48,6 +53,7 @@
       if(S.time.phase(p)===2){ensure(S.commissions?.freezeGrace,'COMMISSION_NOT_CONNECTED');p.trip.graceIds=S.commissions.freezeGrace(p);p.trip.graceArrivalTick=p.world.tick;}
     }else p.trip.phase='in_city';
     if(S.stories?.arrived)S.stories.arrived(p);
+    if(p.world.city==='changan')p.trip.returnTasks=returnTaskStatus(p);
     return {kind:'arrived',modal:false,city:p.world.city,returnStatus:p.trip.returnStatus,returnPhase:p.trip.phase};
   }
   function advanceRoute(p,count,ctx){
@@ -89,7 +95,7 @@
   }
   function graceDeadline(p){
     const t=p.trip;
-    if(!t||!Number.isSafeInteger(t.graceArrivalTick))return null;
+    if(!t||t.graceClosed||!Number.isSafeInteger(t.graceArrivalTick))return null;
     // Internal world tick is zero-based; the approved 66/67/68/69/70 world
     // period example is 65/66/67/68/69. Existing saves derive this same bound.
     return Number.isSafeInteger(t.graceDeadlineTick)?t.graceDeadlineTick:t.graceArrivalTick+3;
@@ -121,6 +127,7 @@
     if(graceAdvanceWarning(p,command.type,payload))ensure(ctx.graceEndAuthorization,'GRACE_END_CONFIRMATION_REQUIRED',graceWarningText);
   }
   function afterCommand(p,command,result,ctx){
+    if(p.trip?.phase==='return_tasks'&&command.type==='market.leave'&&p.market.visit?.settled){p.trip.returnTasks||=returnTaskStatus(p);p.trip.returnTasks.market='processed';}
     const deadline=graceDeadline(p),t=p.trip;
     if(deadline===null||p.world.tick<=deadline)return result;
     const authorization=ctx?.graceEndAuthorization;
@@ -137,17 +144,30 @@
     // For a staged night event, its actual result is acknowledged before the
     // single final R1/R2 transaction. No commission is eligible after the bound.
     const closure=clone(t.graceClosePending);
-    const fixed=finalize(p,{confirmOutstanding:true},ctx);
-    fixed.graceEnd={deadlineTick:deadline,completedTick:p.world.tick,nightEventId:closure.eventSessionId,overnightFeedback:result?.kind==='innFeedback'?clone(result):null};
-    const history=p.tripHistory.at(-1);if(history?.id===fixed.tripId)history.summary=clone(fixed);
-    return fixed;
+    S.commissions.finalizeFailures(p,activeCommissionIds(p),{reason:'tripEnded',sourceId:ctx.sourceId});
+    t.returnTasks||=returnTaskStatus(p);t.returnTasks.commission='processed';t.graceClosed=true;t.graceClosePending=null;
+    t.graceEnd={deadlineTick:deadline,completedTick:p.world.tick,nightEventId:closure.eventSessionId,overnightFeedback:result?.kind==='innFeedback'?clone(result):null};
+    return result;
   }
   function activeCommissionIds(p){return p.commissions.active.filter(c=>!['completed','failed','cancelled','expired','abandoned'].includes(c.status)).map(c=>c.id||c.commissionId);}
+  function returnTaskStatus(p){
+    const hasCargo=p.inventory.lots.some(l=>l.ownership==='playerOwned'&&!l.nonMarketable&&l.condition!=='destroyed'&&l.quantity>0);
+    const merchantCargo=hasCargo&&p.merchant.cabinets.some(c=>!c.goodId||p.inventory.lots.some(l=>l.goodId===c.goodId&&l.ownership==='playerOwned'&&!l.nonMarketable&&l.condition!=='destroyed'&&l.quantity>0));
+    return p.trip.returnTasks||{commission:activeCommissionIds(p).length?'pending':'not_applicable',market:hasCargo?'pending':'not_applicable',merchant:p.merchant.status==='open'&&merchantCargo?'pending':'not_applicable'};
+  }
+  function resolveReturnTask(p,a){
+    ensure(p.trip?.phase==='return_tasks'&&!p.world.route,'RETURN_NOT_READY');
+    ensure(['commission','market','merchant'].includes(a.task)&&['processed','deferred'].includes(a.decision),'INVALID_RETURN_DECISION');
+    if(a.task==='commission'&&a.decision==='processed')ensure(!activeCommissionIds(p).length,'RETURN_COMMISSIONS_PENDING','请先处理委托，或明确选择暂不处理。');
+    p.trip.returnTasks={...returnTaskStatus(p),[a.task]:a.decision};
+    return {kind:'returnTaskDecision',modal:false,task:a.task,decision:a.decision};
+  }
   function returnView(p){
     ensure(p.trip&&p.world.city==='changan'&&p.trip.arrivedChanganTick!==null,'NOT_RETURNED');
     const pending=activeCommissionIds(p).filter(id=>p.trip.graceIds.includes(id));
     const deadline=graceDeadline(p);
-    return {phase:p.trip.phase,returnStatus:p.trip.returnStatus,arrivedTick:p.trip.arrivedChanganTick,pendingGraceIds:pending,requiresWarning:pending.length>0,graceDeadlineTick:deadline,graceDeadlineLabel:deadline===null?null:S.time.format(deadline),graceOpen:deadline!==null&&!p.trip.graceClosePending&&p.world.tick<=deadline,graceClosePending:Boolean(p.trip.graceClosePending)};
+    const tasks={...returnTaskStatus(p)};if(!activeCommissionIds(p).length&&tasks.commission==='pending')tasks.commission='processed';
+    return {tasks,ready:Object.values(tasks).every(s=>s!=='pending'),phase:p.trip.phase,returnStatus:p.trip.returnStatus,arrivedTick:p.trip.arrivedChanganTick,pendingGraceIds:pending,requiresWarning:activeCommissionIds(p).length>0,graceDeadlineTick:deadline,graceDeadlineLabel:deadline===null?null:S.time.format(deadline),graceOpen:deadline!==null&&!p.trip.graceClosePending&&p.world.tick<=deadline,graceClosePending:Boolean(p.trip.graceClosePending)};
   }
   function summary(p,trip,failures){
     const records=p.journal.filter(r=>r.tripId===trip.id);
@@ -188,13 +208,14 @@
   }
   function finalize(p,a,ctx){
     const view=returnView(p);ensure(p.trip.phase==='return_tasks','RETURN_NOT_READY');
-    ensure(!view.pendingGraceIds.length||a.confirmOutstanding===true,'RETURN_WARNING_REQUIRED','请先确认未处理委托');
+    ensure(view.ready,'RETURN_TASKS_PENDING','请先处理返程事务，或明确选择暂不处理。');
+    ensure(!view.requiresWarning||a.confirmOutstanding===true,'RETURN_WARNING_REQUIRED','请先确认未处理委托');
     ensure(S.commissions?.finalizeFailures,'COMMISSION_NOT_CONNECTED');
     const trip=p.trip,ids=activeCommissionIds(p);
     const failures=S.commissions.finalizeFailures(p,ids,{reason:'tripEnded',sourceId:ctx.sourceId});
     if(trip.returnStatus==='on_time'&&!trip.onTimeRewardApplied){S.reputation.change(p,1,{type:'onTimeTrip',tripId:trip.id});trip.onTimeReward=1;trip.onTimeRewardApplied=true;}
     const snapshot=summary(p,trip,failures);trip.summary=clone(snapshot);trip.phase='summary';
-    finish(p);
+    if(trip.graceEnd){snapshot.graceEnd=clone(trip.graceEnd);trip.summary=clone(snapshot);}
     return snapshot;
   }
   function finish(p){
@@ -214,8 +235,8 @@
     t.overduePenaltyApplied=true;t.overduePenaltyLevel=target;t.overdueTick??=p.world.tick;
     t.overdueActualPenalty=(t.overdueActualPenalty||0)+change.actual;
   }
-  S.trip={plan,departureView,depart,arrive,advanceRoute,journey,routeStateValid,migrate,graceDeadline,graceEligibility,graceAdvanceWarning,authorizeGraceAdvance,afterCommand,returnView,summary,requestEnd,finalize,finish,settleOverdue};
-  for(const [name,fn]of Object.entries({depart,journey,requestEnd,finalize,finish}))S.commands.register('trip.'+name,fn);
+  S.trip={plan,departureView,depart,arrive,advanceRoute,journey,routeStateValid,migrate,graceDeadline,graceEligibility,graceAdvanceWarning,authorizeGraceAdvance,afterCommand,returnTaskStatus,resolveReturnTask,returnView,summary,requestEnd,finalize,finish,settleOverdue};
+  for(const [name,fn]of Object.entries({begin,depart,journey,resolveReturnTask,requestEnd,finalize,finish}))S.commands.register('trip.'+name,fn);
   S.time.register('trip',{
     beforeTick(p,ctx){
       const deadline=graceDeadline(p);

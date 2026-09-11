@@ -40,7 +40,7 @@
       ensure(handlers.has(command.type), 'NOT_IMPLEMENTED', '此功能尚未完成接入');
       const safeUI = ['result.ack', 'tutorial.dismiss', 'tutorial.visit', 'notice.dismiss'].includes(command.type);
       if (p.presentation.activeResult && !safeUI) ensure(false, 'RESULT_PENDING', '请先查看并确认上次操作结果');
-      if(p.market.visit&&!p.market.visit.settled&&!safeUI)ensure(command.type.startsWith('market.')||command.type.startsWith('newspaper.'),'MARKET_VISIT_OPEN','请先离开当前市场');
+      if(p.market.visit&&!p.market.visit.settled&&!safeUI)ensure(command.type.startsWith('market.')||command.type.startsWith('newspaper.')||['commission.accept','commission.pickup','commission.deliver','commission.abandon'].includes(command.type),'MARKET_VISIT_OPEN','请先离开当前市场');
       const tavernActive = p.work?.tavern && (!p.work.tavern.result || p.work.tavern.result.completionStatus === 'COMPLETED' && !p.work.tavern.resultAcknowledged);
       const routeGameActive = p.work?.routeGame && !p.work.routeGame.result;
       if (tavernActive && !safeUI) ensure(command.type.startsWith('TAVERN_'), 'MINIGAME_ACTIVE', '请先完成当前诗令');
@@ -68,7 +68,7 @@
     longStories30Runtime: 'BLOCK', npcAffinity: 'BLOCK', futureCities: 'BLOCK', goodsQuality: 'DELETED', legacyProject: 'REFERENCE_ONLY'
   });
   S.core = {
-    versions: Object.freeze({ releaseVersion: '0.2.1-p0-recovery', schemaVersion: 2, balanceVersion: '2026-09-10-g01-g05' }),
+    versions: Object.freeze({ releaseVersion: 'v0.3.0-competition-rc1', schemaVersion: 2, balanceVersion: '2026-09-10-g01-g05' }),
     emptyEnvelope() { return { meta: { ...S.core.versions, generation: 0, revision: 0 }, preferences: { tutorialEnabled: true, soundEnabled: true }, progress: null, ledger: {}, pending: null, results: {} }; },
     upgradeEnvelope(envelope) {
       S.core.validate(envelope);
@@ -163,6 +163,7 @@
     const next=S.inn?.afterEventAcknowledged?S.inn.afterEventAcknowledged(p,current):null;
     if (S.commissions?.ackResult) S.commissions.ackResult(p,current);
     p.presentation.activeResult = null;
+    if(current.kind==='tripSummary'&&p.trip?.phase==='summary')return S.trip.finish(p);
     if(next)return next;
     return { kind: 'ack', modal: false, acknowledged: true };
   });

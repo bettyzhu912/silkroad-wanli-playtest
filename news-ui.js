@@ -9,18 +9,16 @@
  }
  S.ui.registerPanel('newspaper',{title:'商报',render(c,b){
    const latest=S.newspapers.latest(c.p);if(latest)issue(c,b,latest);else c.paragraph(b,'尚未购入本城商报。');
-   const status=S.newspapers.availability(c.p),visit=c.p.market.visit;if(visit&&!visit.settled){
-     b.append(c.button(status.owned?'本期已购 · 免费查看':'购买新一期商报 · 2钱',()=>c.dispatch('newspaper.purchase',{visitId:visit.id}),{disabled:!status.owned&&c.p.cash<2}));
-     if(status.owned)c.paragraph(b,'本期已购，重复查看不收费。下一期最早可在'+c.date(status.nextEligibleWorldDay*3)+'购买。','form-hint');
-     else if(status.reason)c.paragraph(b,status.reason,'form-hint');
-   }
-   else c.paragraph(b,'请在市场内购买商报。','form-hint');
+   if(!c.p.world.route)b.append(c.button('前往商情',()=>c.openSecondary('inspect')));
    b.append(c.button('查看旧刊',()=>c.openSecondary('newspaper-history')));
  }});
  S.ui.registerPanel('newspaper-history',{title:'旧刊',render(c,b,d){const rows=S.newspapers.history(c.p,d.city);if(!rows.length)c.paragraph(b,'暂无旧刊。');for(const r of rows.slice().reverse())b.append(c.button(cities[r.city]+' · '+c.date(r.issueWorldDay*3),()=>c.openSecondary('newspaper-issue',{id:r.id})));}});
  S.ui.registerPanel('newspaper-issue',{title:'商报',render(c,b,d){const r=S.newspapers.history(c.p).find(x=>x.id===d.id);if(r)issue(c,b,r);}});
  S.ui.registerPanel('inspect',{title:'商情',render(c,b){
-   const latest=S.newspapers.latest(c.p);if(latest)issue(c,b,latest);else c.paragraph(b,'尚未购入本城商报。可在市场内购买，旧刊与当时判断会保留。');
+   const latest=S.newspapers.latest(c.p);if(latest)issue(c,b,latest);else c.paragraph(b,'尚未购入本城商报。旧刊与当时判断会保留。');
+   const status=S.newspapers.availability(c.p);
+   b.append(c.button(status.owned?'本期已购 · 免费查看':'购买当期商报 · 2钱',()=>c.dispatch('newspaper.purchase'),{disabled:!status.owned&&c.p.cash<2}));
+   c.paragraph(b,'查看与购买商报均不耗时，不计入市场交易。','form-hint');if(status.reason)c.paragraph(b,status.reason,'form-hint');
    b.append(c.button('查看本城旧刊',()=>c.openSecondary('newspaper-history',{city:c.p.world.city})));
    const rows=c.p.messages.observations.filter(m=>(m.city||m.cityId)===c.p.world.city);
    if(rows.length){b.append(c.el('h3','','市面所见'));for(const m of rows.slice().reverse()){if(m.title)b.append(c.el('h3','',m.title));c.paragraph(b,m.text||m.body||'');if(Number.isInteger(m.tick))c.paragraph(b,c.date(m.tick),'form-hint');}}

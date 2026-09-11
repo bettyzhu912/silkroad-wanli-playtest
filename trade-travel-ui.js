@@ -16,36 +16,36 @@
     input.addEventListener('input',validate);form.addEventListener('submit',e=>{e.preventDefault();if(form.isConnected&&!input.disabled&&validate())spec.submit(Number(input.value));});form.append(hint,submit);b.append(form);validate();
   }
   function currentPrice(p,id){try{return S.market.price(p,id,S.core.context('price-view'));}catch(e){if(e.code==='MISSING_PRICE_AUTHORITY')return null;throw e;}}
-  S.ui.registerPanel('market',{title:'市场',render(c,b){
+  function marketRows(p){
+    return S.inventory.goods.map((good,index)=>{
+      const lots=p.inventory.lots.filter(l=>l.goodId===good.id&&l.ownership==='playerOwned'&&!l.nonMarketable&&l.condition!=='destroyed'&&l.quantity>0),held=lots.reduce((n,l)=>n+l.quantity,0),unlocked=S.inventory.unlocked(p,good.id),local=good.originCity===p.world.city;
+      return {good,lots,held,unlocked,index,rank:held?1:local?(unlocked?2:3):(unlocked?4:5)};
+    }).sort((a,b)=>a.rank-b.rank||a.index-b.index);
+  }
+  S.marketUI={marketRows};
+  S.ui.registerPanel('market',{title:c=>({changan:'长安 · 西市',dunhuang:'敦煌 · 沙洲驿市',khotan:'于阗 · 绿洲市集'})[c.p.world.city],noClose:true,header(c,h){const meta=c.el('div','market-header-meta');meta.append(c.el('span','','货位 '+S.inventory.used(c.p)+' / '+S.inventory.capacity(c.p)),c.el('span','',c.formatMoney(c.p.cash)),c.el('small','',c.p.market.visit?.hadActivity&&!c.p.market.visit.settled?'离市后将过半日':'查看市价不耗时'));h.append(meta);},render(c,b){
     const visit=c.p.market.visit;
-    if(!visit||visit.settled){
-      info(c,b,'查看商品不耗时；有买卖、补给或商报操作后，离开市场统一耗时1个时段。');
-      b.append(c.button('进入'+cities[c.p.world.city]+'市场',()=>c.dispatch('market.enter'),{disabled:S.time.phase(c.p)===2||Boolean(c.p.world.route)}));
-      if(S.time.phase(c.p)===2)info(c,b,'市场已经收市，请安排歇息后再来。');return;
-    }
-    c.row('可用货位',S.inventory.available(c.p)+' / '+S.inventory.capacity(c.p),b);money(c,b,'随身铜钱',c.p.cash);
-    info(c,b,'同城同日转手的货物不计入商誉积累。');
-    if(c.p.market.pendingPurchaseTurnover)info(c,b,'待确认购入成交额：'+c.formatMoney(c.p.market.pendingPurchaseTurnover)+'。持货跨日或运离购入城市后计入商誉。');
-    b.append(c.button('旅途补给',()=>c.openSecondary('provisions')),c.button('商报',()=>c.openSecondary('newspaper')));
-    header(c,b,'购买商品');
+    if(!visit||visit.settled){info(c,b,S.time.phase(c.p)===2?'暮时不可进入市场。请安排歇息后再来。':'正在打开市场…');return;}
+    const provision=c.el('section','market-product provisions-product');header(c,provision,'粮草补给');c.row('现有补给',c.p.inventory.provisions+'日份',provision);info(c,provision,'1钱／商队日份；补给大于0时共占1货位。');provision.append(c.button('购买粮草',()=>c.openSecondary('provisions')));b.append(provision);
     const latestReport=S.newspapers.latest(c.p);
-    for(const good of S.inventory.goods){
-      const unlocked=S.inventory.unlocked(c.p,good.id),price=currentPrice(c.p,good.id),card=c.el('section','voucher-card');
-      c.row(good.name,unlocked?(price===null?'价格规则待补齐':c.formatMoney(price)):'货源尚未建立',card);
-      info(c,card,'每件'+good.slotCost+'货位'+(good.fragile?' · 易碎':'')+(['绢帛','纸张','于阗丝织'].includes(good.id)?' · 怕潮':''));
-      const judgement=latestReport?.productJudgements[good.id];
-      if(judgement){c.row('商报判断',judgement.label,card);if(judgement.text)info(c,card,judgement.text);info(c,card,'本城最新一期 · '+c.date(latestReport.issueWorldDay*3).replace(/·晨$/,''));}
-      card.append(c.button('买入',()=>c.openSecondary('trade-form',{mode:'buy',goodId:good.id}),{disabled:!unlocked||price===null}));b.append(card);
+    for(const {good,lots,held,unlocked,rank}of marketRows(c.p)){
+      const price=currentPrice(c.p,good.id),card=c.el('section','market-product'+(!unlocked?' locked-product':''));card.dataset.goodId=good.id;card.dataset.sortGroup=rank;
+      if(S.assets?.['goods_'+good.id]){const art=c.el('img','goods-art');art.src=S.assets['goods_'+good.id];art.alt=good.name;card.append(art);}
+      header(c,card,good.name);card.append(c.el('span','specialty-tag',cities[good.originCity]+'特产'));
+      c.row('当前价',c.formatMoney(price),card);c.row('持有',held+'件',card);info(c,card,'每件'+good.slotCost+'货位'+(good.fragile?' · 易碎':''));
+      if(held){const cost=lots.reduce((n,l)=>n+l.acquisitionPrice*l.quantity,0),value=lots.reduce((n,l)=>n+S.market.sellUnitPrice(c.p,l,price)*l.quantity,0);money(c,card,'持有货物成本',cost);money(c,card,'当前可售价值',value);money(c,card,'持仓盈亏',value-cost);}
+      const judgement=latestReport?.productJudgements[good.id];if(judgement){c.row('商报判断',judgement.label,card);if(judgement.text)info(c,card,judgement.text);}
+      if(!unlocked)info(c,card,'尚未打通此货货源。请达到相应商誉并建立供应往来。');
+      const actions=c.el('div','market-card-actions');actions.append(c.button('买入',()=>c.openSecondary('trade-form',{mode:'buy',goodId:good.id}),{disabled:!unlocked||price===null}));
+      actions.append(c.button('卖出',()=>c.openSecondary(lots.length===1?'trade-form':'sale-lots',lots.length===1?{mode:'sell',lotId:lots[0].id}:{goodId:good.id}),{disabled:!held}));card.append(actions);b.append(card);
     }
-    header(c,b,'出售行囊货物');
     const lots=c.p.inventory.lots.filter(l=>l.ownership==='playerOwned'&&!l.nonMarketable&&l.condition!=='destroyed');
-    for(const lot of lots){const card=c.el('section','voucher-card'),normal=currentPrice(c.p,lot.goodId),unit=normal===null?null:S.market.sellUnitPrice(c.p,lot,normal);c.row(lot.goodId,lot.quantity+'件 · '+conditions[lot.condition],card);money(c,card,'实际买入单价',lot.acquisitionPrice);if(unit!==null){money(c,card,'当前卖出单价',unit);money(c,card,'每件盈亏',unit-lot.acquisitionPrice);}card.append(c.button('出售',()=>c.openSecondary('trade-form',{mode:'sell',lotId:lot.id}),{disabled:unit===null}));b.append(card);}
-    if(!lots.length)info(c,b,'暂无可以出售的自有货物。');
-    b.append(c.button('一键出售',()=>c.showModal({title:'出售全部可售货物？',body:'只出售行囊中可交易的自有货物，按当前实际卖价逐批结算。',actions:[{label:'返回',run:c.dismissModal},{label:'确认出售',run:async()=>{const r=await c.dispatch('market.sellAll',{visitId:visit.id});if(r)c.dismissModal();}}]}),{disabled:!lots.length||lots.some(l=>currentPrice(c.p,l.goodId)===null)}));
-    if(S.inventory.goods.some(g=>currentPrice(c.p,g.id)===null))gap(c,b,'正式价格数据缺失；商品交易尚不能作为正式跑商验收。补给仍按已确认价格办理。');
+    b.append(c.button('一键出售',()=>c.showModal({title:'出售全部可售货物？',body:'只出售可交易的自有货物，按当前实际卖价逐批结算。',actions:[{label:'返回',run:c.dismissModal},{label:'确认出售',run:async()=>{const r=await c.dispatch('market.sellAll',{visitId:visit.id});if(r)c.dismissModal();}}]}),{disabled:!lots.length}));
+    b.append(c.button('查看委托',()=>c.openSecondary('commission')),c.button('查看商情',()=>c.openSecondary('inspect')));
   },footer(c,f){f.append(c.button('离开市场',()=>c.closePanel()));}});
+  S.ui.registerPanel('sale-lots',{title:'选择出售货物',render(c,b,d){for(const lot of c.p.inventory.lots.filter(l=>l.goodId===d.goodId&&l.ownership==='playerOwned'&&!l.nonMarketable&&l.condition!=='destroyed'))b.append(c.button(lot.goodId+' × '+lot.quantity+' · '+conditions[lot.condition]+' · 买入价'+c.formatMoney(lot.acquisitionPrice),()=>c.openSecondary('trade-form',{mode:'sell',lotId:lot.id})));}});
   S.ui.registerPanel('trade-form',{title:'商品交易',render(c,b,d){
-    const lot=d.mode==='sell'?c.p.inventory.lots.find(l=>l.id===d.lotId):null,good=S.inventory.good(lot?.goodId||d.goodId),normal=currentPrice(c.p,good.id);
+    const lot=d.mode==='sell'?c.p.inventory.lots.find(l=>l.id===d.lotId):null;if(d.mode==='sell'&&!lot){info(c,b,'这批货物已经售出。');b.append(c.button('返回市场',()=>c.closeSecondary()));return;}const good=S.inventory.good(lot?.goodId||d.goodId),normal=currentPrice(c.p,good.id);
     if(normal===null){gap(c,b,'缺少正式市场价格。');return;}
     const supplierChannel=!lot&&good.originCity===c.p.world.city&&Boolean(c.p.merchant.suppliers[good.id]);
     const quote=lot?null:S.market.buyQuote(c.p,good.id,supplierChannel,S.core.context('quote-view'));
@@ -71,9 +71,9 @@
     if(!view.requiresWarning){c.dispatch('trip.finalize');return;}
     c.showModal({title:'还有未处理的委托',body:'结束本次商旅后，这些委托将按原失败规则处理。',actions:[{label:'返回处理',run:c.dismissModal},{label:'仍要结束（你还有未处理的委托哦）',run:async()=>{const r=await c.dispatch('trip.finalize',{confirmOutstanding:true});if(r)c.dismissModal();}}]});
   }
-  function depart(c){
-    const v=S.trip.departureView(c.p),payload={acknowledgeSupplyWarning:v.requiresSupplyWarning,confirmMissedPickup:v.pendingPickupIds.length>0};
-    const commit=async()=>{const result=await c.dispatch('trip.depart',payload);if(result){c.dismissModal();c.openPanel('trip');}};
+  function depart(c,destinationCity){
+    const v=S.trip.departureView(c.p),payload={destinationCity,acknowledgeSupplyWarning:v.requiresSupplyWarning,confirmMissedPickup:v.pendingPickupIds.length>0};
+    const commit=async()=>{if(!c.p.trip&&c.p.reputation.value>=5){const result=await c.dispatch('trip.begin');if(result){c.dismissModal();c.openPanel('departure-commissions');}return;}const result=await c.dispatch('trip.depart',payload);if(result){c.dismissModal();c.openPanel('trip');}};
     const extra=[v.requiresCargoWarning?'你没有携带可供交易的商品，仍可出发，但无法通过现有货物跑商获利。':'',v.pendingPickupIds.length?'离开后将无法领取部分委托货物，这些委托会按原规则失效。':''].filter(Boolean).join('\n');
     const cancel=()=>{c.dismissModal();c.closePanel();};
     c.showModal({title:v.requiresSupplyWarning?'粮草可能不足':'确认出发',body:(v.requiresSupplyWarning?'当前粮草：'+c.p.inventory.provisions+'日份\n':'')+'此程预计'+v.leg.days+'日。'+(v.requiresSupplyWarning?'\n途中断粮可能需要高价补给、绕路寻粮、消耗干果或承担延误。':'')+(extra?'\n'+extra:''),actions:[{label:'返回城中',run:cancel},{label:v.requiresSupplyWarning?'继续出发':'确认出发',run:commit}]});
@@ -86,17 +86,33 @@
       if(trip.phase==='returned_at_dusk_pending_rest'){info(c,b,'暮时抵达。请先安排歇息，次晨再处理返程事务。');b.append(c.button('安排歇息',()=>c.openPanel('inn')));}
       else b.append(c.button('处理返程事务',()=>c.openSecondary('return-tasks')));return;
     }
-    const view=S.trip.departureView(c.p);if(view.leg){c.row('当前粮草',c.p.inventory.provisions+'日份',b);header(c,b,'选择目的地');b.append(c.button(cities[view.leg.to],()=>depart(c),{disabled:!view.canDepart}));if(S.time.phase(c.p)===2)info(c,b,'暮时请先安排歇息。');}
-  },footer(c,f){if(c.p.world.route)f.append(c.button('继续赶路',()=>c.dispatch('trip.journey')));}});
+    const view=S.trip.departureView(c.p);if(view.leg){
+      c.row('当前粮草',c.p.inventory.provisions+'日份',b);header(c,b,'选择目的地');
+      const destinations={changan:['dunhuang'],dunhuang:['changan','khotan'],khotan:['dunhuang']}[c.p.world.city];
+      for(const destination of destinations)b.append(c.button(cities[destination],()=>depart(c,destination),{disabled:!view.canDepart||destination!==view.leg.to}));
+      if(c.p.world.city==='dunhuang')info(c,b,'本趟商旅下一站：'+cities[view.leg.to]+'。正式路线：长安 → 敦煌 → 于阗 → 敦煌 → 长安。');
+      if(S.time.phase(c.p)===2)info(c,b,'暮时请先安排歇息。');
+    }
+  }});
+  S.ui.registerPanel('departure-commissions',{title:'出发前委托',render(c,b){info(c,b,'本趟委托已确定，可在离城前承接并领取货物。查看和承接不耗时。');b.append(c.button('查看本趟委托',()=>c.openSecondary('commission')));},footer(c,f){f.append(c.button('开始行程',()=>depart(c,'dunhuang')));}});
   S.ui.registerPanel('return-tasks',{title:'返程事务',render(c,b){
-    if(c.p.trip?.phase!=='return_tasks'){info(c,b,'返程事务状态已更新。');return;}
-    const view=S.trip.returnView(c.p),merchantOpen=c.p.merchant.status==='open';
-    info(c,b,'商旅将尽，可在此处理返程后的必要事务。');
-    if(view.graceDeadlineLabel)info(c,b,view.graceClosePending?'本次返程宽限已结束，请先确认过夜结果。':'冻结委托可办理至'+view.graceDeadlineLabel+'；离开市场后仍可在期限内交付。');
-    if(view.pendingGraceIds.length)b.append(c.button('处理宽限委托',()=>c.openSecondary('return-commissions')));
-    if(merchantOpen)b.append(c.button('商号事务',()=>c.openSecondary('merchant_business',{returnTasks:true})));
-    if(!view.pendingGraceIds.length&&!merchantOpen)info(c,b,'返程事务已处理完毕');
-  },footer(c,f){if(c.p.trip?.phase==='return_tasks')f.append(c.button('结束本次商旅',()=>endTrip(c)));}});
+    if(c.p.trip?.phase!=='return_tasks'){info(c,b,'请先安排歇息，次晨处理返程事务。');return;}
+    const view=S.trip.returnView(c.p),labels={commission:'委托',market:'市场',merchant:'商号'};
+    if(view.graceDeadlineLabel)info(c,b,'冻结委托可办理至'+view.graceDeadlineLabel+'；交付时仍检查当前库存。');
+    for(const [task,status]of Object.entries(view.tasks)){
+      if(status==='not_applicable')continue;
+      const card=c.el('section','voucher-card');header(c,card,labels[task]);info(c,card,{pending:'待处理',processed:'已处理',deferred:'已选择暂不处理'}[status]);
+      if(task==='commission')card.append(c.button('查看返程委托',()=>c.openSecondary('commission')));
+      if(task==='market')card.append(c.button('前往市场',()=>c.openPanel('market'),{disabled:S.time.phase(c.p)===2}));
+      if(task==='merchant')card.append(c.button('转入商号货物',()=>c.openSecondary('merchant_business',{returnTasks:true})));
+      if(status==='pending'){
+        if(task==='merchant')card.append(c.button('已处理商号事务',()=>c.dispatch('trip.resolveReturnTask',{task,decision:'processed'})));
+        card.append(c.button('暂不处理'+labels[task],()=>c.dispatch('trip.resolveReturnTask',{task,decision:'deferred'})));
+      }
+      b.append(card);
+    }
+    if(view.ready)info(c,b,'返程事务已处理完毕，可查看本趟商旅总结。');
+  },footer(c,f){if(c.p.trip?.phase==='return_tasks')f.append(c.button('结束本次商旅',()=>endTrip(c),{disabled:!S.trip.returnView(c.p).ready}));}});
   S.ui.registerPanel('return-commissions',{title:'处理宽限委托',render(c,b){
     if(c.p.trip?.phase!=='return_tasks'){info(c,b,'返程事务状态已更新。');return;}
     const view=S.trip.returnView(c.p),ids=new Set(view.pendingGraceIds),rows=S.commissions.snapshot(c.p,S.core.context('return-ui')).active.filter(x=>ids.has(x.commissionId));
@@ -115,6 +131,7 @@
     c.row('当前商誉',c.p.reputation.value,b);c.row('已累计有效交易额',c.formatMoney(c.p.reputation.turnover),b);
     for(const r of c.p.journal.filter(r=>r.type==='reputation').slice(-50).reverse()){c.row(({marketBuy:'买入商品',marketSell:'卖出商品',firstVisit:'首次抵达',onTimeTrip:'按期商旅',tripOverdue:'商期逾期','loan-overdue':'贷款逾期',commission:'委托完成'})[r.source?.type]||'商誉变化',signed(r.actual),b);info(c,b,c.date(r.tick));}
   }});
+  S.ui.registerResult('marketSummary',(c,b,r)=>{info(c,b,'已过半日 · 当前：'+c.date(r.currentTick));if(r.cashDelta)money(c,b,'随身铜钱净变化',r.cashDelta);for(const x of r.bought)c.row('买入',x.goodId+' × '+x.quantity,b);for(const x of r.sold)c.row('卖出',x.goodId+' × '+x.quantity,b);if(r.provisions)c.row('补给','+'+r.provisions+'日份',b);if(r.slotsChanged)c.row('当前货位',r.slots+' / '+S.inventory.capacity(c.p),b);});
   S.ui.registerResult('marketBuy',(c,b,r)=>{c.row('买入',r.goodId+' × '+r.quantity,b);money(c,b,'实际支出',r.total);});
   S.ui.registerResult('marketSell',(c,b,r)=>{c.row('卖出',r.goodId+' × '+r.quantity,b);money(c,b,'售货收入',r.total);money(c,b,'对应成本',r.cost);money(c,b,'贸易利润',r.profit);});
   S.ui.registerResult('marketSellAll',(c,b,r)=>{for(const x of r.items)c.row(x.goodId+' × '+x.quantity,c.formatMoney(x.total),b);money(c,b,'售货收入合计',r.cashDelta);});

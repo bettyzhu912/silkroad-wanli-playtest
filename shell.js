@@ -6,6 +6,7 @@
   const ui = { app: null, state: null, primary: null, secondary: null, back: [], modals: [], busy: false,
     tutorialCooldown: false, keyboard: false, mounted: false, error: '', focusReturn: null, sceneCity: null, viewMemory: new Map(),lastResultId:null,resultReturn:null,entrySerial:0 };
   let nodes = {};
+  let journeyController=null,lastRouteId=null,lastTripId=null;
   const hotspots = {
     changan: [['work','营生',183,601],['depart','出发',479,692],['guifang','柜坊',639,778],['inn','客舍',260,800],['merchant_business','商号',838,960],['inspect','商情',260,1090],['market','市场',675,1360]],
     dunhuang: [['depart','出发',650,620],['guifang','柜坊',222,879],['inn','客舍',330,1000],['inspect','商情',230,1160],['market','市场',770,1160],['work','营生',835,1380]],
@@ -41,7 +42,7 @@
     try {
       const result=await ui.app.dispatch(type,payload,id,expectedGeneration);
       ui.state=ui.app.state||ui.state;
-      if(type==='game.reset'){ui.primary=null;ui.secondary=null;ui.back=[];ui.modals=[];ui.viewMemory.clear();ui.sceneCity=null;}
+      if(type==='game.reset'){ui.startChoice=false;ui.primary=null;ui.secondary=null;ui.back=[];ui.modals=[];ui.viewMemory.clear();ui.sceneCity=null;journeyController?.retry();}
       if(type==='tutorial.dismiss')ui.tutorialCooldown=true;
       else if(type!=='notice.dismiss'&&type!=='result.ack')ui.tutorialCooldown=false;
       return result;
@@ -70,8 +71,10 @@
     if(p()?.world.route&&id!=='trip')return;
     if(p()?.eventSession&&['AWAITING_CHOICE','AWAITING_SKILL'].includes(p().eventSession.status)&&id!=='event')return;
     if(ui.primary&&ui.primary.id===id&&!ui.secondary)return;
-    if(id!=='market'&&p()?.market.visit&&!p().market.visit.settled){dispatch('market.leave',{visitId:p().market.visit.id}).then(outcome=>{if(outcome!==null)openPanel(id,data);});return;}
-    captureInputs();ui.focusReturn=document.activeElement;ui.primary={id,data};ui.entrySerial++;ui.secondary=id==='trip'&&p()?.trip?.phase==='return_tasks'?{id:'return-tasks',data:{}}:null;ui.back=[];ui.error='';ui.tutorialCooldown=false;renderPanels();renderNotices();focusPanel();visitTutorial(id,data);
+    if(id!=='market'&&p()?.market.visit&&!p().market.visit.settled){openSecondary(id,data);return;}
+    captureInputs();ui.focusReturn=document.activeElement;ui.primary={id,data};ui.entrySerial++;ui.secondary=id==='trip'&&p()?.trip?.phase==='return_tasks'?{id:'return-tasks',data:{}}:null;ui.back=[];ui.error='';ui.tutorialCooldown=false;renderPanels();renderNotices();focusPanel();
+    if(id==='market'&&(!p()?.market.visit||p().market.visit.settled)&&S.time.phase(p())!==2)void dispatch('market.enter').then(result=>{if(result)visitTutorial(id,data);});
+    else visitTutorial(id,data);
   }
   function openSecondary(id,data={}) {
     if(ui.busy||ui.modals.length)return;
@@ -110,16 +113,25 @@
   }
   function renderScene() {
     const progress=p();if(!progress)return;
+    if(progress.world.route){
+      ui.sceneCity=null;nodes.scene.classList.add('journey-scene');nodes.scene.setAttribute('aria-label','行进地图');
+      nodes.scene.querySelector(':scope > .world-map-button')?.remove();nodes.sceneWorld.replaceChildren();
+      renderTravelArt(context(),nodes.sceneWorld,progress.world.route);
+      const status=el('div','journey-status');status.setAttribute('aria-live','polite');
+      paragraph(status,'行进中 · '+Math.round(routeFraction(progress.world.route)*100)+'%');
+      if(ui.error){paragraph(status,ui.error,'inline-error');status.append(button('重试行程',()=>{ui.error='';journeyController?.retry();render(ui.state);}));status.append(button('重新载入存档',()=>location.reload()));}
+      nodes.sceneWorld.append(status);fitScene();return;
+    }
+    nodes.scene.classList.remove('journey-scene');
     const city=progress.world.city;
     if(ui.sceneCity!==city){
       ui.sceneCity=city;nodes.sceneWorld.replaceChildren();nodes.scene.setAttribute('aria-label',cities[city]+'城市主界面');
       nodes.scene.querySelector(':scope > .world-map-button')?.remove();nodes.scene.append(mapButton(()=>openPanel('map')));
       const img=el('img','city-background');img.src=asset('B7_city_'+city+'_bg_v0'+(city==='changan'?'2':'1'));img.alt=cities[city]+'城市景观';img.draggable=false;nodes.sceneWorld.append(img);
       for(const [id,label,x,y] of hotspots[city]){
-        const hot=button('',()=>{if(id==='work'&&city!=='changan'){showModal({title:label,body:'敬请期待',actions:[{label:'返回',run:dismissModal}]});return;}openPanel(id);},{className:'city-hotspot '+(id==='inspect'?'inspect-hotspot':'text-hotspot'),label});
+        const hot=button('',()=>{if(id==='work'&&city!=='changan'){showModal({title:label,body:'敬请期待',actions:[{label:'返回',run:dismissModal}]});return;}openPanel(id);},{className:'city-hotspot text-hotspot',label});
         hot.dataset.hotspot=id;hot.style.left=(x/941*100)+'%';hot.style.top=(y/1672*100)+'%';
-        if(id==='inspect')hot.append(icon('inspect'));
-        else {const plaque=el('span','hotspot-visual '+(['guifang','inn'].includes(id)?'global-plaque':'b7-plaque'));const frame=el('img','plaque-frame');frame.src=asset(['guifang','inn'].includes(id)?'global_scene_hotspot_label_frame_v01':'city_marker_frame_v01');frame.alt='';plaque.append(frame,el('span','hotspot-label',label));hot.append(plaque);}
+        {const plaque=el('span','hotspot-visual '+(['guifang','inn'].includes(id)?'global-plaque':'b7-plaque'));const frame=el('img','plaque-frame');frame.src=asset(['guifang','inn'].includes(id)?'global_scene_hotspot_label_frame_v01':'city_marker_frame_v01');frame.alt='';plaque.append(frame,el('span','hotspot-label',label));hot.append(plaque);}
         nodes.sceneWorld.append(hot);
       }
     }
@@ -127,8 +139,9 @@
   }
   function fitScene() {
     if(!nodes.sceneWorld)return;const width=nodes.scene.clientWidth,height=nodes.scene.clientHeight,imageHeight=width*1672/941;
+    if(p()?.world.route){const travelWidth=Math.min(width,height*657/1183),travelHeight=travelWidth*1183/657;nodes.sceneWorld.style.width=travelWidth+'px';nodes.sceneWorld.style.height=travelHeight+'px';nodes.sceneWorld.style.left=(width-travelWidth)/2+'px';nodes.sceneWorld.style.top=(height-travelHeight)/2+'px';return;}
     const top=height*0.58-imageHeight*0.58;
-    nodes.sceneWorld.style.width=width+'px';nodes.sceneWorld.style.height=imageHeight+'px';nodes.sceneWorld.style.top=top+'px';
+    nodes.sceneWorld.style.left='0px';nodes.sceneWorld.style.width=width+'px';nodes.sceneWorld.style.height=imageHeight+'px';nodes.sceneWorld.style.top=top+'px';
   }
   function describe() {return S.time&&S.time.describe?S.time.describe(p()):{yearLabel:'贞元十六年',dateLabel:p().world.tick===0?'三月十一日':date(p().world.tick),phaseLabel:['晨','午','暮'][p().world.tick%3],tripLabel:p().trip?'商旅进行中':'商期 未启程'};}
   function renderHUD() {
@@ -140,7 +153,10 @@
   }
   function renderStart() {
     nodes.start.replaceChildren();const card=el('section','start-card paper-panel');card.append(el('p','eyebrow','丝路万里'),el('h1','','我在大唐经商'));
-    const choices=el('div','start-choices');choices.append(button('按指引开始',()=>dispatch('game.start',{mode:'guided'})),button('自行探索',()=>dispatch('game.start',{mode:'explore'}),{className:'ui-button secondary-button'}));card.append(choices);
+    const choices=el('div','start-choices');
+    if(ui.startChoice){choices.append(button('按指引开始',()=>dispatch('game.start',{mode:'guided'})),button('自行探索',()=>dispatch('game.start',{mode:'explore'}),{className:'ui-button secondary-button'}),button('返回首页',()=>{ui.startChoice=false;renderStart();},{className:'text-button'}));}
+    else choices.append(button('启程',()=>{ui.startChoice=true;renderStart();}));
+    card.append(choices);
     if(ui.error)paragraph(card,ui.error,'inline-error');nodes.start.append(card);
   }
   function renderPanelContent(current,parts,isSecondary) {
@@ -150,6 +166,7 @@
     parts.header.append(el('h2','',title));const work=activeWork();const noClose=(typeof spec?.noClose==='function'?spec.noClose(context(),current.data):spec&&spec.noClose)||(work&&work.mode==='FORMAL');
     if(!noClose)parts.header.append(closeButton(isSecondary?closeSecondary:closePanel));
     if(isSecondary&&ui.back.length)parts.header.insertBefore(button('返回',closeSecondary,{className:'text-button'}),parts.header.firstChild);
+    if(spec?.header)spec.header(context(),parts.header,current.data);
     if(spec){spec.render(context(),parts.body,current.data);if(spec.footer)spec.footer(context(),parts.footer,current.data);}
     else {paragraph(parts.body,'工程接入尚未完成','engineering-note');paragraph(parts.body,'该功能属于本期已确定范围，当前尚未完成界面与业务连接。');}
     if(ui.error)paragraph(parts.body,ui.error,'inline-error');parts.footer.hidden=!parts.footer.childNodes.length;restoreInputs(parts.body);
@@ -158,7 +175,7 @@
     if(!nodes.primary)return;
     if(!ui.primary&&!activeResult()&&p()?.market.visit&&!p().market.visit.settled)ui.primary={id:'market',data:{}};
     if(!ui.primary&&!activeResult()&&['returned_at_dusk_pending_rest','return_tasks'].includes(p()?.trip?.phase)){ui.primary={id:'trip',data:{}};if(p().trip.phase==='return_tasks')ui.secondary={id:'return-tasks',data:{}};}
-    const work=activeWork();if(!work&&!activeResult()&&!workResult()&&p()?.world.route)ui.primary={id:'trip',data:{}};
+    const work=activeWork();if(!work&&!activeResult()&&!workResult()&&p()?.world.route)ui.primary=null;
     if(!work&&p()?.eventSession&&['AWAITING_CHOICE','AWAITING_SKILL'].includes(p().eventSession.status))ui.primary={id:'event',data:{}};
     if(work){ui.primary={id:work.kind==='tavern'?'work':'route-minigame',data:{}};ui.secondary=null;ui.back=[];}
     if(workResult()){ui.primary={id:'work',data:{}};ui.secondary=null;ui.back=[];}
@@ -168,7 +185,7 @@
     nodes.primary.hidden=!ui.primary;nodes.secondary.hidden=!ui.secondary;
     if(ui.primary){if(isFinanceResult())renderFinanceResult(nodes.primaryParts,activeResult());else if(isEventResult()||isInnResult())renderResultContent(nodes.primaryParts,activeResult());else renderPanelContent(ui.primary,nodes.primaryParts,false);}
     if(ui.secondary)renderPanelContent(ui.secondary,nodes.secondaryParts,true);
-    renderHUD();renderControls();
+    renderHUD();renderControls();journeyController?.refresh();
   }
   function renderModals() {
     if(!nodes.modal)return;const current=ui.modals[0];nodes.modal.hidden=!current;
@@ -225,10 +242,16 @@
   }
   function render(state) {
     if(!ui.mounted)return;captureInputs();ui.state=state||ui.app.state;
+    const routeId=p()?.world.route?.id||null;
+    if(lastRouteId&&!routeId){ui.primary=null;ui.secondary=null;ui.back=[];ui.modals=[];ui.error='';ui.sceneCity=null;}
+    lastRouteId=routeId;
+    const tripId=p()?.trip?.id||null;if(lastTripId&&!tripId){ui.primary=null;ui.secondary=null;ui.back=[];ui.resultReturn=null;}lastTripId=tripId;
     const nextResult=activeResult();
     if(nextResult&&nextResult.id!==ui.lastResultId){
       ui.resultReturn=null;
-      if(ui.secondary&&!containedResult()){
+      const marketTransaction=['marketBuy','marketSell','marketSellAll','provisionsBought'].includes(nextResult.kind);
+      if(marketTransaction){ui.primary={id:'market',data:{}};ui.viewMemory.clear();}
+      if(ui.secondary&&!containedResult()&&!marketTransaction){
         const history=[...ui.back],secondary=ui.secondary.id==='business-amount'?history.pop()||null:ui.secondary;
         ui.resultReturn={secondary,back:history};
       }
@@ -238,6 +261,7 @@
     if(!hasProgress){ui.primary=null;ui.secondary=null;ui.modals=[];renderStart();}
     else {renderScene();renderHUD();}
     renderPanels();renderResult();renderModals();renderNotices();renderControls();
+    journeyController?.refresh();
   }
   function viewportChanged() {
     const vv=window.visualViewport;const height=vv?vv.height:window.innerHeight;
@@ -251,14 +275,16 @@
     const top=ui.modals.length?nodes.modalParts.box:ui.secondary?nodes.secondaryParts.box:containedResult()?nodes.primaryParts.box:activeResult()?nodes.resultParts.box:ui.primary?nodes.primaryParts.box:null;
     if(event.key==='Escape'){
       if(ui.modals.length||ui.busy||(activeResult()&&!ui.secondary)){event.preventDefault();return;}
-      if(ui.secondary){event.preventDefault();closeSecondary();}else if(ui.primary){event.preventDefault();closePanel();}return;
+      if(ui.secondary){event.preventDefault();closeSecondary();}else if(ui.primary){event.preventDefault();if(ui.primary.id!=='market')closePanel();}return;
     }
     if(event.key==='Tab'&&top){const focusable=[...top.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]')].filter(e=>!e.hidden&&e.getClientRects().length);if(!focusable.length){event.preventDefault();top.focus();return;}const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&(document.activeElement===first||!top.contains(document.activeElement))){event.preventDefault();last.focus();}else if(!event.shiftKey&&(document.activeElement===last||!top.contains(document.activeElement))){event.preventDefault();first.focus();}}
   }
   function mount(app) {
     if(ui.mounted){ui.app=app;render(app.state);return;}
     ui.app=app;nodes.root=document.getElementById('game-root');if(!nodes.root)throw new Error('game-root missing');nodes.root.replaceChildren();
-    const banner=el('div','engineering-banner','工程预览 · 尚未完成，不能用于正式发布');banner.setAttribute('role','note');
+    journeyController=S.createJourneyController?.({getState:()=>ui.app.state,isBlocked:()=>blocking()||ui.app.busy||Boolean(ui.secondary)||Boolean(ui.primary)||document.hidden,dispatch});
+    document.addEventListener('visibilitychange',()=>journeyController?.refresh());
+    const banner=el('div','engineering-banner','Competition RC1 · v1.2 recovery · 待人工复测');banner.setAttribute('role','note');
     const stage=el('div','game-stage');nodes.start=el('section','start-screen');nodes.scene=el('section','city-scene');nodes.sceneWorld=el('div','scene-world');nodes.scene.append(nodes.sceneWorld);
     nodes.hud=el('header','global-hud');nodes.hudTop=el('div','hud-top');nodes.hudNav=el('nav','hud-nav');nodes.hudNav.setAttribute('aria-label','全局功能');nodes.hud.append(nodes.hudTop,nodes.hudNav);
     stage.append(nodes.scene,nodes.start,nodes.hud);

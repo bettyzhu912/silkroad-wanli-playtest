@@ -126,8 +126,9 @@
       else if(v.current){
         const q=v.current;
         const labels={NEXT_LINE:'请接下一句',PREVIOUS_LINE:'请接上一句',SAME_POEM:'请选择同诗中的句子'};
-        c.paragraph(b,(q.isBonus?'加彩令 · ':'')+labels[q.questionType],'tavern-question-label');
-        c.paragraph(b,q.prompt,'tavern-prompt');
+        const question=c.el('section','tavern-question');
+        c.paragraph(question,(q.isBonus?'加彩令 · ':'')+labels[q.questionType],'tavern-question-label');
+        c.paragraph(question,q.prompt,'tavern-prompt');
         const choices=c.el('div','tavern-answers');refs.answers=[];
         for(const option of q.options){
           let className='ui-button tavern-answer';
@@ -136,8 +137,8 @@
           const answer=c.button(option.text,()=>{const latest=view();if(latest?.current?.questionId!==q.questionId)return;void step({questionId:q.questionId,lineId:option.lineId});},{className,disabled:true});
           choices.append(answer);refs.answers.push(answer);
         }
-        b.append(choices);
-        if(q.feedback){const f=q.feedback;const feedback=c.el('div','tavern-feedback');feedback.setAttribute('role','status');feedback.append(c.el('strong','',f.timeout?'未及时接令':f.correct?(f.quick?'妙答！':'接得好！'):'此句未合'));c.paragraph(feedback,f.correctText);c.paragraph(feedback,f.author+'《'+f.poemTitle+'》','form-hint');b.append(feedback);}
+        b.append(question,choices);
+        if(q.feedback){const f=q.feedback;const feedback=c.el('div','tavern-feedback');feedback.setAttribute('role','status');feedback.append(c.el('strong','',f.timeout?'未及时接令':f.correct?(f.quick?'妙答！':'接得好！'):'此句未合'));c.paragraph(feedback,f.correctText);c.paragraph(feedback,f.author+'《'+f.poemTitle+'》','form-hint');question.append(feedback);}
       }
       paint(v);
     },
