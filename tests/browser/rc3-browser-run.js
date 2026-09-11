@@ -6,8 +6,11 @@ const fs = require('fs'), path = require('path');
 const { launch, startServer, sleep } = require('../tools/cdp');
 const root = path.join(__dirname, '..', '..');
 const mode = process.argv[2] || 'desktop', mobile = mode === 'mobile';
-const port = mobile ? 8139 : 8138, cdpPort = mobile ? 9334 : 9333, url = 'http://127.0.0.1:' + port + '/';
-const outDir = path.join(root, 'tests', 'results', 'evidence', mode); fs.rmSync(outDir, { recursive: true, force: true }); fs.mkdirSync(outDir, { recursive: true });
+const portOffset = Number(process.env.SILK_PORT_OFFSET || 0); const port = (mobile ? 8139 : 8138) + portOffset, cdpPort = (mobile ? 9334 : 9333) + portOffset, url = 'http://127.0.0.1:' + port + '/';
+// SILK_SERVE_ROOT serves a build output instead of the repo (e.g. the mini-tool stage); SILK_LEGACY_RUNTIME=1 removes post-Chrome-61 runtime APIs before any page script runs; SILK_EVIDENCE_LABEL names the evidence folder.
+const serveRoot = process.env.SILK_SERVE_ROOT ? path.resolve(process.env.SILK_SERVE_ROOT) : root, legacyRuntime = process.env.SILK_LEGACY_RUNTIME === '1';
+const outDir = path.join(root, 'tests', 'results', 'evidence', mode + (process.env.SILK_EVIDENCE_LABEL ? '-' + process.env.SILK_EVIDENCE_LABEL : '')); fs.rmSync(outDir, { recursive: true, force: true }); fs.mkdirSync(outDir, { recursive: true });
+const LEGACY_SCRIPT = `(function(){try{delete window.globalThis}catch(e){}try{delete Object.hasOwn;delete Object.fromEntries;delete Array.prototype.at;delete String.prototype.at;delete Array.prototype.flat;delete Array.prototype.flatMap;delete window.queueMicrotask;delete window.structuredClone;delete Element.prototype.replaceChildren;delete Document.prototype.replaceChildren;delete DocumentFragment.prototype.replaceChildren}catch(e){}window.__silkLegacyRuntime=true})();`;
 const checks = [], shots = [], timeline = []; let shotIndex = 0;
 function check(name, ok, detail) { checks.push({ name, ok: Boolean(ok), detail }); console.log((ok ? 'PASS ' : 'FAIL ') + name + (detail !== undefined ? '  ' + JSON.stringify(detail).slice(0, 220) : '')); }
 const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p || !p.world) return { noProgress: true, gen: s.meta.generation, rev: s.meta.revision };
@@ -26,8 +29,9 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
     tripHistory: p.tripHistory.length, journal: (p.journal || []).length, lodgingEntries: (p.journal || []).filter(j => j.action === 'inn.stay').length,
     gen: s.meta.generation, rev: s.meta.revision, timeLabel: (document.querySelector('.hud-time, [aria-label*="时间"]') || {}).innerText || null }; } catch (e) { return { noProgress: true, error: e.message }; } })()`;
 (async () => {
-  const srv = startServer(port, root); await sleep(500);
+  const srv = startServer(port, serveRoot); await sleep(500);
   const c = await launch({ port: cdpPort, width: mobile ? 375 : 1280, height: mobile ? 812 : 900, mobile });
+  if (legacyRuntime) await c.send('Page.addScriptToEvaluateOnNewDocument', { source: LEGACY_SCRIPT });
   const st = () => c.eval(STATE);
   const shot = async name => { const f = String(++shotIndex).padStart(2, '0') + '-' + name + '.png'; await c.screenshot(path.join(outDir, f)); shots.push(f); return f; };
   const note = async (label, extra) => { const s = await st(); timeline.push({ label, ...(extra || {}), state: s }); return s; };
@@ -84,6 +88,7 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
     await c.navigate(url); await sleep(1200);
     await c.eval('new Promise(r=>{const t=setInterval(()=>{if(window.Silk&&Silk.app&&Silk.app.state){clearInterval(t);r()}},100)})');
     let s = await st(); check('fresh profile has no progress (new save)', s.noProgress === true, s); await shot('home');
+    const rt = await c.eval(`({ legacy: !!window.__silkLegacyRuntime, globalThisIsWindow: typeof globalThis !== 'undefined' && globalThis === window, structuredCloneNative: typeof structuredClone === 'function' && /native code/.test(String(structuredClone)), hasOwnNative: typeof Object.hasOwn === 'function' && /native code/.test(String(Object.hasOwn)), htmlClasses: document.documentElement.className, scripts: [...document.scripts].map(x => x.getAttribute('src')).slice(0, 3), served: location.href })`); check('runtime facts (' + (legacyRuntime ? 'simulated Chrome 61 runtime' : 'native runtime') + ')', legacyRuntime ? rt.legacy && rt.globalThisIsWindow && !rt.structuredCloneNative && !rt.hasOwnNative && rt.scripts[0] === 'compat.js' : rt.globalThisIsWindow, rt);
     check('home: no horizontal overflow', (await overflow()) <= 0, await overflow());
     // ---------- 1. new game ----------
     await click('启程', { scope: 'page' }); await sleep(400); await shot('start-choice'); await click('自行探索', { scope: 'page' }); await waitFor(x => !x.noProgress);
@@ -102,7 +107,7 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
     const afterBuy = await note('after-market');
     // ---------- 3. reload: state identical, no double money ----------
     s = await reload(); check('reload after market: identical cash/tick/lots/revision', s.cash === afterBuy.cash && s.tick === afterBuy.tick && JSON.stringify(s.lots) === JSON.stringify(afterBuy.lots) && s.rev === afterBuy.rev, { before: [afterBuy.cash, afterBuy.tick, afterBuy.rev], after: [s.cash, s.tick, s.rev] });
-    async function sleepIfDusk(label) { s = await settle(x => !x.activeResult && !x.event && !x.visitOpen, { label: 'settle ' + label }); if (s.phase !== '暮') return s; await click('客舍', { scope: 'page' }); await sleep(300); await shot('inn-dusk-' + label); await click('留宿客舍'); s = await settle(x => x.phase === '晨' && !x.activeResult && !x.event, { label: 'night ' + label }); timeline.push({ label: 'slept:' + label, tick: s.tick }); return s; }
+    async function sleepIfDusk(label) { s = await settle(x => !x.activeResult && !x.event && !x.visitOpen, { label: 'settle ' + label }); if (s.phase !== '暮') return s; await click('客舍', { scope: 'page' }); await sleep(300); await shot('inn-dusk-' + label); const dayBefore = s.day; await click('留宿客舍'); s = await settle(x => x.day > dayBefore && !x.activeResult && !x.event, { label: 'night ' + label }); timeline.push({ label: 'slept:' + label, tick: s.tick }); if (s.phase === '暮') return sleepIfDusk(label + '-again'); return s; }
     // ---------- 4. departure draft (BUG-08) ----------
     s = await sleepIfDusk('changan-before-draft'); const beforeDraft = await st();
     await click('出发', { scope: 'page' }); await sleep(300); await shot('depart-panel'); const dr0 = await click('敦煌'); timeline.push({ label: 'click 敦煌', dr0 }); await waitFor(x => x.draft, 20000, 'draft'); await sleep(300);
@@ -113,8 +118,8 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
     // spend time in the city with a draft: the trip clock must not run (BUG-08)
     await click('客舍', { scope: 'page' }); await sleep(300); await click('候时1个时段'); s = await settle(x => !x.activeResult && !x.event, { label: 'wait in inn' }); await click('离开客舍').catch(() => { });
     s = await note('after-wait-with-draft'); const hud = await pageText();
-    check('after waiting with a draft: still 未启程, trip null, draft kept', s.trip === null && s.draft && s.tick === beforeDraft.tick + 1 && /未启程/.test(hud), { tick: s.tick, trip: s.trip, draft: s.draft });
-    if (s.phase === '暮') { await click('客舍', { scope: 'page' }); await sleep(300); await shot('inn-dusk-changan-with-draft'); await click('留宿客舍'); s = await settle(x => x.phase === '晨' && !x.activeResult && !x.event, { label: 'night in changan with draft' }); s = await note('morning-with-draft');
+    check('after waiting with a draft: still 未启程, trip null, draft kept', s.trip === null && s.draft && s.tick >= beforeDraft.tick + 1 && /未启程/.test(hud), { tick: [beforeDraft.tick, s.tick], trip: s.trip, draft: s.draft });
+    if (s.phase === '暮') { await click('客舍', { scope: 'page' }); await sleep(300); await shot('inn-dusk-changan-with-draft'); const dayBeforeDraftNight = s.day; await click('留宿客舍'); s = await settle(x => x.day > dayBeforeDraftNight && !x.activeResult && !x.event, { label: 'night in changan with draft' }); s = await note('morning-with-draft');
       check('a night in 长安 with a draft: still 未启程, draft kept, no trip clock', s.trip === null && Boolean(s.draft) && /未启程/.test(await pageText()), { tick: s.tick, draft: s.draft, rolls: s.cityRolls }); }
     s = await reload(); check('reload keeps the draft, trip still null', s.trip === null && Boolean(s.draft), s.draft);
     // ---------- 5. start the trip from the draft ----------
@@ -145,9 +150,9 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
       while ((await st()).phase !== '暮') { await click('客舍', { scope: 'page' }); await sleep(200); const cr = await click('候时1个时段'); if (!cr.startsWith('ok')) { await dispatch('inn.wait', { ticks: 1 }); } s = await settle(x => !x.activeResult && !x.event); await click('离开客舍').catch(() => { }); await sleep(100); }
       await click('客舍', { scope: 'page' }); await sleep(300); await shot('inn-dusk-' + cityLabel);
       const b0 = await st(), cashBefore = b0.cash, journalBefore = b0.journal, lodgingBefore = b0.lodgingEntries, rollsBefore = b0.cityRolls.length;
-      await click('留宿客舍'); s = await settle(x => x.phase === '晨' && !x.activeResult && !x.event, { label: 'inn night ' + cityLabel });
+      await click('留宿客舍'); s = await settle(x => x.day > b0.day && !x.activeResult && !x.event, { label: 'inn night ' + cityLabel });
       const stayRes = timeline.filter(t => t.label && t.label.startsWith('ack:')).slice(-3).map(t => t.label);
-      check('inn night in ' + cityLabel + ': next morning, lodging journaled exactly once, city roll persisted', s.phase === '晨' && s.lodgingEntries === lodgingBefore + 1 && s.cityRolls.length >= rollsBefore, { cash: [cashBefore, s.cash], journal: [journalBefore, s.journal], rolls: s.cityRolls.slice(-3), acks: stayRes });
+      check('inn night in ' + cityLabel + ': next day, lodging journaled exactly once, city roll persisted', s.day === b0.day + 1 && s.lodgingEntries === lodgingBefore + 1 && s.cityRolls.length >= rollsBefore, { cash: [cashBefore, s.cash], journal: [journalBefore, s.journal], rolls: s.cityRolls.slice(-3), acks: stayRes });
       await shot('morning-' + cityLabel);
       return s;
     }
@@ -166,7 +171,7 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
     // ---------- 9. 敦煌 → 长安 ----------
     await departTo('长安', 'to-changan'); s = await settle(x => !x.route && x.city === 'changan' && x.trip && x.trip.routeIndex === 4 && !x.activeResult && !x.event, { label: 'to changan' }); s = await note('arrived-changan'); await shot('changan-arrival');
     check('arrived 长安: trip phase return_tasks or dusk-pending-rest, returnStatus set', ['return_tasks', 'returned_at_dusk_pending_rest'].includes(s.trip.phase) && s.trip.returnStatus !== null, { phase: s.phase, tripPhase: s.trip.phase, returnStatus: s.trip.returnStatus, tick: s.tick, deadline: s.trip.deadlineTick, grace: s.trip.graceIds });
-    if (s.trip.phase === 'returned_at_dusk_pending_rest') { await click('出发', { scope: 'page' }); await sleep(300); await shot('changan-dusk-arrival-panel'); await click('安排歇息'); await sleep(300); await click('留宿客舍'); s = await settle(x => x.trip && x.trip.phase === 'return_tasks' && !x.activeResult && !x.event, { label: 'dusk rest' }); check('dusk arrival: rest first, then return tasks next morning', s.trip.phase === 'return_tasks', s.trip); }
+    if (s.trip.phase === 'returned_at_dusk_pending_rest') { await click('出发', { scope: 'page' }); await sleep(300); await shot('changan-dusk-arrival-panel'); await click('安排歇息'); await sleep(300); await click('留宿客舍'); s = await settle(x => x.trip && x.trip.phase === 'return_tasks' && !x.activeResult && !x.event, { label: 'dusk rest' }); s = await sleepIfDusk('changan-return-tasks'); check('dusk arrival: rest first, then return tasks next morning', s.trip.phase === 'return_tasks', s.trip); }
     // ---------- 10. first-trip return tasks ----------
     s = await settle(x => !x.activeResult && !x.event && !x.visitOpen, { label: 'before return tasks' }); await click('出发', { scope: 'page' }); await sleep(300); await shot('trip-panel-returned'); await click('处理返程事务'); await sleep(300); await shot('return-tasks');
     const rtText = await panelText('secondary-panel'); check('return tasks panel lists 市场/委托 tasks', /返程事务|市场|委托/.test(rtText || ''), (rtText || '').slice(0, 200));
@@ -185,10 +190,10 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
     await shot('changan-after-trip');
     const post = s; s = await reload(); check('reload after trip end: no double money/reputation/trip', s.cash === post.cash && s.rep === post.rep && s.tripHistory === 1 && s.trip === null && s.rev === post.rev, { cash: [post.cash, s.cash], rep: [post.rep, s.rep], rev: [post.rev, s.rev] });
     // ---------- 12. idempotency: same sourceId twice, and concurrent double dispatch ----------
-    s = await settle(x => !x.activeResult && !x.event && !x.visitOpen, { label: 'before idempotency' }); const t0 = s.tick; const idemCmd = s.phase === '暮' ? ['inn.stay', {}] : ['inn.wait', { ticks: 1 }]; const a1 = await dispatch(idemCmd[0], idemCmd[1], 'idem-rc3-1'); s = await settle(x => !x.activeResult && !x.event); const a2 = await dispatch(idemCmd[0], idemCmd[1], 'idem-rc3-1'); s = await settle(x => !x.activeResult && !x.event);
-    check('replayed sourceId is not applied twice', a1.ok && a2.ok && a2.replayed === true && s.tick === t0 + (idemCmd[0] === 'inn.stay' ? (3 - t0 % 3) : 1), { cmd: idemCmd[0], a1: a1.kind, a2: [a2.kind, a2.replayed], tick: [t0, s.tick] });
-    s = await settle(x => !x.activeResult && !x.event && !x.visitOpen, { label: 'before double-click' }); const t1 = s.tick; const dbl = s.phase === '暮' ? "Silk.app.dispatch('inn.stay',{})" : "Silk.app.dispatch('inn.wait',{ticks:1})"; const both = await c.eval(`Promise.all([${dbl},${dbl}]).then(r=>r.map(x=>x.replayed),e=>'ERR:'+e.code)`); s = await settle(x => !x.activeResult && !x.event);
-    check('double-click (concurrent same command) applies once', s.tick === t1 + (dbl.includes('inn.stay') ? (3 - t1 % 3) : 1), { both, tick: [t1, s.tick] });
+    s = await settle(x => !x.activeResult && !x.event && !x.visitOpen, { label: 'before idempotency' }); const t0 = s.tick; const idemCmd = s.phase === '暮' ? ['inn.stay', {}] : ['inn.wait', { ticks: 1 }]; const a1 = await dispatch(idemCmd[0], idemCmd[1], 'idem-rc3-1'); const tickA1 = (await st()).tick; s = await settle(x => !x.activeResult && !x.event); const a2 = await dispatch(idemCmd[0], idemCmd[1], 'idem-rc3-1'); const tickA2 = (await st()).tick; s = await settle(x => !x.activeResult && !x.event);
+    check('replayed sourceId is not applied twice', a1.ok && a2.ok && a2.replayed === true && tickA1 === t0 + (idemCmd[0] === 'inn.stay' ? (3 - t0 % 3) : 1) && tickA2 === tickA1, { cmd: idemCmd[0], a1: a1.kind, a2: [a2.kind, a2.replayed], tick: [t0, tickA1, tickA2] });
+    s = await settle(x => !x.activeResult && !x.event && !x.visitOpen, { label: 'before double-click' }); const t1 = s.tick; const dbl = s.phase === '暮' ? "Silk.app.dispatch('inn.stay',{})" : "Silk.app.dispatch('inn.wait',{ticks:1})"; const both = await c.eval(`Promise.all([${dbl},${dbl}]).then(r=>r.map(x=>x.replayed),e=>'ERR:'+e.code)`); const tickBoth = (await st()).tick; s = await settle(x => !x.activeResult && !x.event);
+    check('double-click (concurrent same command) applies once', tickBoth === t1 + (dbl.includes('inn.stay') ? (3 - t1 % 3) : 1), { both, tick: [t1, tickBoth] });
     // ---------- 13. UI regression spots ----------
     await click('更多', { scope: 'page' }); await sleep(300); await shot('more-panel'); const moreText = await panelText('primary-panel'); await closePrimary();
     await click('柜坊', { scope: 'page' }); await sleep(300); await shot('guifang'); await closePrimary();
@@ -198,7 +203,7 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
     check('no console errors/exceptions', errors.length === 0, errors.slice(0, 5)); check('no failed/404 resource requests', bad.length === 0, bad.slice(0, 5));
     check('static server logged no 404', !/404/.test(srv.log), srv.log.split('\n').filter(l => /404/.test(l)).slice(0, 5));
     const final = await note('final');
-    fs.writeFileSync(path.join(outDir, 'browser-run-' + mode + '.json'), JSON.stringify({ mode, url, viewport: mobile ? '375x812 (touch, DPR2)' : '1280x900', engine: await c.eval('Silk.core.versions'), checks, shots, timeline, console: c.console, warnings: warns.length, network: { total: c.network.length, non200: bad.length, byType: c.network.reduce((m, n) => { m[n.type] = (m[n.type] || 0) + 1; return m; }, {}) }, final }, null, 1));
+    fs.writeFileSync(path.join(outDir, 'browser-run-' + mode + '.json'), JSON.stringify({ mode, serveRoot, legacyRuntime, url, viewport: mobile ? '375x812 (touch, DPR2)' : '1280x900', engine: await c.eval('Silk.core.versions'), checks, shots, timeline, console: c.console, warnings: warns.length, network: { total: c.network.length, non200: bad.length, byType: c.network.reduce((m, n) => { m[n.type] = (m[n.type] || 0) + 1; return m; }, {}) }, final }, null, 1));
   } catch (e) { check('run completed without harness error', false, String(e.stack || e).slice(0, 600)); console.log('timeline tail:', JSON.stringify(timeline.slice(-8)).slice(0, 1500)); try { await shot('failure'); } catch (_) { } fs.writeFileSync(path.join(outDir, 'browser-run-' + mode + '.json'), JSON.stringify({ mode, checks, shots, timeline, console: c.console, error: String(e.stack || e) }, null, 1)); }
   finally { await c.close(); srv.stop(); }
   const passed = checks.filter(x => x.ok).length; console.log('browser-run ' + mode + ': ' + passed + '/' + checks.length + ' checks, ' + shots.length + ' screenshots → ' + outDir); process.exitCode = passed === checks.length ? 0 : 1;

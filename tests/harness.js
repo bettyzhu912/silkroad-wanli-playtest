@@ -5,11 +5,18 @@ const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const ORDER = ['assets.js', 'data.js', 'inn-data.js', 'commission-data.js', 'help-data.js', 'model.js', 'time.js', 'reputation.js', 'store.js', 'inventory.js', 'pricing.js', 'market.js', 'finance.js', 'merchant.js', 'minigames.js', 'tavern.js', 'events.js', 'inn.js', 'commissions.js', 'stories.js', 'observations.js', 'trip.js', 'time-risk.js', 'newspapers.js', 'tutorial.js', 'journey-controller.js'];
-function load() {
-  const ctx = { console, structuredClone, setTimeout, clearTimeout, Math, JSON };
-  ctx.globalThis = ctx; ctx.crypto = require('crypto').webcrypto;
+// SILK_ROOT lets the same suites run against a build output directory (e.g. the ES2017 mini-tool build); SILK_LEGACY_RUNTIME=1 removes post-Chrome-61 runtime APIs from the vm realm so the compat shims must carry the engine.
+function load(options = {}) {
+  const root = options.root || process.env.SILK_ROOT || ROOT, legacy = options.legacy ?? process.env.SILK_LEGACY_RUNTIME === '1';
+  const ctx = { console, setTimeout, clearTimeout, Math, JSON };
+  if (!legacy) ctx.structuredClone = structuredClone;
+  ctx.crypto = require('crypto').webcrypto;
   vm.createContext(ctx);
-  for (const f of ORDER) vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f });
+  if (legacy) { // simulate a Chrome 61 realm: no globalThis identifier, no modern runtime helpers; window points at the global like a browser
+    vm.runInContext("this.window = this; delete this.globalThis; delete Object.hasOwn; delete Object.fromEntries; delete Array.prototype.at; delete String.prototype.at; delete Array.prototype.flat; delete Array.prototype.flatMap; delete this.queueMicrotask; delete this.structuredClone;", ctx);
+    const compat = path.join(root, 'compat.js'); if (fs.existsSync(compat)) vm.runInContext(fs.readFileSync(compat, 'utf8'), ctx, { filename: 'compat.js' });
+  } else ctx.globalThis = ctx;
+  for (const f of ORDER) vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f });
   return ctx;
 }
 // Minimal store-like driver: clone before each command, discard on DomainError, validate after success.
