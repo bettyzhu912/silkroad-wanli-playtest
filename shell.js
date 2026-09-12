@@ -7,10 +7,10 @@
     tutorialCooldown: false, keyboard: false, mounted: false, error: '', focusReturn: null, sceneCity: null, viewMemory: new Map(),lastResultId:null,resultReturn:null,entrySerial:0 };
   let nodes = {};
   let journeyController=null,lastRouteId=null,lastTripId=null;
-  // LONG-BG TEST: coordinates are pixels on the 720×1600 (20:9) city artwork and scale with the art in fitScene(); they never follow the HUD or the viewport.
+  // City hotspots are scene-level: coordinates are pixels on the 720×1600 (20:9) city artwork and scale with the art in fitScene(); they never follow the HUD or the viewport.
   // The 20:9 backgrounds are the 720×1280 composition placed at y=320..1600 with 320px of added sky above (pixel match, mean diff ≈0.5/255): x unchanged, y +320; no hotspot re-marked.
   const cityArt = { w: 720, h: 1600, slackTop: 320, slackBottom: 0 };
-  // LONG-BG LAYOUT TEST: home (941×2091) and journey (657×1460) arts extended to 20:9 with parchment above/below the original composition; the added regions are the only croppable slack.
+  // Home (941×2091) and journey (657×1460) arts are the 20:9 versions with parchment above/below the original composition; the added regions are the only croppable slack.
   const homeArt = { w: 941, h: 2091, slackTop: 300, slackBottom: 119 }, travelArt = { w: 657, h: 1460, slackTop: 140, slackBottom: 137 };
   // Fit rule shared by the long arts: the original composition (between the slack regions) is always complete at its own aspect ratio; the slack fills the remaining height and is cropped (top/bottom in proportion) only when the viewport is shorter than the full art; bands appear only when even the composition cannot fill.
   function fitSlack(width,height,art){const stdH=art.h-art.slackTop-art.slackBottom,scale=Math.min(width/art.w,height/stdH),w=art.w*scale,h=art.h*scale,slack=art.slackTop+art.slackBottom;let top;if(h<=height)top=(height-h)/2;else{const crop=h-height;top=-(slack?crop*art.slackTop/slack:crop/2);}return {w,h,left:(width-w)/2,top};}

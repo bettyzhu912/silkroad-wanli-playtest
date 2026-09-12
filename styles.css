@@ -78,8 +78,8 @@
 .paper-panel[data-panel-id="pack"]>.panel-header>.close-button,.paper-panel[data-panel-id="pack"]>.panel-header>.text-button{top:calc(66px * var(--art-scale,.46))}.paper-panel[data-panel-id="commission"]>.panel-header>.close-button,.paper-panel[data-panel-id="commission"]>.panel-header>.text-button{top:calc(137px * var(--art-scale,.46))}.paper-panel[data-panel-id="message"]>.panel-header>.close-button,.paper-panel[data-panel-id="message"]>.panel-header>.text-button{top:calc(110px * var(--art-scale,.46))}
 .paper-panel[data-panel-id="pack"]>.panel-body,.paper-panel[data-panel-id="commission"]>.panel-body,.paper-panel[data-panel-id="message"]>.panel-body{padding:10px 6px 12px}
 /* Screen-level UI safe insets for the Xiaohongshu container: --ui-top keeps the HUD below the container top bar / back / action area, --ui-bottom keeps the map button above the bottom edge and floating bars. Scene hotspots are not affected (they belong to the artwork). */
-/* LONG-BG LAYOUT TEST: map button bottom = max(safe-area inset, 18px) + 6px (set by shell.js as --map-bottom): inside the bottom safe zone yet below the 市场/商号/营生 plaques */
+/* Map button bottom = max(safe-area inset, 18px) + 6px (set by shell.js as --map-bottom): inside the bottom safe zone yet below the 市场/商号/营生 plaques */
 @media (max-height:600px){:root{--ui-top:44px;--ui-bottom:10px}}
 .city-hotspot{z-index:4}
-/* LONG-BG LAYOUT TEST: home frame is placed by fitHome() (explicit margins, slack rule); journey caption/status are scene-level overlays */
+/* Home frame is placed by fitHome() (explicit margins, slack rule); journey caption/status are scene-level overlays */
 .start-screen{align-items:flex-start}.journey-scene>.travel-art-caption,.journey-scene>.journey-status{z-index:4}

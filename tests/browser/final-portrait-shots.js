@@ -50,7 +50,11 @@ const CHECK = `(() => {
       await c.eval(`(()=>{for(const l of document.querySelectorAll('.result-layer,.modal-layer,.primary-layer'))l.style.visibility='hidden'})()`); await sleep(200); await shot('journey-art-only'); await c.eval(`(()=>{for(const l of document.querySelectorAll('.result-layer,.modal-layer,.primary-layer'))l.style.visibility=''})()`);
     } catch (e) { rows.push({ screen: 'error', issues: [String(e.message || e).slice(0, 200)] }); try { await shot('error'); } catch (_) { } }
     const errors = c.console.filter(m => m.type === 'error' || m.type === 'exception').map(m => m.text.slice(0, 160));
-    report.push({ viewport: name, rows, consoleErrors: errors });
+    const badRequests = c.network.filter(r => r.status === 'FAILED' || (typeof r.status === 'number' && r.status >= 400)).map(r => ({ url: String(r.url).slice(-80), status: r.status, error: r.error }));
+    const remote = c.network.filter(r => typeof r.url === 'string' && /^https?:\/\//.test(r.url) && !r.url.startsWith('http://127.0.0.1:')).map(r => r.url.slice(0, 100));
+    report.push({ viewport: name, rows, consoleErrors: errors, requests: c.network.length, badRequests, remoteRequests: remote });
+    if (badRequests.length) rows.push({ screen: 'network', issues: badRequests.map(b => b.status + ' ' + b.url) });
+    if (remote.length) rows.push({ screen: 'network', issues: remote.map(u => 'remote request ' + u) });
     const issues = rows.flatMap(r => r.issues.map(i => r.screen + ': ' + i));
     console.log(name + ': ' + (issues.length ? issues.join(' | ') : 'no issues') + (errors.length ? ' | console errors ' + errors.length : ''));
     await c.close();
