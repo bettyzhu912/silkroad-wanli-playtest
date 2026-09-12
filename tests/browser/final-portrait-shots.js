@@ -6,6 +6,7 @@ const { launch, startServer, sleep } = require('../tools/cdp');
 const root = path.join(__dirname, '..', '..');
 const argv = process.argv.slice(2), flag = n => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : null; };
 const label = argv.find((a, i) => !a.startsWith('--') && (i === 0 || !argv[i - 1].startsWith('--'))) || 'final-portrait';
+const serveRoot = flag('--root') ? path.resolve(flag('--root')) : root;
 const outDir = path.join(root, 'tests', 'results', 'evidence', 'viewport-' + label); fs.mkdirSync(outDir, { recursive: true });
 const ALL = [{ w: 320, h: 568 }, { w: 360, h: 780 }, { w: 375, h: 667 }, { w: 390, h: 844 }, { w: 430, h: 932 }];
 const only = flag('--only'); const viewports = only ? ALL.filter(v => only.split(',').includes(v.w + 'x' + v.h)) : ALL;
@@ -25,7 +26,7 @@ const CHECK = `(() => {
   return out;
 })()`;
 (async () => {
-  const port = 8172, srv = startServer(port, root); await sleep(500); let cdpPort = 9380; const report = [];
+  const port = 8172, srv = startServer(port, serveRoot); await sleep(500); let cdpPort = 9380; const report = [];
   for (const v of viewports) {
     const name = v.w + 'x' + v.h, c = await launch({ port: cdpPort++, width: v.w, height: v.h, mobile: true }), rows = [];
     const shot = async n => c.screenshot(path.join(outDir, 'extra-' + name + '-' + n + '.png'));
