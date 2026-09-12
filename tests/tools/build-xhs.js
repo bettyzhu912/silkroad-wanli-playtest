@@ -40,6 +40,7 @@ if (residual.length) fail('post-ES2017 operators remain in: ' + residual.join(',
 // 2. styles + images
 for (const f of tracked.filter(f => f.endsWith('.css'))) fs.copyFileSync(path.join(root, f), path.join(stage, path.basename(f)));
 const images = tracked.filter(f => /\.(png|jpe?g)$/i.test(f));
+for (const f of tracked.filter(f => /\.webp$/i.test(f))) fs.copyFileSync(path.join(root, f), path.join(stage, path.basename(f))); // already-WebP sources are staged as-is
 const cwebp = noWebp ? null : which('cwebp');
 const renamed = new Map();
 if (cwebp) {

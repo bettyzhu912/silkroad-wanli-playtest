@@ -7,11 +7,15 @@
     tutorialCooldown: false, keyboard: false, mounted: false, error: '', focusReturn: null, sceneCity: null, viewMemory: new Map(),lastResultId:null,resultReturn:null,entrySerial:0 };
   let nodes = {};
   let journeyController=null,lastRouteId=null,lastTripId=null;
+  // City hotspots are scene-level: coordinates are pixels on the 720×1280 city artwork (B7 mobile backgrounds) and scale with the art in fitScene(); they never follow the HUD or the viewport.
+  // The 720×1280 backgrounds are uniform downscales of the 941×1672 originals (verified: mean pixel difference ≈3.7/255), so every hotspot keeps its building/sign; values converted ×720/941, ×1280/1672.
+  const cityArt = { w: 720, h: 1280 };
   const hotspots = {
-    changan: [['work','营生',183,601],['depart','出发',479,692],['guifang','柜坊',639,778],['inn','客舍',260,800],['merchant_business','商号',838,960],['inspect','商情',260,1090],['market','市场',675,1360]],
-    dunhuang: [['depart','出发',650,620],['guifang','柜坊',222,879],['inn','客舍',330,1000],['inspect','商情',230,1160],['market','市场',770,1160],['work','营生',835,1380]],
-    khotan: [['inn','客舍',500,520],['market','市场',731,703],['guifang','柜坊',565,875],['inspect','商情',211,889],['depart','出发',700,985],['work','营生',440,1310]]
+    changan: [['work','营生',140,460],['depart','出发',367,530],['guifang','柜坊',489,596],['inn','客舍',199,612],['merchant_business','商号',641,735],['inspect','商情',199,834],['market','市场',516,1041]],
+    dunhuang: [['depart','出发',497,475],['guifang','柜坊',170,673],['inn','客舍',252,766],['inspect','商情',176,888],['market','市场',589,888],['work','营生',639,1056]],
+    khotan: [['inn','客舍',383,398],['market','市场',559,538],['guifang','柜坊',432,670],['inspect','商情',161,681],['depart','出发',536,754],['work','营生',337,1003]]
   };
+
   const titles = { pack:'行囊', commission:'委托', message:'消息', merchant_business:'商号', more:'更多', guifang:'柜坊', inn:'客舍', market:'市场', work:'营生', inspect:'商情', depart:'出发', map:'地图', funds:'资金总览', reputation:'商誉详情', time:'时间与商期', help:'玩法说明', settings:'设置', notification:'系统通知', archive:'丝路之录' };
   const icons = { pack:'pack', commission:'commission', message:'message', merchant_business:'merchant_business', more:'more', money:'money', reputation:'reputation', time:'time_calendar', close:'close', help:'help', settings:'settings', notification:'notification', archive:'silkroad_archive', inspect:'inspect' };
   function el(tag, className, text) { const e=document.createElement(tag); if(className)e.className=className; if(text!==undefined)e.textContent=String(text); return e; }
@@ -116,7 +120,7 @@
     if(progress.world.route){
       ui.sceneCity=null;nodes.scene.classList.add('journey-scene');nodes.scene.setAttribute('aria-label','行进地图');
       nodes.scene.querySelector(':scope > .world-map-button')?.remove();nodes.sceneWorld.replaceChildren();
-      renderTravelArt(context(),nodes.sceneWorld,progress.world.route);
+      renderTravelArt(context(),nodes.sceneWorld,progress.world.route);nodes.scene.append(mapButton(()=>openSecondary('map')));
       const status=el('div','journey-status');status.setAttribute('aria-live','polite');
       if(ui.error){paragraph(status,ui.error,'inline-error');status.append(button('重试行程',()=>{ui.error='';journeyController?.retry();render(ui.state);}));status.append(button('重新载入存档',()=>location.reload()));}
       nodes.sceneWorld.append(status);fitScene();return;
@@ -129,7 +133,7 @@
       const img=el('img','city-background');img.src=asset('B7_city_'+city+'_bg_v0'+(city==='changan'?'2':'1'));img.alt=cities[city]+'城市景观';img.draggable=false;nodes.sceneWorld.append(img);
       for(const [id,label,x,y] of hotspots[city]){
         const hot=button('',()=>{if(id==='work'&&city!=='changan'){showModal({title:label,body:'敬请期待',actions:[{label:'返回',run:dismissModal}]});return;}openPanel(id);},{className:'city-hotspot text-hotspot',label});
-        hot.dataset.hotspot=id;hot.dataset.artX=x;hot.dataset.artY=y;hot.style.left=(x/941*100)+'%';hot.style.top=(y/1672*100)+'%';
+        hot.dataset.hotspot=id;hot.dataset.artX=x;hot.dataset.artY=y;hot.style.left=(x/cityArt.w*100)+'%';hot.style.top=(y/cityArt.h*100)+'%';
         {const plaque=el('span','hotspot-visual '+(['guifang','inn'].includes(id)?'global-plaque':'b7-plaque'));const frame=el('img','plaque-frame');frame.src=asset(['guifang','inn'].includes(id)?'global_scene_hotspot_label_frame_v01':'city_marker_frame_v01');frame.alt='';plaque.append(frame,el('span','hotspot-label',label));hot.append(plaque);}
         nodes.sceneWorld.append(hot);
       }
@@ -143,12 +147,12 @@
       const ratio=657/1183,travelWidth=Math.min(width,height*ratio),travelHeight=travelWidth/ratio;
       nodes.sceneWorld.style.width=travelWidth+'px';nodes.sceneWorld.style.height=travelHeight+'px';nodes.sceneWorld.style.left=(width-travelWidth)/2+'px';nodes.sceneWorld.style.top=(height-travelHeight)/2+'px';return;
     }
-    // City art (941×1672): contain — the complete artwork at its own aspect ratio, centred; on tall phones the HUD sits on the top band and the map button on the bottom band.
-    const ratio=941/1672,worldW=Math.min(width,height*ratio),worldH=worldW/ratio,left=(width-worldW)/2,top=(height-worldH)/2;
+    // City art (720×1280): contain — the complete artwork at its own aspect ratio, centred; on tall phones the HUD sits on the top band and the map button on the bottom band.
+    const ratio=cityArt.w/cityArt.h,worldW=Math.min(width,height*ratio),worldH=worldW/ratio,left=(width-worldW)/2,top=(height-worldH)/2;
     nodes.sceneWorld.style.left=left+'px';nodes.sceneWorld.style.width=worldW+'px';nodes.sceneWorld.style.height=worldH+'px';nodes.sceneWorld.style.top=top+'px';
     // hotspots in px on the art; plaques are kept fully inside the viewport (only matters for plaques near the art edge on very narrow screens)
     for(const hot of nodes.sceneWorld.querySelectorAll('.city-hotspot')){const ax=Number(hot.dataset.artX),ay=Number(hot.dataset.artY);if(!ax)continue;const hw=(hot.offsetWidth||82)/2+2,hh=(hot.offsetHeight||44)/2+2;
-      const cx=Math.min(Math.max(ax/941*worldW,-left+hw),-left+width-hw),cy=Math.min(Math.max(ay/1672*worldH,-top+hh),-top+height-hh);hot.style.left=cx+'px';hot.style.top=cy+'px';}
+      const cx=Math.min(Math.max(ax/cityArt.w*worldW,-left+hw),-left+width-hw),cy=Math.min(Math.max(ay/cityArt.h*worldH,-top+hh),-top+height-hh);hot.style.left=cx+'px';hot.style.top=cy+'px';}
   }
   function fitHome() {
     const frame=nodes.start&&nodes.start.querySelector('.home-art-frame');if(!frame||nodes.start.hidden)return;
@@ -325,7 +329,7 @@
     // The supplied artwork defines orientation; no mirroring or geographic-name inference.
     const direction=markerDirection(c.p),marker=locationMarker(direction),f=routeFraction(route);
     const endpoints=firstLeg?{changan:[.90,.57],dunhuang:[.14,.425]}:{dunhuang:[.87,.54],khotan:[.14,.51]},from=endpoints[route.from],to=endpoints[route.to];
-    marker.style.left=((from[0]+(to[0]-from[0])*f)*100)+'%';marker.style.top=((from[1]+(to[1]-from[1])*f)*100)+'%';art.append(marker,mapButton(()=>openSecondary('map')));
+    marker.style.left=((from[0]+(to[0]-from[0])*f)*100)+'%';marker.style.top=((from[1]+(to[1]-from[1])*f)*100)+'%';art.append(marker);
     const elapsedDay=Math.floor((c.p.world.tick-route.startedTick)/3)+1;
     const caption=el('figcaption','travel-art-caption',cities[route.from]+' — '+cities[route.to]+' · 第'+elapsedDay+'日 / 预计'+route.days+'日');art.append(caption);b.append(art);
   }
