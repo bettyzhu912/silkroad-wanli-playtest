@@ -1,0 +1,83 @@
+{
+ "totalLayouts": 227160,
+ "nativeSha256": "a2df6f93a8c11f8f272569e7d57e8b05a272a91a09e8240e90df2259a8d74841",
+ "jsSha256": "a2df6f93a8c11f8f272569e7d57e8b05a272a91a09e8240e90df2259a8d74841",
+ "identical": true,
+ "boards": [
+  {
+   "name": "fixed-B1",
+   "layouts": 120,
+   "identical": true
+  },
+  {
+   "name": "fixed-B2",
+   "layouts": 2160,
+   "identical": true
+  },
+  {
+   "name": "fixed-B3",
+   "layouts": 40320,
+   "identical": true
+  },
+  {
+   "name": "run0-B1",
+   "layouts": 120,
+   "identical": true
+  },
+  {
+   "name": "run0-B2",
+   "layouts": 480,
+   "identical": true
+  },
+  {
+   "name": "run0-B3",
+   "layouts": 40320,
+   "identical": true
+  },
+  {
+   "name": "run200-B1",
+   "layouts": 120,
+   "identical": true
+  },
+  {
+   "name": "run200-B2",
+   "layouts": 2160,
+   "identical": true
+  },
+  {
+   "name": "run200-B3",
+   "layouts": 40320,
+   "identical": true
+  },
+  {
+   "name": "run400-B1",
+   "layouts": 120,
+   "identical": true
+  },
+  {
+   "name": "run400-B2",
+   "layouts": 10080,
+   "identical": true
+  },
+  {
+   "name": "run400-B3",
+   "layouts": 40320,
+   "identical": true
+  },
+  {
+   "name": "run499-B1",
+   "layouts": 120,
+   "identical": true
+  },
+  {
+   "name": "run499-B2",
+   "layouts": 10080,
+   "identical": true
+  },
+  {
+   "name": "run499-B3",
+   "layouts": 40320,
+   "identical": true
+  }
+ ]
+}

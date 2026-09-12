@@ -1,0 +1,39 @@
+// Port of P1_PLAYABLE tests/test_p1.py (17 fake-clock adapter tests) against the JS Game. The HTTP-cookie test targets the
+// removed HTTP layer and is replaced by the browser bridge smoke.
+import { Game } from '../engine/game.js';
+import { evaluateLayout } from '../engine/core.js';
+import { feasible_layouts } from '../engine/generator.js';
+import fs from 'node:fs'; import path from 'node:path';
+const here = path.dirname(new URL(import.meta.url).pathname);
+class Clock { constructor() { this.t = 100; } call() { return this.t; } step(n) { this.t += n; } }
+const seed = new Game(() => 0); seed.prepare(0); const BOARDS = seed.prepared[0];
+const results = []; const assert = (c, m) => { if (!c) throw new Error('ASSERT ' + m); };
+const eq = (a, b, m) => assert(JSON.stringify(a) === JSON.stringify(b), (m || '') + ' expected ' + JSON.stringify(b) + ' got ' + JSON.stringify(a));
+const raises = fn => { try { fn(); } catch (e) { return; } throw new Error('expected error'); };
+function setup(seconds = 75, mode = 'FORMAL') { const c = new Clock(); const g = new Game(() => c.t); g.prepared[0] = BOARDS; g.action({ op: 'start', mode, seconds, index: 0 }); return [g, c]; }
+const advance = (g, c, n) => { c.step(n); return g.snapshot(); };
+function place(g, pair) { const s = g.session; if (!pair) pair = [s.board.left, s.board.right]; [['left', pair[0]], ['right', pair[1]]].forEach(([side, items]) => { for (const it of items) g.action({ op: 'insert', id: it.instance, side }); }); }
+function complete(g, c) { place(g); g.action({ op: 'submit' }); advance(g, c, .91); advance(g, c, .81); advance(g, c, .51); }
+const bad = g => { const b = g.session.board; for (const [a, z] of feasible_layouts(b.items)) if (!evaluateLayout(a, z, b.reference_ratio).passed) return [a, z]; };
+const tests = {
+  test_75_three_batches() { const [g, c] = setup(75); for (let i = 0; i < 3; i++) { advance(g, c, 7); complete(g, c); } eq(g.state, 'SETTLEMENT'); eq(g.session.remaining, 54); eq(g.session.result.cashDelta, 22); },
+  test_90_three_batches() { const [g, c] = setup(90); for (let i = 0; i < 3; i++) { advance(g, c, 9); complete(g, c); } eq(g.state, 'SETTLEMENT'); eq(g.session.remaining, 63); },
+  test_not_pass_rework() { const [g, c] = setup(); place(g, bad(g)); g.action({ op: 'submit' }); advance(g, c, .91); eq(g.feedback, 'NOT_PASS'); advance(g, c, .81); eq(g.state, 'GAMEPLAY'); eq(g.session.results.length, 0); for (const side of ['left', 'right']) for (const it of g.session[side].slice().reverse()) g.action({ op: 'remove', id: it.instance, side }); complete(g, c); eq(g.session.batch, 2); },
+  test_timeout_zero() { const [g, c] = setup(); advance(g, c, 75); eq(g.state, 'TIMEOUT'); advance(g, c, .71); eq(g.session.result.cashDelta, 0); },
+  test_timeout_after_b1() { const [g, c] = setup(); complete(g, c); advance(g, c, 75); advance(g, c, .71); eq(g.session.result.primaryMetrics.completedBatchCount, 1); eq(g.session.result.cashDelta, 12); },
+  test_timeout_after_b2() { const [g, c] = setup(); complete(g, c); complete(g, c); advance(g, c, 75); advance(g, c, .71); eq(g.session.result.primaryMetrics.completedBatchCount, 2); eq(g.session.result.cashDelta, 16); },
+  test_trial_full_isolated() { const [g, c] = setup(75, 'TRIAL'); const before = JSON.stringify(g.outer.state); for (let i = 0; i < 3; i++) complete(g, c); eq(g.session.result.simulatedPayout, 22); eq(g.session.result.cashDelta, 0); eq(g.session.result.timeCostTicks, 0); eq(JSON.stringify(g.outer.state), before); },
+  test_abort_cancel_and_confirm() { const [g, c] = setup(); complete(g, c); place(g); advance(g, c, 5); const before = g.session.remaining, layout = g.snapshot().left; g.action({ op: 'abort' }); advance(g, c, 100); eq(g.session.remaining, before); g.action({ op: 'cancel_abort' }); eq(g.snapshot().left, layout); g.action({ op: 'abort' }); g.action({ op: 'confirm_abort' }); eq(g.state, 'LIVELIHOOD_LIST'); eq(g.session.result.completionStatus, 'ABORTED'); eq(g.outer.state.cash, 100); },
+  test_waiting_fixed_and_top_only() { const [g] = setup(); const slots = g.session.original_slots.slice(); for (const id of slots.slice(0, 2)) g.action({ op: 'insert', id, side: 'left' }); raises(() => g.action({ op: 'remove', id: slots[0], side: 'left' })); g.action({ op: 'remove', id: slots[1], side: 'left' }); eq(g.snapshot().slots, slots); assert(g.snapshot().waiting.includes(slots[1]), 'returned to waiting'); },
+  test_submit_manual_locked_no_double() { const [g, c] = setup(); raises(() => g.action({ op: 'submit' })); place(g); eq(g.state, 'GAMEPLAY'); g.action({ op: 'submit' }); const remaining = g.session.remaining; for (const a of [{ op: 'submit' }, { op: 'abort' }, { op: 'remove', id: g.session.left[g.session.left.length - 1].instance, side: 'left' }]) raises(() => g.action(a)); advance(g, c, .5); eq(g.session.remaining, remaining); advance(g, c, .5); advance(g, c, .9); advance(g, c, .6); eq(g.session.results.length, 1); },
+  test_submit_timeout_race_pass() { const [g, c] = setup(); place(g); g.action({ op: 'submit' }); g.session.timeout_event(); advance(g, c, 1); advance(g, c, 1); eq(g.state, 'SETTLEMENT'); eq(g.session.result.primaryMetrics.completedBatchCount, 1); },
+  test_submit_timeout_race_not_pass() { const [g, c] = setup(); place(g, bad(g)); g.action({ op: 'submit' }); g.session.timeout_event(); advance(g, c, 1); advance(g, c, 1); eq(g.state, 'SETTLEMENT'); eq(g.session.result.cashDelta, 0); },
+  test_timeout_no_auto_submit() { const [g, c] = setup(); place(g); advance(g, c, 75); advance(g, c, 1); eq(g.session.result.cashDelta, 0); },
+  test_debug_on_off() { const [g] = setup(); assert(!('debug' in g.snapshot()), 'no debug'); g.action({ op: 'debug', enabled: true }); const d = g.snapshot().debug; for (const k of ['leftWeight', 'rightWeight', 'physicalBalanceRatio', 'referenceBestPhysicalRatio', 'BalanceScore', 'StackingScore', 'LayoutScore', 'cargoWeights', 'constraintWeight', 'nearOptimalRatio', 'referenceSolution', 'generationAttempts', 'rejectReasonHistory']) assert(k in d, 'debug field ' + k); eq(d.BalanceScore, null); g.action({ op: 'debug', enabled: false }); assert(!('debug' in g.snapshot()), 'debug off'); },
+  test_navigation_idempotent() { const [g, c] = setup(); complete(g, c); advance(g, c, 75); advance(g, c, 1); const st = JSON.stringify(g.outer.state); g.action({ op: 'navigate', destination: 'CITY' }); eq(JSON.stringify(g.outer.state), st); g.action({ op: 'livelihood' }); g.action({ op: 'ready' }); eq(g.state, 'READY'); },
+  test_how_and_ready_close_no_record() { const g = new Game(() => 0); g.action({ op: 'how' }); eq(g.state, 'HOW_TO_PLAY'); g.action({ op: 'ready' }); g.action({ op: 'close' }); eq(g.session, null); eq(g.state, 'LIVELIHOOD_LIST'); },
+  test_source_hashes_unchanged() { const manifest = JSON.parse(fs.readFileSync(path.join(here, '../py/vendor/p0/reference/manifest.json'), 'utf8')); const crypto = require_crypto(); for (const row of manifest.files) { if (!/^(src|authority|tests)\//.test(row.path)) continue; const p = path.join(here, '../py/vendor/p0', row.path); if (fs.existsSync(p)) eq(crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex'), row.sha256, row.path); } }
+};
+import { createRequire } from 'node:module'; const require_crypto = () => createRequire(import.meta.url)('node:crypto');
+for (const [name, fn] of Object.entries(tests)) { try { fn(); results.push({ name, ok: true }); console.log('PASS ' + name); } catch (e) { results.push({ name, ok: false, error: String(e.message || e) }); console.log('FAIL ' + name + ' ' + e.message); } }
+const passed = results.filter(r => r.ok).length; fs.writeFileSync(path.join(here, 'adapter_tests.json'), JSON.stringify({ passed, total: results.length, results }, null, 1)); console.log('adapter tests (JS port): ' + passed + '/' + results.length); process.exit(passed === results.length ? 0 : 1);

@@ -1,0 +1,31 @@
+{
+ "python": "3.11.15",
+ "p0": {
+  "passed": 117,
+  "executed": 117,
+  "failed": 0,
+  "notRun": 15,
+  "status": "PASS"
+ },
+ "vendorHashes": {
+  "authority/AUTOMATED_TEST_PLAN.md": true,
+  "authority/CARGO_DATA.json": true,
+  "authority/P0_IMPLEMENTATION_CLOSURE_v0.1.md": true,
+  "authority/PROTOTYPE_CONFIG.json": true,
+  "authority/TEST_CASES.md": true,
+  "src/core.py": true,
+  "src/generator.py": true,
+  "src/session.py": true,
+  "tests/stress.py": true,
+  "tests/test_p0.py": true
+ },
+ "p1AdapterOnBrowserAdapter": {
+  "executed": 17,
+  "failures": [],
+  "skipped": [
+   "test_http_cookie_keeps_session (HTTP layer removed; covered by browser bridge smoke)"
+  ]
+ },
+ "parityNativeSeconds": 0.77,
+ "parityFingerprintSha256": "7f74a235e163aecc6faf3e991f1e78a67578d8df58584f330a4200fdae6310e8"
+}

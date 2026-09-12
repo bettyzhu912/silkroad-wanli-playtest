@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320"><!-- TEMP_PLACEHOLDER 绿松石: medium, fragile, pressure-sensitive — turquoise stones bedded in a small padded box -->
+<defs><linearGradient id="t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8fe1d6"/><stop offset=".5" stop-color="#3fb7ad"/><stop offset="1" stop-color="#1f7f7a"/></linearGradient><linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b07d48"/><stop offset="1" stop-color="#7a5230"/></linearGradient></defs>
+<path d="M40 150 h240 l-14 118 h-212 z" fill="url(#w)" stroke="#5a3a20" stroke-width="5" stroke-linejoin="round"/>
+<path d="M56 162 h208 l-10 94 h-188 z" fill="#f1dfb8" stroke="#c9a874" stroke-width="3"/>
+<path d="M34 150 h252 l10 -16 h-272 z" fill="#c69456" stroke="#5a3a20" stroke-width="5" stroke-linejoin="round"/>
+<path d="M92 214 q-8 -40 30 -50 q34 -6 46 24 q6 30 -20 40 q-42 8 -56 -14 z" fill="url(#t)" stroke="#155f5c" stroke-width="5" stroke-linejoin="round"/>
+<path d="M178 200 q4 -34 36 -36 q34 2 34 34 q0 30 -30 32 q-36 0 -40 -30 z" fill="url(#t)" stroke="#155f5c" stroke-width="5" stroke-linejoin="round"/>
+<path d="M124 232 q10 -18 34 -14 q22 6 20 24 q-6 14 -26 14 q-24 -2 -28 -24 z" fill="url(#t)" stroke="#155f5c" stroke-width="5" stroke-linejoin="round"/>
+<path d="M102 182 q10 -6 22 -2 M190 184 q14 -10 30 -4 M132 226 q8 -4 18 -2" fill="none" stroke="#4d3a2a" stroke-width="3" stroke-linecap="round" opacity=".55"/>
+<path d="M110 176 q6 -6 14 -6 M198 176 q8 -6 16 -6" fill="none" stroke="#e4fbf7" stroke-width="4" stroke-linecap="round"/></svg>

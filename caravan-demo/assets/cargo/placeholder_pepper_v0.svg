@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320"><!-- TEMP_PLACEHOLDER 胡椒: light, plain — a small tied cloth sack with peppercorns, deliberately small (not a big jute bag) -->
+<defs><linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8d4a8"/><stop offset="1" stop-color="#b8935c"/></linearGradient></defs>
+<path d="M120 122 q-40 30 -44 90 q-2 50 84 52 q86 -2 84 -52 q-4 -60 -44 -90 z" fill="url(#b)" stroke="#6e4d2a" stroke-width="5" stroke-linejoin="round"/>
+<path d="M120 122 q40 -10 80 0 q6 -20 -10 -30 q-30 -6 -60 0 q-16 10 -10 30 z" fill="#d8bf8a" stroke="#6e4d2a" stroke-width="5" stroke-linejoin="round"/>
+<path d="M108 128 q52 14 104 0" fill="none" stroke="#8c3f29" stroke-width="9" stroke-linecap="round"/>
+<path d="M150 116 q-14 -22 -30 -22 M170 116 q14 -22 30 -22" fill="none" stroke="#8c3f29" stroke-width="7" stroke-linecap="round"/>
+<path d="M98 184 q40 -16 62 -2 q30 -18 62 2" fill="none" stroke="#9c7442" stroke-width="3" opacity=".6"/>
+<g fill="#3a2a22" stroke="#1f1612" stroke-width="2"><circle cx="70" cy="252" r="9"/><circle cx="92" cy="266" r="8"/><circle cx="252" cy="258" r="9"/><circle cx="232" cy="270" r="8"/><circle cx="58" cy="274" r="7"/><circle cx="270" cy="276" r="7"/></g>
+<path d="M62 248 q4 -4 8 -2 M244 254 q4 -4 8 -2" fill="none" stroke="#7d6a60" stroke-width="2"/></svg>

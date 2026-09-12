@@ -1,0 +1,243 @@
+{
+  "designVersion": "DUNHUANG_CARAVAN_LOADING_v0.3",
+  "status": "FROZEN_FOR_PROTOTYPE",
+  "idPolicy": "Technical serialization keys introduced by handoff, not official future-city goods IDs.",
+  "playerAttributePolicy": "Waiting card shows one core attribute; context shows all; primary choice for dual-attribute cargo is not frozen.",
+  "attributeLabels": {
+    "SOFT": "柔软",
+    "PRESSURE_SENSITIVE": "怕压",
+    "FRAGILE": "易损",
+    "DURABLE": "耐压",
+    "NORMAL": "普通"
+  },
+  "cargo": [
+    {
+      "id": "silk",
+      "name": "绢帛",
+      "sourceCity": "长安",
+      "sourceScope": "NAMED_CITY",
+      "weight": 1,
+      "weightLevel": "LIGHT",
+      "weightLabel": "轻",
+      "attributes": [
+        "SOFT"
+      ],
+      "archetype": "LIGHT_SOFT",
+      "constraintWeight": 0.5,
+      "visualNote": "最小可辨识视觉，体量与重量大体一致"
+    },
+    {
+      "id": "paper",
+      "name": "纸张",
+      "sourceCity": "长安",
+      "sourceScope": "NAMED_CITY",
+      "weight": 1,
+      "weightLevel": "LIGHT",
+      "weightLabel": "轻",
+      "attributes": [
+        "PRESSURE_SENSITIVE"
+      ],
+      "archetype": "LIGHT_PRESSURE",
+      "constraintWeight": 2,
+      "visualNote": "最小可辨识视觉，体量与重量大体一致"
+    },
+    {
+      "id": "ceramics",
+      "name": "陶瓷",
+      "sourceCity": "长安",
+      "sourceScope": "NAMED_CITY",
+      "weight": 5,
+      "weightLevel": "HEAVY",
+      "weightLabel": "重",
+      "attributes": [
+        "FRAGILE"
+      ],
+      "archetype": "HEAVY_FRAGILE",
+      "constraintWeight": 3,
+      "visualNote": "最小可辨识视觉，体量与重量大体一致"
+    },
+    {
+      "id": "lacquerware",
+      "name": "漆器",
+      "sourceCity": "长安",
+      "sourceScope": "NAMED_CITY",
+      "weight": 3,
+      "weightLevel": "MEDIUM",
+      "weightLabel": "中",
+      "attributes": [
+        "FRAGILE",
+        "PRESSURE_SENSITIVE"
+      ],
+      "archetype": "MEDIUM_FRAGILE_PRESSURE",
+      "constraintWeight": 2.5,
+      "visualNote": "最小可辨识视觉，体量与重量大体一致"
+    },
+    {
+      "id": "hexi_wool",
+      "name": "河西毛织",
+      "sourceCity": "敦煌",
+      "sourceScope": "NAMED_CITY",
+      "weight": 3,
+      "weightLevel": "MEDIUM",
+      "weightLabel": "中",
+      "attributes": [
+        "SOFT"
+      ],
+      "archetype": "MEDIUM_SOFT",
+      "constraintWeight": 1,
+      "visualNote": "最小可辨识视觉，体量与重量大体一致"
+    },
+    {
+      "id": "dried_fruit",
+      "name": "干果",
+      "sourceCity": "敦煌",
+      "sourceScope": "NAMED_CITY",
+      "weight": 3,
+      "weightLevel": "MEDIUM",
+      "weightLabel": "中",
+      "attributes": [
+        "NORMAL"
+      ],
+      "archetype": "NORMAL_BALANCER",
+      "constraintWeight": 0,
+      "visualNote": "最小可辨识视觉，体量与重量大体一致"
+    },
+    {
+      "id": "medicinal_herbs",
+      "name": "药材",
+      "sourceCity": "敦煌",
+      "sourceScope": "NAMED_CITY",
+      "weight": 1,
+      "weightLevel": "LIGHT",
+      "weightLabel": "轻",
+      "attributes": [
+        "PRESSURE_SENSITIVE"
+      ],
+      "archetype": "LIGHT_PRESSURE",
+      "constraintWeight": 2,
+      "visualNote": "最小可辨识视觉，体量与重量大体一致"
+    },
+    {
+      "id": "dye",
+      "name": "染料",
+      "sourceCity": "敦煌",
+      "sourceScope": "NAMED_CITY",
+      "weight": 3,
+      "weightLevel": "MEDIUM",
+      "weightLabel": "中",
+      "attributes": [
+        "NORMAL"
+      ],
+      "archetype": "NORMAL_BALANCER",
+      "constraintWeight": 0,
+      "visualNote": "最小可辨识视觉，体量与重量大体一致"
+    },
+    {
+      "id": "khotan_silk",
+      "name": "于阗丝织",
+      "sourceCity": "于阗",
+      "sourceScope": "NAMED_CITY",
+      "weight": 1,
+      "weightLevel": "LIGHT",
+      "weightLabel": "轻",
+      "attributes": [
+        "SOFT"
+      ],
+      "archetype": "LIGHT_SOFT",
+      "constraintWeight": 0.5,
+      "visualNote": "最小可辨识视觉，体量与重量大体一致"
+    },
+    {
+      "id": "khotan_jade",
+      "name": "于阗玉",
+      "sourceCity": "于阗",
+      "sourceScope": "NAMED_CITY",
+      "weight": 5,
+      "weightLevel": "HEAVY",
+      "weightLabel": "重",
+      "attributes": [
+        "DURABLE"
+      ],
+      "archetype": "HEAVY_DURABLE",
+      "constraintWeight": 1,
+      "visualNote": "最小可辨识视觉，体量与重量大体一致"
+    },
+    {
+      "id": "fine_jade",
+      "name": "精制玉器",
+      "sourceCity": "于阗",
+      "sourceScope": "NAMED_CITY",
+      "weight": 3,
+      "weightLevel": "MEDIUM",
+      "weightLabel": "中",
+      "attributes": [
+        "FRAGILE",
+        "PRESSURE_SENSITIVE"
+      ],
+      "archetype": "MEDIUM_FRAGILE_PRESSURE",
+      "constraintWeight": 2.5,
+      "visualNote": "最小可辨识视觉，体量与重量大体一致"
+    },
+    {
+      "id": "felt_shoes",
+      "name": "毛毡鞋",
+      "sourceCity": "于阗",
+      "sourceScope": "NAMED_CITY",
+      "weight": 1,
+      "weightLevel": "LIGHT",
+      "weightLabel": "轻",
+      "attributes": [
+        "SOFT"
+      ],
+      "archetype": "LIGHT_SOFT",
+      "constraintWeight": 0.5,
+      "visualNote": "最小可辨识视觉，体量与重量大体一致"
+    },
+    {
+      "id": "silverware",
+      "name": "银器",
+      "sourceCity": null,
+      "sourceScope": "FUTURE_CITY_CANDIDATE_MINIGAME_ONLY",
+      "weight": 5,
+      "weightLevel": "HEAVY",
+      "weightLabel": "重",
+      "attributes": [
+        "DURABLE"
+      ],
+      "archetype": "HEAVY_DURABLE",
+      "constraintWeight": 1,
+      "visualNote": "最小可辨识视觉，体量与重量大体一致"
+    },
+    {
+      "id": "turquoise",
+      "name": "绿松石",
+      "sourceCity": null,
+      "sourceScope": "FUTURE_CITY_CANDIDATE_MINIGAME_ONLY",
+      "weight": 3,
+      "weightLevel": "MEDIUM",
+      "weightLabel": "中",
+      "attributes": [
+        "FRAGILE",
+        "PRESSURE_SENSITIVE"
+      ],
+      "archetype": "MEDIUM_FRAGILE_PRESSURE",
+      "constraintWeight": 2.5,
+      "visualNote": "最小可辨识视觉，体量与重量大体一致"
+    },
+    {
+      "id": "pepper",
+      "name": "胡椒",
+      "sourceCity": null,
+      "sourceScope": "FUTURE_CITY_CANDIDATE_MINIGAME_ONLY",
+      "weight": 1,
+      "weightLevel": "LIGHT",
+      "weightLabel": "轻",
+      "attributes": [
+        "NORMAL"
+      ],
+      "archetype": "NORMAL_BALANCER",
+      "constraintWeight": 0,
+      "visualNote": "小型/中小型袋装，不画大麻袋"
+    }
+  ]
+}

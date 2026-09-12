@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+py/vendor/p0/reports/
+tests/results/

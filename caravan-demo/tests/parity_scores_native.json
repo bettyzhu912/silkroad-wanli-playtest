@@ -1,0 +1,217 @@
+{
+ "boards": [
+  {
+   "name": "fixed-B1",
+   "items": [
+    "ceramics",
+    "silverware",
+    "pepper",
+    "silk"
+   ],
+   "ref": 1.0,
+   "layouts": 120,
+   "sha256": "3952147ec009d7f7b676cd190fe038606fad468263c518789473d4e776356c2a"
+  },
+  {
+   "name": "fixed-B2",
+   "items": [
+    "ceramics",
+    "silverware",
+    "pepper",
+    "silk",
+    "paper",
+    "dye"
+   ],
+   "ref": 1.0,
+   "layouts": 2160,
+   "sha256": "cf2e0494e97f019766dc9d26b7cf48179df10c628c62d6a9d2e305f56dbd3efe"
+  },
+  {
+   "name": "fixed-B3",
+   "items": [
+    "khotan_jade",
+    "paper",
+    "ceramics",
+    "silk",
+    "pepper",
+    "hexi_wool",
+    "dye",
+    "lacquerware"
+   ],
+   "ref": 0.8333333333333334,
+   "layouts": 40320,
+   "sha256": "c4db01a080e16691a87a871ceadb893571e9df3e6c2b3e71c743694ebad3be77"
+  },
+  {
+   "name": "run0-B1",
+   "items": [
+    "khotan_jade",
+    "pepper",
+    "fine_jade",
+    "dye"
+   ],
+   "ref": 1.0,
+   "layouts": 120,
+   "sha256": "f20f8f62ebe902ff90f2e5a04c7b3714b39cde9e3ec66754e48487db1288dde4"
+  },
+  {
+   "name": "run0-B2",
+   "items": [
+    "medicinal_herbs",
+    "ceramics",
+    "felt_shoes",
+    "lacquerware",
+    "dye"
+   ],
+   "ref": 0.8571428571428571,
+   "layouts": 480,
+   "sha256": "849538bfe000dc00af594562dc38d1845965415ed645e26a702399a91833ff84"
+  },
+  {
+   "name": "run0-B3",
+   "items": [
+    "silk",
+    "hexi_wool",
+    "dye",
+    "felt_shoes",
+    "silverware",
+    "fine_jade",
+    "pepper",
+    "lacquerware"
+   ],
+   "ref": 1.0,
+   "layouts": 40320,
+   "sha256": "deffa74e7bf64df039bdc769d51b965c8006148d9e7a0815ad1af8776a37db55"
+  },
+  {
+   "name": "run200-B1",
+   "items": [
+    "khotan_jade",
+    "silverware",
+    "khotan_silk",
+    "pepper"
+   ],
+   "ref": 1.0,
+   "layouts": 120,
+   "sha256": "13553770b8697d9948f0ae1a7ffa08e7a1c0d394703a04ac708a7be49d8f75d4"
+  },
+  {
+   "name": "run200-B2",
+   "items": [
+    "silk",
+    "felt_shoes",
+    "pepper",
+    "lacquerware",
+    "medicinal_herbs",
+    "khotan_jade"
+   ],
+   "ref": 1.0,
+   "layouts": 2160,
+   "sha256": "021c1f496016b14ae7408fcb3583121262eeac237d985813dd6037c6cb695eac"
+  },
+  {
+   "name": "run200-B3",
+   "items": [
+    "silk",
+    "khotan_silk",
+    "paper",
+    "ceramics",
+    "fine_jade",
+    "dried_fruit",
+    "hexi_wool",
+    "turquoise"
+   ],
+   "ref": 1.0,
+   "layouts": 40320,
+   "sha256": "c87be65d12f7c375e9612ba841a1f15e136127f701db6a04ccf76ae9435532dd"
+  },
+  {
+   "name": "run400-B1",
+   "items": [
+    "dye",
+    "silk",
+    "khotan_silk",
+    "silverware"
+   ],
+   "ref": 1.0,
+   "layouts": 120,
+   "sha256": "ecda96de308d47109bedc4ce45e7786b6bce9a91fea2d6b9ad96a713a46d986c"
+  },
+  {
+   "name": "run400-B2",
+   "items": [
+    "fine_jade",
+    "dye",
+    "dried_fruit",
+    "hexi_wool",
+    "khotan_jade",
+    "pepper",
+    "silk"
+   ],
+   "ref": 0.9,
+   "layouts": 10080,
+   "sha256": "8d3825537731badf5c239230192ad952dd5761a5e09d0f7b615b658c117d0225"
+  },
+  {
+   "name": "run400-B3",
+   "items": [
+    "felt_shoes",
+    "ceramics",
+    "medicinal_herbs",
+    "pepper",
+    "paper",
+    "khotan_jade",
+    "fine_jade",
+    "khotan_silk"
+   ],
+   "ref": 0.8,
+   "layouts": 40320,
+   "sha256": "ca36a072f3e4ddd17475fa236c69e1992a668936dcd92a83c9463416ff46340b"
+  },
+  {
+   "name": "run499-B1",
+   "items": [
+    "silk",
+    "felt_shoes",
+    "pepper",
+    "lacquerware"
+   ],
+   "ref": 1.0,
+   "layouts": 120,
+   "sha256": "50e1928869a01d95730020315ac7fa79d1c7b64ad8a486307704229331c9cd71"
+  },
+  {
+   "name": "run499-B2",
+   "items": [
+    "ceramics",
+    "felt_shoes",
+    "silverware",
+    "dried_fruit",
+    "khotan_silk",
+    "hexi_wool",
+    "khotan_jade"
+   ],
+   "ref": 0.9166666666666666,
+   "layouts": 10080,
+   "sha256": "2ad9117ffff9df928c6c546cad4a62a1a378cbcb2c0632792b64180f255515bc"
+  },
+  {
+   "name": "run499-B3",
+   "items": [
+    "silk",
+    "medicinal_herbs",
+    "khotan_jade",
+    "fine_jade",
+    "dye",
+    "turquoise",
+    "dried_fruit",
+    "hexi_wool"
+   ],
+   "ref": 0.8333333333333334,
+   "layouts": 40320,
+   "sha256": "d9a2193b02181e31f6a85753e00e171839a499f610a9e8f9f7724cba45ce2880"
+  }
+ ],
+ "sha256": "a2df6f93a8c11f8f272569e7d57e8b05a272a91a09e8240e90df2259a8d74841",
+ "totalLayouts": 227160
+}

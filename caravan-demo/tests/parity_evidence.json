@@ -1,0 +1,11 @@
+{
+ "oracle": "accepted_boards.jsonl",
+ "oracleSha256": "2deea7539b522be1ff2f091c8ea32f78088cb13b2403ba14c4a0c1b83d535f9f",
+ "oracleShaMatchesP0Report": true,
+ "runsCompared": 500,
+ "boardsCompared": 1500,
+ "identical": 500,
+ "different": 0,
+ "failures": [],
+ "ms": 30958
+}

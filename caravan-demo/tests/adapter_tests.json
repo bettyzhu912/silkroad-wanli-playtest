@@ -1,0 +1,74 @@
+{
+ "passed": 17,
+ "total": 17,
+ "results": [
+  {
+   "name": "test_75_three_batches",
+   "ok": true
+  },
+  {
+   "name": "test_90_three_batches",
+   "ok": true
+  },
+  {
+   "name": "test_not_pass_rework",
+   "ok": true
+  },
+  {
+   "name": "test_timeout_zero",
+   "ok": true
+  },
+  {
+   "name": "test_timeout_after_b1",
+   "ok": true
+  },
+  {
+   "name": "test_timeout_after_b2",
+   "ok": true
+  },
+  {
+   "name": "test_trial_full_isolated",
+   "ok": true
+  },
+  {
+   "name": "test_abort_cancel_and_confirm",
+   "ok": true
+  },
+  {
+   "name": "test_waiting_fixed_and_top_only",
+   "ok": true
+  },
+  {
+   "name": "test_submit_manual_locked_no_double",
+   "ok": true
+  },
+  {
+   "name": "test_submit_timeout_race_pass",
+   "ok": true
+  },
+  {
+   "name": "test_submit_timeout_race_not_pass",
+   "ok": true
+  },
+  {
+   "name": "test_timeout_no_auto_submit",
+   "ok": true
+  },
+  {
+   "name": "test_debug_on_off",
+   "ok": true
+  },
+  {
+   "name": "test_navigation_idempotent",
+   "ok": true
+  },
+  {
+   "name": "test_how_and_ready_close_no_record",
+   "ok": true
+  },
+  {
+   "name": "test_source_hashes_unchanged",
+   "ok": true
+  }
+ ]
+}

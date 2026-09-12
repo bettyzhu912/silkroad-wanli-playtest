@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320"><!-- TEMP_PLACEHOLDER 银器: heavy, durable — a silver ewer and two bowls wrapped on a cloth -->
+<defs><linearGradient id="s" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f4f0"/><stop offset=".5" stop-color="#b9bcbf"/><stop offset="1" stop-color="#7d8287"/></linearGradient><linearGradient id="c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9a066"/><stop offset="1" stop-color="#9a7040"/></linearGradient></defs>
+<path d="M28 262 Q160 236 292 262 L280 292 Q160 276 40 292 Z" fill="url(#c)" stroke="#6e4d2a" stroke-width="4" stroke-linejoin="round"/>
+<path d="M118 118 q-6 40 6 72 q-40 26 -30 62 h94 q10 -36 -30 -62 q12 -32 6 -72 z" fill="url(#s)" stroke="#5c6166" stroke-width="5" stroke-linejoin="round"/>
+<path d="M134 110 h30 l8 -22 h-46 z" fill="#d9dbdd" stroke="#5c6166" stroke-width="5" stroke-linejoin="round"/>
+<path d="M190 150 q40 -8 34 40 q-2 28 -30 30" fill="none" stroke="#5c6166" stroke-width="9" stroke-linecap="round"/>
+<path d="M112 128 q-30 8 -34 28 q-2 12 10 14" fill="none" stroke="#5c6166" stroke-width="8" stroke-linecap="round"/>
+<ellipse cx="238" cy="236" rx="46" ry="16" fill="url(#s)" stroke="#5c6166" stroke-width="5"/><path d="M194 236 q6 30 44 32 q38 -2 44 -32" fill="#a9adb0" stroke="#5c6166" stroke-width="5"/>
+<ellipse cx="72" cy="230" rx="38" ry="13" fill="url(#s)" stroke="#5c6166" stroke-width="5"/><path d="M36 230 q6 24 36 26 q30 -2 36 -26" fill="#a9adb0" stroke="#5c6166" stroke-width="5"/>
+<path d="M126 176 q34 -10 60 0" fill="none" stroke="#e9ebec" stroke-width="4" stroke-linecap="round"/></svg>
