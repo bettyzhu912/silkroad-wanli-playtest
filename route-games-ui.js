@@ -164,7 +164,7 @@
         const group = c.el("div", "route-event-choices");
         for (const choice of d.choices) {
           const enabled = S.events.choiceAllowed(c.p, choice.condition);
-          group.append(c.button(choice.choiceText.replace(/\bTick\b/g, "时段"), () => c.dispatch("EVENT_CHOOSE", { eventSessionId: e.id, choiceId: choice.choiceId }), { disabled: !enabled }));
+          group.append(c.button(choice.choiceText.replace(/\bTick\b/g, "时段"), () => c.dispatch("EVENT_CHOOSE", { eventSessionId: e.id, choiceId: choice.choiceId }, "event-choose-" + e.id + "-r" + (c.state?.meta?.revision ?? 0)), { disabled: !enabled }));   // occurrence + revision bound source id: a repeated click or a retry at the same revision replays the same ledger entry instead of running a second command; the settlement ledger in the state is the inner guard
         }
         body.append(group);
       }

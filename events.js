@@ -16,7 +16,21 @@
   for (const e of all) for (const c of e.choices) for (const o of c.outcomes) for (const effect of o.effects) if (effect.formula) formulas.add(effect.formula);
   for (const e of campDefinitions) for (const effect of e.effects) if (effect.formula) formulas.add(effect.formula);
   function initial() { return { history: [], moneyHistory: [], flags: {}, consumedGoodwill: {}, lossCounts: {}, consecutiveLosses: 0,
-    segmentModifiers: {}, routeCounts: {}, routeTargets: {}, routeRollDays: {}, mainDays: {}, campNights: {}, conditionalDays: {}, cityRollDays: {}, pendingCityRoll: null }; }
+    segmentModifiers: {}, routeCounts: {}, routeTargets: {}, routeRollDays: {}, mainDays: {}, campNights: {}, conditionalDays: {}, cityRollDays: {}, pendingCityRoll: null, settlements: {} }; }
+  // GUESTHOUSE_RANDOM_EVENT_SETTLEMENT_FIX_v1.0: every event occurrence (a session, e.g. an inn-night event) settles exactly once.
+  // The applied-settlement ledger is part of the game state, so it survives reloads and is checked before any delta is applied;
+  // the command store's own idempotency ledger (generation:source:id) remains the outer guard for repeated commands.
+  function settlements(p) { const st = state(p); return st.settlements || (st.settlements = {}); }
+  function settlementRecord(p, settlementId) { return settlements(p)[settlementId] || null; }
+  function summarizeDeltas(actual) {
+    const d = { cash: 0, reputation: 0, provisions: 0, cargo: [], worldTicks: 0, routeTicks: 0, info: 0, protection: 0 };
+    for (const e of actual) {
+      if (e.type === 'cash') d.cash += e.delta; else if (e.type === 'reputation') d.reputation += e.delta; else if (e.type === 'provisions') d.provisions += e.delta;
+      else if (e.type === 'cargo_damage' || e.type === 'cargo_loss') d.cargo.push({ type: e.type, lotId: e.lotId, goodId: e.goodId, quantity: e.quantity, condition: e.condition });
+      else if (e.type === 'world_time') d.worldTicks += e.deltaTicks; else if (e.type === 'route_remaining') d.routeTicks += e.deltaTicks; else if (e.type === 'info') d.info++; else if (e.type === 'protection') d.protection++;
+    }
+    return d;
+  }
   function state(p) { return p.events || (p.events = initial()); }
   const day = p => Math.floor(p.world.tick / 3);
   const tripKey = p => p.trip ? p.trip.id : "interlude-" + p.tripHistory.length;
@@ -257,7 +271,8 @@
     const eligible = eligibility(p, eventId, node);
     ensure(eligible.eligible, "EVENT_INELIGIBLE", eligible.reasons.join("；"));
     const st = state(p), e = definitions[eventId];
-    const s = { id: S.util.id(p, "event"), eventId, status: eventId.startsWith("RM-") ? "AWAITING_SKILL" : "AWAITING_CHOICE",
+    const id = S.util.id(p, "event");
+    const s = { id, occurrenceId: id, settlementId: id + "-settlement", eventId, status: eventId.startsWith("RM-") ? "AWAITING_SKILL" : "AWAITING_CHOICE",
       node: copy(node), openedTick: p.world.tick, tripKey: tripKey(p), tripNumber: tripNumber(p), routeId: p.world.route?.id || null,
       resultCardAcknowledged: false, result: null };
     const boxChoices=S.stories?.damageChoices(p)||[];
@@ -293,8 +308,10 @@
     return settle(p, s, choice, outcome, ctx);
   }
   function settle(p, s, choice, outcome, ctx) {
-    const e = definitions[s.eventId], beforeCash = p.cash, beforeTick = p.world.tick, beforeRep = p.reputation.value;
+    const e = definitions[s.eventId], beforeCash = p.cash, beforeTick = p.world.tick, beforeRep = p.reputation.value, beforeProvisions = p.inventory.provisions;
     const sourceTripId = p.trip?.id || null, sourceCity = p.world.city;
+    const settlementId = s.settlementId || (s.settlementId = s.id + "-settlement"), occurrenceId = s.occurrenceId || (s.occurrenceId = s.id);
+    ensure(!settlementRecord(p, settlementId) && s.status !== "RESOLVED" && s.status !== "ACKNOWLEDGED", "EVENT_SETTLED", "该事件结果已经结算");
     preflight(outcome.effects, e.eventId, s.node);
     const time = outcome.effects.filter(f => f.type === "world_time").reduce((sum, f) => sum + f.deltaTicks, 0);
     const actual = applyEffects(p, outcome.effects.filter(f => f.type !== "world_time"), e.eventId, s.node, ctx);
@@ -307,15 +324,20 @@
         cityId: sourceCity, routeId: s.routeId, lodgingContext: s.node.lodgingContext || "none", choiceId: choice.choiceId,
         outcomeId: outcome.outcomeId, cashBefore: beforeCash, delta: cashDelta, cashAfter: p.cash });
     }
-    p.journal.push({ type: "event", tripId: sourceTripId, eventId: s.eventId, sessionId: s.id,
+    p.journal.push({ type: "event", tripId: sourceTripId, eventId: s.eventId, sessionId: s.id, occurrenceId, settlementId,
       title: e.title, cashDelta, repDelta: p.reputation.value - beforeRep, tick: beforeTick, outcomeId: outcome.outcomeId });
+    const night = s.node.nightSnapshot || null;
+    settlements(p)[settlementId] = { settlementId, occurrenceId, source: night ? "guesthouse_random_event" : s.node.kind === "route" ? "route_event" : "city_event", eventId: s.eventId, sessionId: s.id,
+      choiceId: choice.choiceId, outcomeId: outcome.outcomeId, tick: beforeTick, tripId: sourceTripId, city: sourceCity,
+      cashBefore: beforeCash, cashAfter: p.cash, reputationBefore: beforeRep, reputationAfter: p.reputation.value, provisionsBefore: beforeProvisions, provisionsAfter: p.inventory.provisions,
+      deltas: summarizeDeltas(actual), lodging: night ? { action: night.action, lodgingCost: night.lodgingCost, cashBeforeLodging: night.before.cash } : null };
     // Outcome state and histories are visible to the one outer time transaction.
     if (time) { ensure(ctx && typeof ctx.advance === "function", "EVENT_OUTER_TIME"); ctx.advance(p, time, "event:" + e.eventId); }
     if (p.world.tick !== beforeTick) actual.push({ type: "world_time", deltaTicks: p.world.tick - beforeTick });
     s.status = "RESOLVED";
-    s.result = { kind: "event", modal: true, eventSessionId: s.id, eventId: s.eventId, title: e.title,
+    s.result = { kind: "event", modal: true, eventSessionId: s.id, occurrenceId, settlementId, eventId: s.eventId, title: e.title,
       chosenDisplayText: choice.chosenDisplayText, outcomeId: outcome.outcomeId, resultText: outcome.resultText,
-      effects: actual, outcomeNotes: copy(outcome.outcomeNotes || []), acknowledged: false, cashDelta,
+      effects: actual, outcomeNotes: copy(outcome.outcomeNotes || []), acknowledged: false, cashDelta, cashAfter: p.cash,
       nightSnapshot: copy(s.node.nightSnapshot || null) };
     return copy(s.result);
   }
@@ -339,11 +361,14 @@
     ensure(typeof nightId === "string" && nightId.length > 0, "CAMP_NIGHT");
     const e = campPool(p.world.city).find(row => row.eventId === eventId); ensure(e, "CAMP_EVENT");
     ensure(!p.events?.campNights[nightId], "CAMP_RESOLVED", "当夜已经结算");
+    const settlementId = "camp-" + nightId.replace(/:/g, "-") + "-settlement"; ensure(!settlementRecord(p, settlementId), "EVENT_SETTLED", "当夜已经结算");
     preflight(e.effects, e.eventId, { kind: "overnight" });
-    const st = state(p);
+    const st = state(p), beforeCash = p.cash, beforeRep = p.reputation.value, beforeProvisions = p.inventory.provisions;
     const actual = applyEffects(p, e.effects, e.eventId, { kind: "overnight" }, ctx); hiddenFlags(p, e.hiddenFlags);
-    const result = { kind: "camp", modal: true, nightId, eventId, title: e.title, resultText: e.resultText, effects: actual };
-    st.campNights[nightId] = copy(result); return result;
+    const result = { kind: "camp", modal: true, nightId, eventId, occurrenceId: nightId, settlementId, title: e.title, resultText: e.resultText, effects: actual, cashDelta: p.cash - beforeCash, cashAfter: p.cash };
+    st.campNights[nightId] = copy(result);
+    settlements(p)[settlementId] = { settlementId, occurrenceId: nightId, source: "camp_night_event", eventId, tick: p.world.tick, tripId: p.trip?.id || null, city: p.world.city, cashBefore: beforeCash, cashAfter: p.cash, reputationBefore: beforeRep, reputationAfter: p.reputation.value, provisionsBefore: beforeProvisions, provisionsAfter: p.inventory.provisions, deltas: summarizeDeltas(actual), lodging: null };
+    return result;
   }
   function routeTarget(p) {
     ensure(p.world.route && p.trip, "EVENT_ROUTE"); const st = state(p), route = p.world.route;
@@ -428,9 +453,10 @@
     st.pendingCityRoll = null;
     return cityDecision(p, ctx, { city: pending.city, day: pending.day });
   }
-  function migrate(p) { const st = state(p); st.cityRollDays ||= {}; if (st.pendingCityRoll === undefined) st.pendingCityRoll = null; }
+  function migrate(p) { const st = state(p); st.cityRollDays ||= {}; if (st.pendingCityRoll === undefined) st.pendingCityRoll = null; st.settlements ||= {}; }
+  function settlementsView(p) { return copy(settlements(p)); }
   S.events = { initial, definitions, eligibility, choiceAllowed, selectLots, preflight, cashFormula, applyEffects,
-    open, resolve, resolveRM, ack, campPool, resolveCamp, routeTarget, routeDecision, chooseMain, cityDecision, innNight, afterCityAction, cityRollKey, CITY_EVENT_PROBABILITY, migrate, selectStoryProtection, modifierApplies, enteredRoute, arrivedRoute };
+    open, resolve, resolveRM, ack, campPool, resolveCamp, settlementRecord, settlements: settlementsView, summarizeDeltas, routeTarget, routeDecision, chooseMain, cityDecision, innNight, afterCityAction, cityRollKey, CITY_EVENT_PROBABILITY, migrate, selectStoryProtection, modifierApplies, enteredRoute, arrivedRoute };
   S.commands.register('EVENT_STORY_PROTECTION_SELECT',selectStoryProtection);
   S.commands.register("EVENT_CHOOSE", (p, payload, ctx) => resolve(p, payload, ctx));
   S.commands.register("EVENT_RM_RESOLVE", (p, payload, ctx) => resolveRM(p, payload, ctx));

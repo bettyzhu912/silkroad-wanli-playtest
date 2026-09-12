@@ -158,7 +158,8 @@
     if (session?.id !== current.eventSessionId || !night || night.finalized) return null;
     E(session.status === 'ACKNOWLEDGED', 'NIGHT_EVENT_UNACKNOWLEDGED');
     const event = session.result;
-    const result = feedback(p, S.util.clone(night.before), night.action, night.action === 'stay' ? '留宿客舍' : '风餐露宿', event.resultText, { branch: 'money', nightId: session.node.nightId, eventId: session.eventId, effects: S.util.clone(event.effects), actionCost: night.actionCost, lodgingCost: night.lodgingCost });
+    // The night card reports the committed settlement: lodging and the event deltas were applied in sequence on the same state (before − lodging + event = now).
+    const result = feedback(p, S.util.clone(night.before), night.action, night.action === 'stay' ? '留宿客舍' : '风餐露宿', event.resultText, { branch: 'money', nightId: session.node.nightId, eventId: session.eventId, occurrenceId: session.occurrenceId || session.id, settlementId: session.settlementId || null, effects: S.util.clone(event.effects), eventCashDelta: event.cashDelta ?? 0, actionCost: night.actionCost, lodgingCost: night.lodgingCost });
     night.finalized = true; night.feedback = S.util.clone(result);
     return result;
   }
