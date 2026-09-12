@@ -35,7 +35,7 @@
   {
    "name": "3 FORMAL session starts (mock mode only)",
    "ok": true,
-   "detail": "{\"batch\":1,\"remaining\":74.82919999999926}"
+   "detail": "{\"batch\":1,\"remaining\":74.83119999999926}"
   },
   {
    "name": "3 tap-first 放入: all batch-1 cargo loaded, 确认装好 shown",
@@ -63,7 +63,7 @@
    "detail": "skip"
   },
   {
-   "name": "4 取出 ↑ returns cargo to fixed original positions",
+   "name": "4 single tap on the top item takes it out, cargo returns to fixed original positions",
    "ok": true,
    "detail": ""
   },
@@ -71,6 +71,11 @@
    "name": "4 rearranged layout PASSes → batch 3",
    "ok": true,
    "detail": ""
+  },
+  {
+   "name": "8 tap on a full bag only hints 已满, nothing moves",
+   "ok": true,
+   "detail": "这只驼袋已满"
   },
   {
    "name": "8 three completed batches → Settlement (immediately, no remaining-time reward)",
@@ -85,7 +90,7 @@
   {
    "name": "8 mock outer applied once: cash 100→122, worldTicks +2, one work record",
    "ok": true,
-   "detail": "{\"cash\":122,\"worldTicks\":2,\"tripSummary\":{\"livelihoodIncome\":0},\"tradeProfit\":17,\"reputation\":3,\"reputationTurnover\":11,\"goods\":[\"unchanged\"],\"market\":{\"unchanged\":true},\"workHistory\":[{\"runId\":\"12fc82d0-9f7d-4750-a627-e16e927ec6f7\",\"cash\":22,\"batchTiers\":[\"RICH\",\"RICH\",\"RICH\"]}]}"
+   "detail": "{\"cash\":122,\"worldTicks\":2,\"tripSummary\":{\"livelihoodIncome\":0},\"tradeProfit\":17,\"reputation\":3,\"reputationTurnover\":11,\"goods\":[\"unchanged\"],\"market\":{\"unchanged\":true},\"workHistory\":[{\"runId\":\"25bbb666-76cf-4681-b743-0c64f5e16f3c\",\"cash\":22,\"batchTiers\":[\"RICH\",\"RICH\",\"RICH\"]}]}"
   },
   {
    "name": "9 返回营生 → livelihood list, no double commit",
@@ -95,7 +100,7 @@
   {
    "name": "9 mock outer unchanged after navigation",
    "ok": true,
-   "detail": "{\"cash\":122,\"worldTicks\":2,\"tripSummary\":{\"livelihoodIncome\":0},\"tradeProfit\":17,\"reputation\":3,\"reputationTurnover\":11,\"goods\":[\"unchanged\"],\"market\":{\"unchanged\":true},\"workHistory\":[{\"runId\":\"12fc82d0-9f7d-4750-a627-e16e927ec6f7\",\"cash\":22,\"batchTiers\":[\"RICH\",\"RICH\",\"RICH\"]}]}"
+   "detail": "{\"cash\":122,\"worldTicks\":2,\"tripSummary\":{\"livelihoodIncome\":0},\"tradeProfit\":17,\"reputation\":3,\"reputationTurnover\":11,\"goods\":[\"unchanged\"],\"market\":{\"unchanged\":true},\"workHistory\":[{\"runId\":\"25bbb666-76cf-4681-b743-0c64f5e16f3c\",\"cash\":22,\"batchTiers\":[\"RICH\",\"RICH\",\"RICH\"]}]}"
   },
   {
    "name": "5 Timeout after B1 keeps the completed batch (出色 / 未完成 / 未完成, 12钱)",
@@ -115,7 +120,7 @@
   {
    "name": "6 Abort cancel restores gameplay and the paused clock",
    "ok": true,
-   "detail": "{\"before\":86.30349999999629,\"during\":86.30079999999704,\"after\":86.1344999999963}"
+   "detail": "{\"before\":86.3298999999985,\"during\":86.328,\"after\":86.16290000000224}"
   },
   {
    "name": "7 Abort confirm commits zero state (ABORTED, previous batch not paid)",
@@ -183,6 +188,6 @@
    "detail": ""
   }
  ],
- "passed": 36,
- "total": 36
+ "passed": 37,
+ "total": 37
 }
