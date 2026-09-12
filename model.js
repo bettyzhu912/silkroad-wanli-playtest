@@ -43,7 +43,9 @@
       if(p.market.visit&&!p.market.visit.settled&&!safeUI)ensure(command.type.startsWith('market.')||command.type.startsWith('newspaper.')||['commission.accept','commission.pickup','commission.deliver','commission.abandon'].includes(command.type),'MARKET_VISIT_OPEN','请先离开当前市场');
       const tavernActive = p.work?.tavern && (!p.work.tavern.result || p.work.tavern.result.completionStatus === 'COMPLETED' && !p.work.tavern.resultAcknowledged);
       const routeGameActive = p.work?.routeGame && !p.work.routeGame.result;
+      const weavingActive = Boolean(S.weaving?.isActive && S.weaving.isActive(p));
       if (tavernActive && !safeUI) ensure(command.type.startsWith('TAVERN_'), 'MINIGAME_ACTIVE', '请先完成当前诗令');
+      if (weavingActive && !safeUI) ensure(command.type.startsWith('WEAVE_'), 'MINIGAME_ACTIVE', '请先结束织坊活计');
       if (routeGameActive && !safeUI) ensure(command.type.startsWith('RM_'), 'MINIGAME_ACTIVE', '请先处理当前路途小游戏');
       if (p.eventSession && ['AWAITING_CHOICE', 'AWAITING_SKILL'].includes(p.eventSession.status) && !safeUI) ensure(command.type.startsWith('EVENT_') || command.type.startsWith('RM_'), 'EVENT_PENDING', '请先处理当前事件');
       const tracked = command.type.startsWith('finance.') || command.type.startsWith('merchant.');
@@ -66,7 +68,7 @@
     trade: 'LOCKED', journey: 'LOCKED', randomEvents50: 'LOCKED', routeMinigames: 'LOCKED',
     commissions: 'LOCKED', storyCommissions: 'LOCKED', inn: 'LOCKED', finance: 'LOCKED',
     merchant: 'LOCKED', newspapers: 'LOCKED', tavern: 'LOCKED', saves: 'LOCKED', collectionFlags: 'LOCKED',
-    changanSearchWork: 'BLOCK', changanInspectionWork: 'BLOCK', dunhuangWork: 'BLOCK', khotanWork: 'BLOCK',
+    changanSearchWork: 'BLOCK', changanInspectionWork: 'BLOCK', dunhuangWork: 'BLOCK', khotanWork: 'LOCKED',
     compendiumUI: 'BLOCK', compendiumRewards: 'BLOCK', compendiumProgress: 'BLOCK', compendiumNotices: 'BLOCK',
     longStories30Runtime: 'BLOCK', npcAffinity: 'BLOCK', futureCities: 'BLOCK', goodsQuality: 'DELETED', legacyProject: 'REFERENCE_ONLY'
   });

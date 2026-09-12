@@ -10,8 +10,10 @@ const { load, ORDER } = require('./harness');
 const { simulate } = require('./fuzz');
 const ROOT = path.join(__dirname, '..');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rc2-engine-'));
-execSync('git archive v0.3.0-competition-rc2 ' + ORDER.join(' ') + ' | tar -x -C ' + JSON.stringify(tmp), { cwd: ROOT });
-function loadOld() { const ctx = { console, structuredClone, setTimeout, clearTimeout, Math, JSON }; ctx.globalThis = ctx; ctx.crypto = require('crypto').webcrypto; vm.createContext(ctx); for (const f of ORDER) vm.runInContext(fs.readFileSync(path.join(tmp, f), 'utf8'), ctx, { filename: f }); return ctx; }
+// Files added after RC2 (e.g. weaving.js) do not exist in the baseline tag; archive only those the tag has and skip them when loading the old engine.
+const OLD_FILES = ORDER.filter(f => { try { execSync('git cat-file -e v0.3.0-competition-rc2:' + f, { cwd: ROOT, stdio: 'ignore' }); return true; } catch (_) { return false; } });
+execSync('git archive v0.3.0-competition-rc2 ' + OLD_FILES.join(' ') + ' | tar -x -C ' + JSON.stringify(tmp), { cwd: ROOT });
+function loadOld() { const ctx = { console, structuredClone, setTimeout, clearTimeout, Math, JSON }; ctx.globalThis = ctx; ctx.crypto = require('crypto').webcrypto; vm.createContext(ctx); for (const f of OLD_FILES) vm.runInContext(fs.readFileSync(path.join(tmp, f), 'utf8'), ctx, { filename: f }); return ctx; }
 const OLD = loadOld().Silk, NEW = load().Silk;
 console.log('old engine', JSON.stringify(OLD.core.versions), '→ new engine', JSON.stringify(NEW.core.versions));
 const results = [];

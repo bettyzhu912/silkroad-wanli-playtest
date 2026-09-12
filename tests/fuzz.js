@@ -41,6 +41,17 @@ function simulate(S, seed, STEPS, opts = {}) {
     if (consecutiveFail >= 60) { record(stuck, [...new Set(lastErrors)].sort().join(' || '), { seed, step, tick: p.world.tick, city: p.world.city, route: !!p.world.route, phase: p.world.tick % 3, cash: p.cash, trip: p.trip?.phase, draft: !!p.departureDraft, event: p.eventSession?.status + ':' + p.eventSession?.eventId, recent: history.slice(-10) }); break; }
     const ar = p.presentation.activeResult; if (ar) { run('result.ack', { resultId: ar.id }); cov('ack'); continue; }
     const notices = p.presentation.notices; if (notices.length && R() < .5) { const nt = notices[0]; run(nt.kind === 'tutorial' ? 'tutorial.dismiss' : 'notice.dismiss', nt.kind === 'tutorial' ? { id: nt.id } : { ids: [nt.id], id: nt.id }); continue; }
+    const wv = p.work?.weaving;
+    if (wv && (wv.phase === 'PLAYING' || wv.result && !wv.settled)) {
+      cov('weaving.play');
+      if (wv.result) { const before = { cash: p.cash, tick: p.world.tick }; run('WEAVE_SETTLE', { sessionId: wv.id, settlementId: wv.settlementId }); if (p.work.weaving.settled && p.world.tick !== before.tick) { S.util.ensure(p.cash - before.cash === wv.result.totalWage && p.world.tick - before.tick === 2 && p.world.tick % 3 === 2, 'WEAVING_SETTLE_INVARIANT', 'settlement must pay once and land on 暮'); cov('weaving.settled'); } continue; }
+      if (R() < .15) { run('WEAVE_ABORT', { sessionId: wv.id }); cov('weaving.abort'); continue; }
+      const correct = Math.floor(R() * 13), unresolved = R() < .3 ? Math.floor(R() * 3) : 0;
+      run('WEAVE_FINISH', { sessionId: wv.id, stats: { reason: correct === 12 && R() < .7 ? 'ALL_CLEAN' : 'DAY_END', correct, unresolved, wrongEndpoint: R() < .5, idleClean: R() < .5, looseRecovered: R() < .5, urgentTriggered: wv.rushPlanned, urgentSuccess: wv.rushPlanned && R() < .6 } });
+      if (p.work.weaving.result) S.util.ensure(p.work.weaving.result.totalWage <= 23 && p.work.weaving.result.totalWage >= 9, 'WEAVING_WAGE_RANGE', 'wage out of range');
+      continue;
+    }
+    if (S.weaving && !p.world.route && p.world.city === 'khotan' && p.world.tick % 3 === 0 && !p.work?.tavern && R() < .25 && S.weaving.availability(p).canStartFormal) { run('WEAVE_START', { mode: 'FORMAL' }); cov('weaving.start'); continue; }
     const tav = p.work?.tavern;
     if (tav && !tav.result) { cov('tavern.play'); if (tav.phase === 'PAUSED') { run('TAVERN_RESUME', { sessionId: tav.id }); continue; } if (tav.mode === 'TRIAL' && R() < .05) { run('TAVERN_ABORT', { sessionId: tav.id }); continue; }
       let ms; if (tav.phase === 'QUESTION' && tav.current && !tav.current.answer) { ms = Math.min(tav.current.deadlineMs + (R() < .15 ? 50 : -1), tav.current.openedMs + 180 + Math.floor(R() * 2500)); if (R() < .1) ms = tav.clockMs + Math.floor(R() * 8000); const answer = R() < .8 && ms >= tav.current.openedMs + 180 && ms < tav.current.deadlineMs; run('TAVERN_STEP', { sessionId: tav.id, sequence: tav.sequence + 1, elapsedMs: Math.min(46350, Math.max(tav.clockMs, ms)), ...(answer ? { questionId: tav.current.questionId, lineId: pick(tav.current.options) } : {}) }); }

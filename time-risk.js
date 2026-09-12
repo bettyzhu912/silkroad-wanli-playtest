@@ -28,6 +28,7 @@
     if (overnight.has(type)) return phase === 2 ? 1 : 0;
     if (type === 'merchant.sit') return p.world.city === 'changan' && phase < 2 ? 1 : 0;
     if (type === 'TAVERN_START') return payload.mode === 'FORMAL' && p.world.city === 'changan' && phase < 2 ? 1 : 0;
+    if (type === 'WEAVE_START') return payload.mode === 'FORMAL' && p.world.city === 'khotan' && phase === 0 ? 2 : 0;
     return 0;
   }
 
@@ -81,7 +82,7 @@
       }
     }
     if (!lines.length) return null;
-    const cost = trades.has(type) ? '本次交易后，离开市场将耗费一个时段。' : type === 'TAVERN_START' ? '正式诗令完成后将耗费一个时段。' : '本次操作的基础耗时为' + durationText(elapsed) + '。';
+    const cost = trades.has(type) ? '本次交易后，离开市场将耗费一个时段。' : type === 'TAVERN_START' ? '正式诗令完成后将耗费一个时段。' : type === 'WEAVE_START' ? '正式帮工收工后将耗费两个时段。' : '本次操作的基础耗时为' + durationText(elapsed) + '。';
     return { title: '留意商期与委托', text: [cost, ...lines].join('\n') };
   }
   S.timeRisk = { actionTicks, remainingRoute, check };

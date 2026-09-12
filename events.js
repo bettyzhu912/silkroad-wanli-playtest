@@ -411,6 +411,7 @@
     if (p.world.route) return true;
     if (p.eventSession && p.eventSession.status !== 'ACKNOWLEDGED') return true;
     const tavern = p.work?.tavern; if (tavern && (!tavern.result || tavern.result.completionStatus === 'COMPLETED' && !tavern.resultAcknowledged)) return true;
+    if (S.weaving?.isActive && S.weaving.isActive(p)) return true;
     if (p.work?.routeGame && !p.work.routeGame.result) return true;
     if (p.market?.visit && !p.market.visit.settled) return true;
     const deadline = S.trip?.graceDeadline ? S.trip.graceDeadline(p) : null; if (deadline !== null && deadline !== undefined && p.world.tick > deadline) return true;
