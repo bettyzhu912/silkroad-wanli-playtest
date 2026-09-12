@@ -7,13 +7,13 @@
     tutorialCooldown: false, keyboard: false, mounted: false, error: '', focusReturn: null, sceneCity: null, viewMemory: new Map(),lastResultId:null,resultReturn:null,entrySerial:0 };
   let nodes = {};
   let journeyController=null,lastRouteId=null,lastTripId=null;
-  // City hotspots are scene-level: coordinates are pixels on the 720×1280 city artwork (B7 mobile backgrounds) and scale with the art in fitScene(); they never follow the HUD or the viewport.
-  // The 720×1280 backgrounds are uniform downscales of the 941×1672 originals (verified: mean pixel difference ≈3.7/255), so every hotspot keeps its building/sign; values converted ×720/941, ×1280/1672.
-  const cityArt = { w: 720, h: 1280 };
+  // LONG-BG TEST: coordinates are pixels on the 720×1600 (20:9) city artwork and scale with the art in fitScene(); they never follow the HUD or the viewport.
+  // The 20:9 backgrounds are the 720×1280 composition placed at y=320..1600 with 320px of added sky above (pixel match, mean diff ≈0.5/255): x unchanged, y +320; no hotspot re-marked.
+  const cityArt = { w: 720, h: 1600, sky: 320 };
   const hotspots = {
-    changan: [['work','营生',140,460],['depart','出发',367,530],['guifang','柜坊',489,596],['inn','客舍',199,612],['merchant_business','商号',641,735],['inspect','商情',199,834],['market','市场',516,1041]],
-    dunhuang: [['depart','出发',497,475],['guifang','柜坊',170,673],['inn','客舍',252,766],['inspect','商情',176,888],['market','市场',589,888],['work','营生',639,1056]],
-    khotan: [['inn','客舍',383,398],['market','市场',559,538],['guifang','柜坊',432,670],['inspect','商情',161,681],['depart','出发',536,754],['work','营生',337,1003]]
+    changan: [['work','营生',140,780],['depart','出发',367,850],['guifang','柜坊',489,916],['inn','客舍',199,932],['merchant_business','商号',641,1055],['inspect','商情',199,1154],['market','市场',516,1361]],
+    dunhuang: [['depart','出发',497,795],['guifang','柜坊',170,993],['inn','客舍',252,1086],['inspect','商情',176,1208],['market','市场',589,1208],['work','营生',639,1376]],
+    khotan: [['inn','客舍',383,718],['market','市场',559,858],['guifang','柜坊',432,990],['inspect','商情',161,1001],['depart','出发',536,1074],['work','营生',337,1323]]
   };
 
   const titles = { pack:'行囊', commission:'委托', message:'消息', merchant_business:'商号', more:'更多', guifang:'柜坊', inn:'客舍', market:'市场', work:'营生', inspect:'商情', depart:'出发', map:'地图', funds:'资金总览', reputation:'商誉详情', time:'时间与商期', help:'玩法说明', settings:'设置', notification:'系统通知', archive:'丝路之录' };
@@ -147,8 +147,9 @@
       const ratio=657/1183,travelWidth=Math.min(width,height*ratio),travelHeight=travelWidth/ratio;
       nodes.sceneWorld.style.width=travelWidth+'px';nodes.sceneWorld.style.height=travelHeight+'px';nodes.sceneWorld.style.left=(width-travelWidth)/2+'px';nodes.sceneWorld.style.top=(height-travelHeight)/2+'px';return;
     }
-    // City art (720×1280): contain — the complete artwork at its own aspect ratio, centred; on tall phones the HUD sits on the top band and the map button on the bottom band.
-    const ratio=cityArt.w/cityArt.h,worldW=Math.min(width,height*ratio),worldH=worldW/ratio,left=(width-worldW)/2,top=(height-worldH)/2;
+    // LONG-BG TEST — city art (720×1600, top 320px = added sky): the standard 720×1280 composition is always shown complete at its own aspect ratio
+    // (worldW ≤ width and 0.8·worldH ≤ height); the added sky fills the remaining height and is the only region that may be cropped (at the top), so tall phones show no bands.
+    const ratio=cityArt.w/cityArt.h,stdRatio=cityArt.w/(cityArt.h-cityArt.sky),worldW=Math.min(width,height*stdRatio),worldH=worldW/ratio,left=(width-worldW)/2,top=worldH>height?height-worldH:(height-worldH)/2;
     nodes.sceneWorld.style.left=left+'px';nodes.sceneWorld.style.width=worldW+'px';nodes.sceneWorld.style.height=worldH+'px';nodes.sceneWorld.style.top=top+'px';
     // hotspots in px on the art; plaques are kept fully inside the viewport (only matters for plaques near the art edge on very narrow screens)
     for(const hot of nodes.sceneWorld.querySelectorAll('.city-hotspot')){const ax=Number(hot.dataset.artX),ay=Number(hot.dataset.artY);if(!ax)continue;const hw=(hot.offsetWidth||82)/2+2,hh=(hot.offsetHeight||44)/2+2;

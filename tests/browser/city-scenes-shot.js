@@ -16,7 +16,8 @@ const METRICS = `(() => {
   if (!art || !art.naturalWidth) { out.issues.push('city background not loaded'); return out; }
   const a = r(art); out.art = { natural: art.naturalWidth + 'x' + art.naturalHeight, box: a, boxRatio: +(a.w / a.h).toFixed(4), naturalRatio: +(art.naturalWidth / art.naturalHeight).toFixed(4), src: art.currentSrc.split('/').pop() };
   if (Math.abs(out.art.boxRatio - out.art.naturalRatio) > 0.003) out.issues.push('art box ratio differs from natural ratio');
-  if (a.x < -1 || a.y < -1 || a.r > vw + 1 || a.b > vh + 1) out.issues.push('art cropped by viewport');
+  const sky = art.naturalHeight === 1600 ? 320 / 1600 : 0; out.bands = { left: +Math.max(0, a.x).toFixed(1), right: +Math.max(0, vw - a.r).toFixed(1), top: +Math.max(0, a.y).toFixed(1), bottom: +Math.max(0, vh - a.b).toFixed(1), skyCropped: +Math.max(0, -a.y).toFixed(1), skyAllowance: +(sky * a.h).toFixed(1) };
+  if (a.x < -1 || a.r > vw + 1 || a.b > vh + 1 || -a.y > sky * a.h + 1) out.issues.push('art cropped beyond the added-sky allowance');
   out.hud = r(hud);
   const cs = getComputedStyle(document.documentElement), uiTop = parseFloat(cs.getPropertyValue('--ui-top')), uiBottom = parseFloat(cs.getPropertyValue('--ui-bottom')); out.insets = { uiTop, uiBottom }; if (out.hud.y < uiTop - 0.5) out.issues.push('HUD above --ui-top');
   out.map = r(map); out.mapBottomClearance = +(vh - out.map.b).toFixed(1); if (out.mapBottomClearance < uiBottom + 14 - 0.5) out.issues.push('map button too close to bottom (' + out.mapBottomClearance + 'px)'); if (out.map.r > vw + 0.5) out.issues.push('map button outside right edge');
