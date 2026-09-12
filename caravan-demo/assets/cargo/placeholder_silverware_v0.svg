@@ -1,10 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320"><!-- TEMP_PLACEHOLDER 银器: heavy, durable — a silver ewer and two bowls wrapped on a cloth -->
-<defs><linearGradient id="s" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f4f0"/><stop offset=".5" stop-color="#b9bcbf"/><stop offset="1" stop-color="#7d8287"/></linearGradient><linearGradient id="c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9a066"/><stop offset="1" stop-color="#9a7040"/></linearGradient></defs>
-<path d="M28 262 Q160 236 292 262 L280 292 Q160 276 40 292 Z" fill="url(#c)" stroke="#6e4d2a" stroke-width="4" stroke-linejoin="round"/>
-<path d="M118 118 q-6 40 6 72 q-40 26 -30 62 h94 q10 -36 -30 -62 q12 -32 6 -72 z" fill="url(#s)" stroke="#5c6166" stroke-width="5" stroke-linejoin="round"/>
-<path d="M134 110 h30 l8 -22 h-46 z" fill="#d9dbdd" stroke="#5c6166" stroke-width="5" stroke-linejoin="round"/>
-<path d="M190 150 q40 -8 34 40 q-2 28 -30 30" fill="none" stroke="#5c6166" stroke-width="9" stroke-linecap="round"/>
-<path d="M112 128 q-30 8 -34 28 q-2 12 10 14" fill="none" stroke="#5c6166" stroke-width="8" stroke-linecap="round"/>
-<ellipse cx="238" cy="236" rx="46" ry="16" fill="url(#s)" stroke="#5c6166" stroke-width="5"/><path d="M194 236 q6 30 44 32 q38 -2 44 -32" fill="#a9adb0" stroke="#5c6166" stroke-width="5"/>
-<ellipse cx="72" cy="230" rx="38" ry="13" fill="url(#s)" stroke="#5c6166" stroke-width="5"/><path d="M36 230 q6 24 36 26 q30 -2 36 -26" fill="#a9adb0" stroke="#5c6166" stroke-width="5"/>
-<path d="M126 176 q34 -10 60 0" fill="none" stroke="#e9ebec" stroke-width="4" stroke-linecap="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320"><!-- TEMP_PLACEHOLDER 银器 (heavy · durable): a silver ewer with two bowls on a folded cloth. Interim painted-look vector; replace with final art. -->
+<defs>
+<linearGradient id="ag" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbfbf8"/><stop offset=".35" stop-color="#d8dadc"/><stop offset=".6" stop-color="#9ea3a8"/><stop offset=".85" stop-color="#6c7176"/><stop offset="1" stop-color="#4b5055"/></linearGradient>
+<radialGradient id="hl" cx=".3" cy=".25" r=".6"><stop offset="0" stop-color="#ffffff" stop-opacity=".95"/><stop offset=".45" stop-color="#ffffff" stop-opacity=".15"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+<linearGradient id="cloth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9b47e"/><stop offset=".5" stop-color="#b98c55"/><stop offset="1" stop-color="#8c6437"/></linearGradient>
+<filter id="grain" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7"/><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .08 0"/><feComposite in2="SourceGraphic" operator="in"/><feBlend in2="SourceGraphic" mode="multiply"/></filter>
+<filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<ellipse cx="160" cy="276" rx="118" ry="16" fill="#4a3116" opacity=".28" filter="url(#soft)"/>
+<path d="M22 246 Q160 214 298 246 Q296 268 286 288 Q160 266 34 288 Q24 268 22 246 Z" fill="url(#cloth)" stroke="#5f4023" stroke-width="3" stroke-linejoin="round"/>
+<path d="M60 250 q40 -10 80 -4 M180 244 q46 -6 96 4 M40 272 q60 -8 120 -2" fill="none" stroke="#6a4826" stroke-width="2" opacity=".55"/>
+<g filter="url(#grain)">
+<path d="M118 112 q-8 42 6 76 q-42 26 -32 62 h96 q10 -36 -32 -62 q14 -34 6 -76 z" fill="url(#ag)" stroke="#3f4448" stroke-width="4" stroke-linejoin="round"/>
+<path d="M132 108 h32 l9 -24 h-50 z" fill="#e2e4e6" stroke="#3f4448" stroke-width="4" stroke-linejoin="round"/>
+<path d="M126 80 q17 -8 34 0" fill="none" stroke="#3f4448" stroke-width="4" stroke-linecap="round"/>
+<path d="M192 146 q42 -10 38 42 q-2 30 -32 34" fill="none" stroke="#3f4448" stroke-width="10" stroke-linecap="round"/>
+<path d="M192 146 q42 -10 38 42 q-2 30 -32 34" fill="none" stroke="#c9ccd0" stroke-width="5" stroke-linecap="round"/>
+<path d="M110 122 q-32 8 -36 30 q-2 14 12 16" fill="none" stroke="#3f4448" stroke-width="9" stroke-linecap="round"/>
+<path d="M110 122 q-32 8 -36 30 q-2 14 12 16" fill="none" stroke="#c9ccd0" stroke-width="4" stroke-linecap="round"/>
+<path d="M124 130 q-4 40 4 62" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity=".7"/>
+<ellipse cx="242" cy="232" rx="48" ry="16" fill="url(#ag)" stroke="#3f4448" stroke-width="4"/><path d="M196 232 q6 32 46 34 q40 -2 46 -34" fill="#8d9296" stroke="#3f4448" stroke-width="4"/><path d="M206 244 q36 22 72 0" fill="none" stroke="#e9ebec" stroke-width="3" opacity=".7"/>
+<ellipse cx="72" cy="228" rx="40" ry="13" fill="url(#ag)" stroke="#3f4448" stroke-width="4"/><path d="M34 228 q6 26 38 28 q32 -2 38 -28" fill="#8d9296" stroke="#3f4448" stroke-width="4"/>
+<path d="M132 190 q28 -8 56 0" fill="none" stroke="#3f4448" stroke-width="2" opacity=".5"/>
+<circle cx="160" cy="176" r="16" fill="none" stroke="#3f4448" stroke-width="2" opacity=".45"/><circle cx="160" cy="176" r="6" fill="#c9ccd0" stroke="#3f4448" stroke-width="2"/>
+</g>
+<path d="M118 112 q-8 42 6 76 q-42 26 -32 62 h96 q10 -36 -32 -62 q14 -34 6 -76 z" fill="url(#hl)"/>
+</svg>

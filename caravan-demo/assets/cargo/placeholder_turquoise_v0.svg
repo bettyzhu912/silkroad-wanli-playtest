@@ -1,10 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320"><!-- TEMP_PLACEHOLDER 绿松石: medium, fragile, pressure-sensitive — turquoise stones bedded in a small padded box -->
-<defs><linearGradient id="t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8fe1d6"/><stop offset=".5" stop-color="#3fb7ad"/><stop offset="1" stop-color="#1f7f7a"/></linearGradient><linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b07d48"/><stop offset="1" stop-color="#7a5230"/></linearGradient></defs>
-<path d="M40 150 h240 l-14 118 h-212 z" fill="url(#w)" stroke="#5a3a20" stroke-width="5" stroke-linejoin="round"/>
-<path d="M56 162 h208 l-10 94 h-188 z" fill="#f1dfb8" stroke="#c9a874" stroke-width="3"/>
-<path d="M34 150 h252 l10 -16 h-272 z" fill="#c69456" stroke="#5a3a20" stroke-width="5" stroke-linejoin="round"/>
-<path d="M92 214 q-8 -40 30 -50 q34 -6 46 24 q6 30 -20 40 q-42 8 -56 -14 z" fill="url(#t)" stroke="#155f5c" stroke-width="5" stroke-linejoin="round"/>
-<path d="M178 200 q4 -34 36 -36 q34 2 34 34 q0 30 -30 32 q-36 0 -40 -30 z" fill="url(#t)" stroke="#155f5c" stroke-width="5" stroke-linejoin="round"/>
-<path d="M124 232 q10 -18 34 -14 q22 6 20 24 q-6 14 -26 14 q-24 -2 -28 -24 z" fill="url(#t)" stroke="#155f5c" stroke-width="5" stroke-linejoin="round"/>
-<path d="M102 182 q10 -6 22 -2 M190 184 q14 -10 30 -4 M132 226 q8 -4 18 -2" fill="none" stroke="#4d3a2a" stroke-width="3" stroke-linecap="round" opacity=".55"/>
-<path d="M110 176 q6 -6 14 -6 M198 176 q8 -6 16 -6" fill="none" stroke="#e4fbf7" stroke-width="4" stroke-linecap="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320"><!-- TEMP_PLACEHOLDER 绿松石 (medium · fragile · pressure-sensitive): veined turquoise stones bedded in a small padded wooden box. Interim painted-look vector; replace with final art. -->
+<defs>
+<radialGradient id="tq" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#b9f2ea"/><stop offset=".3" stop-color="#5fcfc3"/><stop offset=".7" stop-color="#2a9e97"/><stop offset="1" stop-color="#166b68"/></radialGradient>
+<linearGradient id="wood" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c08a52"/><stop offset=".5" stop-color="#9a6a3c"/><stop offset="1" stop-color="#6d4626"/></linearGradient>
+<linearGradient id="pad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7ead0"/><stop offset="1" stop-color="#e0c79c"/></linearGradient>
+<filter id="grain2" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="3"/><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .1 0"/><feComposite in2="SourceGraphic" operator="in"/><feBlend in2="SourceGraphic" mode="multiply"/></filter>
+<filter id="soft2" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<ellipse cx="160" cy="280" rx="120" ry="15" fill="#4a3116" opacity=".28" filter="url(#soft2)"/>
+<g filter="url(#grain2)">
+<path d="M40 150 h240 l-14 122 h-212 z" fill="url(#wood)" stroke="#4e3218" stroke-width="4" stroke-linejoin="round"/>
+<path d="M52 166 q108 -10 216 0 M50 196 q110 -8 220 0 M48 228 q112 -8 224 0" fill="none" stroke="#5a3a1e" stroke-width="2" opacity=".45"/>
+<path d="M56 160 h208 l-10 100 h-188 z" fill="url(#pad)" stroke="#c7a36a" stroke-width="3"/>
+<path d="M62 176 q98 8 196 0 M66 204 q94 8 188 0 M70 232 q90 8 180 0" fill="none" stroke="#cbb388" stroke-width="2" opacity=".7"/>
+<path d="M30 150 h260 l12 -16 h-284 z" fill="#caa062" stroke="#4e3218" stroke-width="4" stroke-linejoin="round"/>
+<path d="M92 214 q-10 -42 30 -52 q36 -6 48 26 q6 32 -22 42 q-44 8 -56 -16 z" fill="url(#tq)" stroke="#0f4f4c" stroke-width="4" stroke-linejoin="round"/>
+<path d="M104 178 q14 -6 28 4 q14 12 30 8 M100 202 q18 6 36 -2" fill="none" stroke="#5a3d28" stroke-width="2.5" opacity=".6" stroke-linecap="round"/>
+<path d="M178 200 q4 -36 38 -38 q36 2 36 36 q0 32 -32 34 q-38 0 -42 -32 z" fill="url(#tq)" stroke="#0f4f4c" stroke-width="4" stroke-linejoin="round"/>
+<path d="M190 186 q16 -12 34 -6 q12 6 22 22 M196 214 q20 2 36 -8" fill="none" stroke="#5a3d28" stroke-width="2.5" opacity=".6" stroke-linecap="round"/>
+<path d="M124 234 q10 -20 36 -16 q24 6 22 26 q-6 16 -28 16 q-26 -2 -30 -26 z" fill="url(#tq)" stroke="#0f4f4c" stroke-width="4" stroke-linejoin="round"/>
+<path d="M134 232 q10 -6 24 -2" fill="none" stroke="#5a3d28" stroke-width="2.5" opacity=".6" stroke-linecap="round"/>
+</g>
+<path d="M108 174 q8 -8 20 -6" fill="none" stroke="#eafffb" stroke-width="5" stroke-linecap="round" opacity=".85"/>
+<path d="M196 176 q10 -8 22 -6" fill="none" stroke="#eafffb" stroke-width="5" stroke-linecap="round" opacity=".85"/>
+<path d="M136 226 q6 -4 14 -3" fill="none" stroke="#eafffb" stroke-width="4" stroke-linecap="round" opacity=".8"/>
+</svg>
