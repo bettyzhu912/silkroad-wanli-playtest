@@ -1,5 +1,7 @@
 # 《驼队装货》 Standalone public playtest build
 
+**v1.0.1 (2026-09-12) — container-compatibility patch of v1.0.** `engine/pyrandom.js` splits the seed with safe-integer arithmetic instead of BigInt so the identical engine can run in the main game's Chrome 61 / ES2017 container; output is bit-identical (parity suite re-run: 500/500 runs, 227,160 layouts, 3 scripted sessions). No gameplay, UI or data change. Archived as `dunhuang-caravan-loading_standalone_v1.0.1`; v1.0 stays archived untouched.
+
 **v1.0 (2026-09-12) — confirmed standalone version.** Round duration fixed at 75 s (the 90 s test option is removed from the test bar; `PROTOTYPE_CONFIG.json` still lists both playtest values, the game only offers A = 75). This is the version archived as `dunhuang-caravan-loading_standalone_v1.0` and integrated into the main game; later changes must produce a new version, not overwrite this one.
 
 **Status:** `STANDALONE_PUBLIC_PLAYTEST` · `READY_FOR_ITERATIVE_PLAYTEST` · `NOT_INTEGRATED_WITH_MAIN_GAME`

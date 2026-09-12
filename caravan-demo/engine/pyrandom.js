@@ -10,7 +10,8 @@ export class PyRandom {
     mt[0] = 0x80000000; this.mti = 624;
   }
   seed(a) { // CPython: abs(int) split into little-endian 32-bit words
-    let v = BigInt(a); if (v < 0n) v = -v; const key = []; if (v === 0n) key.push(0); while (v > 0n) { key.push(Number(v & 0xffffffffn)); v >>= 32n; } this.initByArray(key);
+    // Safe-integer arithmetic (no BigInt: the main-game container targets Chrome 61 / ES2017). Bit-exact for |a| < 2^53, which covers every seed the generator uses (test group indices 0–499).
+    if (!Number.isSafeInteger(a)) throw new Error('seed must be a safe integer'); let v = Math.abs(a); const key = []; if (v === 0) key.push(0); while (v > 0) { key.push(v % 4294967296); v = Math.floor(v / 4294967296); } this.initByArray(key);
   }
   genrandUint32() {
     const mt = this.mt; let y;

@@ -35,7 +35,7 @@
   {
    "name": "3 FORMAL session starts (mock mode only)",
    "ok": true,
-   "detail": "{\"batch\":1,\"remaining\":74.82460000000148}"
+   "detail": "{\"batch\":1,\"remaining\":74.82490000000595}"
   },
   {
    "name": "3 tap-first 放入: all batch-1 cargo loaded, 确认装好 shown",
@@ -90,7 +90,7 @@
   {
    "name": "8 mock outer applied once: cash 100→122, worldTicks +2, one work record",
    "ok": true,
-   "detail": "{\"cash\":122,\"worldTicks\":2,\"tripSummary\":{\"livelihoodIncome\":0},\"tradeProfit\":17,\"reputation\":3,\"reputationTurnover\":11,\"goods\":[\"unchanged\"],\"market\":{\"unchanged\":true},\"workHistory\":[{\"runId\":\"f48c60d6-bafa-4a0b-be47-2d276d88842c\",\"cash\":22,\"batchTiers\":[\"RICH\",\"RICH\",\"RICH\"]}]}"
+   "detail": "{\"cash\":122,\"worldTicks\":2,\"tripSummary\":{\"livelihoodIncome\":0},\"tradeProfit\":17,\"reputation\":3,\"reputationTurnover\":11,\"goods\":[\"unchanged\"],\"market\":{\"unchanged\":true},\"workHistory\":[{\"runId\":\"380a9418-3425-493f-a2ad-9674cd6a0f37\",\"cash\":22,\"batchTiers\":[\"RICH\",\"RICH\",\"RICH\"]}]}"
   },
   {
    "name": "9 返回营生 → livelihood list, no double commit",
@@ -100,7 +100,7 @@
   {
    "name": "9 mock outer unchanged after navigation",
    "ok": true,
-   "detail": "{\"cash\":122,\"worldTicks\":2,\"tripSummary\":{\"livelihoodIncome\":0},\"tradeProfit\":17,\"reputation\":3,\"reputationTurnover\":11,\"goods\":[\"unchanged\"],\"market\":{\"unchanged\":true},\"workHistory\":[{\"runId\":\"f48c60d6-bafa-4a0b-be47-2d276d88842c\",\"cash\":22,\"batchTiers\":[\"RICH\",\"RICH\",\"RICH\"]}]}"
+   "detail": "{\"cash\":122,\"worldTicks\":2,\"tripSummary\":{\"livelihoodIncome\":0},\"tradeProfit\":17,\"reputation\":3,\"reputationTurnover\":11,\"goods\":[\"unchanged\"],\"market\":{\"unchanged\":true},\"workHistory\":[{\"runId\":\"380a9418-3425-493f-a2ad-9674cd6a0f37\",\"cash\":22,\"batchTiers\":[\"RICH\",\"RICH\",\"RICH\"]}]}"
   },
   {
    "name": "5 Timeout after B1 keeps the completed batch (出色 / 未完成 / 未完成, 12钱)",
@@ -120,7 +120,7 @@
   {
    "name": "6 Abort cancel restores gameplay and the paused clock",
    "ok": true,
-   "detail": "{\"before\":86.32010000000147,\"during\":86.318799999997,\"after\":86.151299999997}"
+   "detail": "{\"before\":86.40459999999406,\"during\":86.40319999999555,\"after\":86.23879999999703}"
   },
   {
    "name": "7 Abort confirm commits zero state (ABORTED, previous batch not paid)",
