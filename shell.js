@@ -33,7 +33,7 @@
   function p() { return ui.state&&ui.state.progress; }
   function date(tick) { return S.time&&S.time.format?S.time.format(tick):'日期待接入'; }
   function panelKey() { return [ui.primary&&ui.primary.id,ui.secondary&&ui.secondary.id].filter(Boolean).join('/'); }
-  function context() { const generation=ui.state?.meta.generation;return { S, state:ui.state,p:p(),app:ui.app,entryId:ui.entrySerial,el,button,row,paragraph,formatMoney,date,openPanel,openSecondary,closePanel,closeSecondary,dispatch(type,payload,sourceId){return ui.state?.meta.generation===generation?dispatch(type,payload,sourceId,generation):Promise.resolve(null);},showModal,dismissModal,engineeringGap }; }
+  function context() { const generation=ui.state?.meta.generation;return { S, state:ui.state,p:p(),app:ui.app,entryId:ui.entrySerial,el,button,numericStepper,row,paragraph,formatMoney,date,openPanel,openSecondary,closePanel,closeSecondary,dispatch(type,payload,sourceId){return ui.state?.meta.generation===generation?dispatch(type,payload,sourceId,generation):Promise.resolve(null);},showModal,dismissModal,engineeringGap }; }
   function commandAvailable(type) { return type==='game.start'||type==='game.reset'||Boolean(S.commands&&S.commands.has(type)); }
   function stableSource(type,payload) { const m=ui.state&&ui.state.meta||{};const text=S.util&&S.util.stable?S.util.stable(payload):JSON.stringify(payload);let hash=2166136261;for(let i=0;i<text.length;i++)hash=Math.imul(hash^text.charCodeAt(i),16777619);return 'ui-'+m.generation+'-'+m.revision+'-'+type.replace(/[^A-Za-z0-9_-]/g,'-').slice(0,60)+'-'+(hash>>>0).toString(16); }
   async function dispatch(type,payload={},sourceId,expectedGeneration=ui.state?.meta.generation,acknowledgedRisk=false) {
@@ -59,6 +59,37 @@
       else ui.error=(error&&error.message&&/[\u3400-\u9fff]/.test(error.message))?error.message:'操作尚未完成，请稍后重试。';
       return null;
     } finally {ui.busy=false;render(ui.state);}
+  }
+  // GLOBAL_NUMERIC_STEPPER_UI_PATCH_v1.1 — the single shared numeric input: 【－】[editable integer]【＋】. Every player-editable
+  // quantity / amount in the game goes through this. It owns only the widget: min / max come from the calling business rule (max may be
+  // a function so it tracks live limits), manual entry and the buttons share the same clamp, and the caller keeps its own validation +
+  // submit logic (the inner <input> keeps its name and still fires 'input' events, so existing listeners, captureInputs/restoreInputs and
+  // the browser tests keep working). Integer only unless the calling rule already accepts decimals (decimal:true); step 1; hold to repeat.
+  function numericStepper(options={}) {
+    const wrap=el('div','numeric-stepper'); wrap.setAttribute('role','group'); if(options.label)wrap.setAttribute('aria-label',options.label);
+    const minus=el('button','stepper-btn stepper-minus','－'); minus.type='button'; minus.setAttribute('aria-label','减少'); minus.tabIndex=-1;
+    const plus=el('button','stepper-btn stepper-plus','＋'); plus.type='button'; plus.setAttribute('aria-label','增加'); plus.tabIndex=-1;
+    const input=el('input','stepper-input'); input.type='text'; input.inputMode=options.decimal?'decimal':'numeric'; input.pattern=options.decimal?'[0-9.]*':'[0-9]*'; input.autocomplete='off'; input.maxLength=15; input.enterKeyHint='done';
+    if(options.name)input.name=options.name; if(options.label)input.setAttribute('aria-label',options.label); input.value=options.value===undefined||options.value===null?'':String(options.value);
+    wrap.append(minus,input,plus);
+    const step=options.step||1;
+    const limits=()=>{const raw=typeof options.max==='function'?options.max():options.max;const max=raw===undefined||raw===null||!Number.isFinite(Number(raw))?Infinity:Math.max(0,Number(raw));const min=options.min===undefined||options.min===null?1:Number(options.min);return {min,max};};
+    const parse=()=>{const t=input.value;if(!(options.decimal?/^\d+(\.\d{1,4})?$/:/^\d+$/).test(t))return null;const n=Number(t);return Number.isFinite(n)?n:null;};
+    function sanitize(){let v=input.value.replace(options.decimal?/[^0-9.]/g:/[^0-9]/g,'');if(options.decimal){const i=v.indexOf('.');if(i>=0)v=v.slice(0,i+1)+v.slice(i+1).replace(/\./g,'');}
+      const {max}=limits();if(v!==''&&Number(v)>max)v=String(max);if(v!==input.value){const pos=v.length;input.value=v;try{input.setSelectionRange(pos,pos);}catch(_){}}}
+    function refresh(){const {min,max}=limits(),n=parse(),off=Boolean(options.disabled);input.disabled=off;minus.disabled=off||n===null||n<=min;plus.disabled=off||max<min||(n!==null&&n>=max);wrap.classList.toggle('at-min',n!==null&&n<=min);wrap.classList.toggle('at-max',n!==null&&n>=max);wrap.classList.toggle('is-empty',n===null);}
+    function stepBy(direction){const {min,max}=limits();if(max<min)return;const cur=parse();let n=cur===null?(direction>0?Math.max(min,step):min):cur+direction*step;if(options.decimal)n=Math.round(n*10000)/10000;n=Math.min(max,Math.max(min,n));if(!Number.isFinite(n))return;input.value=String(n);input.dispatchEvent(new Event('input',{bubbles:true}));}
+    function hold(btn,direction){let timer=null,repeat=null;const stop=()=>{clearTimeout(timer);clearInterval(repeat);timer=repeat=null;};
+      btn.addEventListener('pointerdown',e=>{if(btn.disabled)return;e.preventDefault();stepBy(direction);timer=setTimeout(()=>{repeat=setInterval(()=>{if(btn.disabled||!btn.isConnected){stop();return;}stepBy(direction);},90);},420);});
+      for(const type of ['pointerup','pointerleave','pointercancel','lostpointercapture'])btn.addEventListener(type,stop);
+      btn.addEventListener('click',e=>{if(e.detail===0&&!btn.disabled)stepBy(direction);});   // keyboard / assistive activation (pointer clicks are handled on pointerdown)
+    }
+    hold(minus,-1);hold(plus,1);
+    input.addEventListener('input',()=>{sanitize();refresh();if(options.onChange)options.onChange(parse(),input.value);});
+    input.addEventListener('blur',()=>{if(options.decimal&&/\.$/.test(input.value)){input.value=input.value.slice(0,-1);input.dispatchEvent(new Event('input',{bubbles:true}));}refresh();});
+    input.addEventListener('focus',()=>{try{input.select();}catch(_){}});
+    refresh();
+    return {element:wrap,input,minus,plus,refresh,limits,value:parse,set(v){input.value=v===undefined||v===null?'':String(v);input.dispatchEvent(new Event('input',{bubbles:true}));}};
   }
   function captureInputs() {
     const content=nodes.secondaryBody&&ui.secondary?nodes.secondaryBody:nodes.primaryBody;
@@ -374,13 +405,13 @@
       const sourceField=el('label','form-field','资金来源');sourceSelect=el('select');sourceSelect.name='finance-source';for(const [value,label] of [['cash','随身铜钱'],['deposit',cities[c.p.world.city]+'寄存']]){const option=el('option','',label);option.value=value;sourceSelect.append(option);}sourceField.append(sourceSelect);form.append(sourceField);
       const destField=el('label','form-field','兑付城市');destinationSelect=el('select');destinationSelect.name='finance-destination';for(const city of Object.keys(cities).filter(x=>x!==c.p.world.city)){const option=el('option','',cities[city]);option.value=city;destinationSelect.append(option);}destField.append(destinationSelect);form.append(destField);
     }
-    const field=el('label','form-field','输入金额');const input=el('input');input.type='text';input.inputMode='numeric';input.pattern='[0-9]*';input.name='finance-amount';input.autocomplete='off';input.maxLength=15;input.required=true;input.setAttribute('aria-describedby','finance-limit');field.append(input);form.append(field);
+    const field=el('div','form-field');field.append(el('span','field-label','输入金额'));const stepper=numericStepper({name:'finance-amount',value:'',min:1,max:()=>max(),label:'输入金额'});const input=stepper.input;input.required=true;input.setAttribute('aria-describedby','finance-limit');field.append(stepper.element);form.append(field);
     const hint=el('p','form-hint');hint.id='finance-limit';form.append(hint);
     function max(){return financeLimit(data.operation,financeView(),data.loanId,sourceSelect?sourceSelect.value:'cash');}
     function validate(clamp=false){const limit=max();if(clamp){input.value=input.value.replace(/[^0-9]/g,'');if(Number(input.value)>limit)input.value=String(limit);}hint.textContent='当前可办理上限：'+formatMoney(limit);let ok=/^[0-9]+$/.test(input.value)&&Number.isSafeInteger(Number(input.value))&&Number(input.value)>0&&Number(input.value)<=limit;
       // RC3 BUG-11: the same fee function as the reducer decides the minimum face value (redeemable must be ≥ 1).
       if(data.operation==='issueVoucher'&&S.finance?.voucherQuote){const q=S.finance.voucherQuote(c.p,Number(input.value)||0);hint.textContent='当前可办理上限：'+formatMoney(limit)+'；最低面额'+q.minimumFace+'钱。'+(Number(input.value)>0?'手续费'+formatMoney(q.feeAmount)+'，到地可兑'+formatMoney(q.redeemableAmount)+(q.valid?'':'（兑付金额不足1钱，无法办理）'):'');ok=ok&&q.valid;}
-      const submit=document.getElementById('finance-submit');if(submit)submit.disabled=!ok||ui.busy;return ok;}
+      const submit=document.getElementById('finance-submit');if(submit)submit.disabled=!ok||ui.busy;stepper.refresh();return ok;}
     input.addEventListener('input',()=>validate(true));if(sourceSelect)sourceSelect.addEventListener('change',()=>validate(true));
     form.addEventListener('submit',e=>{e.preventDefault();if(!validate()||ui.busy)return;const payload={amount:Number(input.value)};if(data.loanId)payload.loanId=data.loanId;if(sourceSelect){payload.source=sourceSelect.value;payload.destinationCity=destinationSelect.value;}dispatch('finance.'+data.operation,payload);});
     b.append(form);validate();
@@ -398,6 +429,6 @@
     async function acknowledge(leave){await dispatch('result.ack',{resultId:result.id});if(!ui.error){ui.primary=leave?null:{id:'guifang',data:{}};ui.secondary=null;ui.back=[];render(ui.state);}}
     parts.footer.hidden=false;parts.footer.append(button('继续办理',()=>acknowledge(false),{natural:false}),button('离开柜坊',()=>acknowledge(true),{natural:false}));if(ui.error)paragraph(parts.body,ui.error,'inline-error');
   }
-  S.ui={mount,render,registerPanel,renderTravelArt,registerMenu(id,spec){registerPanel(id,spec);},registerResult(kind,fn){resultRenderers.set(kind,fn);},openPanel,openSecondary,closePanel,closeSecondary,showModal,dismissModal,dispatch,
+  S.ui={mount,render,registerPanel,numericStepper,renderTravelArt,registerMenu(id,spec){registerPanel(id,spec);},registerResult(kind,fn){resultRenderers.set(kind,fn);},openPanel,openSecondary,closePanel,closeSecondary,showModal,dismissModal,dispatch,
     getState(){return {primary:ui.primary&&ui.primary.id,secondary:ui.secondary&&ui.secondary.id,secondaryHistory:ui.back.length,blockingModalCount:ui.modals.length?1:0,queuedModals:Math.max(0,ui.modals.length-1),busy:ui.busy,keyboard:ui.keyboard,tutorialCooldown:ui.tutorialCooldown};}};
 })(globalThis.Silk=globalThis.Silk||{});

@@ -9,10 +9,11 @@
   function money(c,b,label,value){c.row(label,c.formatMoney(value),b);}
   function gap(c,b,text){c.paragraph(b,'工程预览：'+text,'engineering-note');}
   function quantityForm(c,b,spec){
-    const form=c.el('form','finance-form'),label=c.el('label','field-label',spec.label||'件数'),input=c.el('input','amount-input');
-    input.name='quantity-'+spec.id;input.type='text';input.inputMode='numeric';input.pattern='[0-9]*';input.autocomplete='off';input.value='1';label.append(input);form.append(label);
+    const form=c.el('form','finance-form'),field=c.el('div','form-field');field.append(c.el('span','field-label',spec.label||'件数'));
+    const maxOf=()=>typeof spec.max==='function'?spec.max():spec.max;
+    const stepper=c.numericStepper({name:'quantity-'+spec.id,value:'1',min:1,max:maxOf,label:spec.label||'件数'}),input=stepper.input;field.append(stepper.element);form.append(field);
     const hint=c.el('p','form-hint'),submit=c.button(spec.button||'确认',()=>form.requestSubmit());
-    function validate(){const n=Number(input.value),max=typeof spec.max==='function'?spec.max():spec.max;const ok=/^[0-9]+$/.test(input.value)&&Number.isSafeInteger(n)&&n>0&&n<=max;submit.disabled=!ok||c.app.busy;if(ok)submit.dataset.busyDisabled='true';else delete submit.dataset.busyDisabled;hint.textContent=spec.preview?spec.preview(n):'最多'+max+'件';return ok;}
+    function validate(){const n=Number(input.value),max=maxOf();const ok=/^[0-9]+$/.test(input.value)&&Number.isSafeInteger(n)&&n>0&&n<=max;submit.disabled=!ok||c.app.busy;if(ok)submit.dataset.busyDisabled='true';else delete submit.dataset.busyDisabled;hint.textContent=(spec.preview?spec.preview(n):'')+(spec.preview?' · ':'')+'最多'+max+(spec.unit||'件');stepper.refresh();return ok;}
     input.addEventListener('input',validate);form.addEventListener('submit',e=>{e.preventDefault();if(form.isConnected&&!input.disabled&&validate())spec.submit(Number(input.value));});form.append(hint,submit);b.append(form);validate();
   }
   function currentPrice(p,id){try{return S.market.price(p,id,S.core.context('price-view'));}catch(e){if(e.code==='MISSING_PRICE_AUTHORITY')return null;throw e;}}

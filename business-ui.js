@@ -19,10 +19,10 @@
  S.ui.registerPanel('business-info',{title:'办理说明',render(c,b,d){c.paragraph(b,d.text);}});
  S.ui.registerPanel('business-amount',{title:'输入办理数额',render(c,b,d){
    if(d.description)c.paragraph(b,d.description);const form=c.el('form','business-amount-form');form.id='business-amount-form';form.noValidate=true;
-   const label=c.el('label','form-field',d.label||'输入金额');const input=c.el('input');input.type='text';input.inputMode=d.decimal?'decimal':'numeric';input.name='business-amount';input.autocomplete='off';input.maxLength=15;label.append(input);form.append(label);
+   const field=c.el('div','form-field');field.append(c.el('span','field-label',d.label||'输入金额'));const stepper=c.numericStepper({name:'business-amount',value:'',min:d.allowZero?0:1,max:()=>d.max,decimal:Boolean(d.decimal),label:d.label||'输入金额'}),input=stepper.input;field.append(stepper.element);form.append(field);
    if(d.max!==undefined)c.paragraph(form,'当前上限：'+d.max+(d.unit||'钱'),'form-hint');
    function valid(){const text=input.value;return (d.decimal?/^\d+(\.\d{1,4})?$/:/^\d+$/).test(text)&&Number.isFinite(Number(text))&&(d.allowZero?Number(text)>=0:Number(text)>0)&&(d.decimal||Number.isSafeInteger(Number(text)))&&(d.max===undefined||Number(text)<=d.max);}
-   input.addEventListener('input',()=>{const v=input.value.replace(d.decimal?/[^0-9.]/g:/[^0-9]/g,'');input.value=d.max!==undefined&&Number(v)>d.max?String(d.max):v;const submit=document.getElementById('business-amount-submit');if(submit)submit.disabled=!valid()||S.ui.getState().busy;});
+   input.addEventListener('input',()=>{const v=input.value.replace(d.decimal?/[^0-9.]/g:/[^0-9]/g,'');const clamped=d.max!==undefined&&Number(v)>d.max?String(d.max):v;if(clamped!==input.value)input.value=clamped;const submit=document.getElementById('business-amount-submit');if(submit)submit.disabled=!valid()||S.ui.getState().busy;stepper.refresh();});
    form.addEventListener('submit',e=>{e.preventDefault();if(!valid())return;const n=Number(input.value),payload={...d.payload,[d.field||'amount']:d.percent?n/100:n};if(['merchant.fund','merchant.upgrade'].includes(d.type))confirm(c,'确认投入？','投入 '+c.formatMoney(n)+'，投入后不可撤回。筹齐本项所需金额后，按筹备或扩建规则继续。',d.type,payload);else c.dispatch(d.type,payload);});b.append(form);
  },footer(c,f){const submit=c.button('确认办理',()=>{},{disabled:true});submit.id='business-amount-submit';submit.type='submit';submit.setAttribute('form','business-amount-form');f.append(submit);}});
  S.ui.registerPanel('merchant_business',{title:'商号',render(c,b){

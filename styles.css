@@ -83,3 +83,13 @@
 .city-hotspot{z-index:4}
 /* Home frame is placed by fitHome() (explicit margins, slack rule); journey caption/status are scene-level overlays */
 .start-screen{align-items:flex-start}.journey-scene>.travel-art-caption,.journey-scene>.journey-status{z-index:4}
+
+/* ---- GLOBAL_NUMERIC_STEPPER_UI_PATCH_v1.1: the one shared 【－】[数字]【＋】 control (paper field, gold-brown buttons; no bare white input) ---- */
+.numeric-stepper{display:flex;align-items:stretch;gap:8px;width:100%;margin:2px 0}
+.numeric-stepper .stepper-btn{flex:0 0 58px;min-height:48px;padding:0;display:grid;place-items:center;border:1px solid #a17a40;border-radius:6px;background:linear-gradient(#f1ddb0,#dcbe85);box-shadow:inset 0 1px #fff7df,0 1px 0 #8a6a3a40;color:var(--ink);font-size:26px;line-height:1;font-weight:700;touch-action:manipulation;-webkit-user-select:none;user-select:none;cursor:pointer}
+.numeric-stepper .stepper-btn:active:not(:disabled){background:linear-gradient(#e4cb95,#cfae6e);transform:translateY(1px);box-shadow:inset 0 1px 2px #6b4a2040}
+.numeric-stepper .stepper-btn:disabled{opacity:.42;background:#e8dabb;box-shadow:none;cursor:default}
+.numeric-stepper .stepper-input{flex:1 1 auto;min-width:0;width:auto;min-height:48px;padding:6px 10px;text-align:center;font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;border:1px solid #a58b61;border-radius:6px;background:#fbf1dc;color:var(--ink);box-shadow:inset 0 1px 3px #6b4a2033,inset 0 -1px 0 #fff8e9}
+.numeric-stepper .stepper-input:disabled{opacity:.6}
+.form-field .field-label{font-size:.95rem;color:var(--ink)}
+@media(max-width:360px){.numeric-stepper .stepper-btn{flex-basis:50px}.numeric-stepper .stepper-input{font-size:18px}}
