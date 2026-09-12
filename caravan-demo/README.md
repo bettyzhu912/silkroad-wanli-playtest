@@ -1,5 +1,7 @@
 # 《驼队装货》 Standalone public playtest build
 
+**v1.0 (2026-09-12) — confirmed standalone version.** Round duration fixed at 75 s (the 90 s test option is removed from the test bar; `PROTOTYPE_CONFIG.json` still lists both playtest values, the game only offers A = 75). This is the version archived as `dunhuang-caravan-loading_standalone_v1.0` and integrated into the main game; later changes must produce a new version, not overwrite this one.
+
 **Status:** `STANDALONE_PUBLIC_PLAYTEST` · `READY_FOR_ITERATIVE_PLAYTEST` · `NOT_INTEGRATED_WITH_MAIN_GAME`
 
 - Public URL: **https://bettyzhu912.github.io/silkroad-wanli-playtest/caravan-demo/** (static GitHub Pages, no login, no CDN, no API).

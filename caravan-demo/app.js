@@ -1,5 +1,5 @@
-import { bridge } from './bridge.js?v=4dd91e0b25';
-import { icon } from './cargo-icons.js?v=4dd91e0b25';
+import { bridge } from './bridge.js?v=2376e7c517';
+import { icon } from './cargo-icons.js?v=2376e7c517';
 const app=document.querySelector('#app'),sec=document.querySelector('#seconds'),group=document.querySelector('#group'),dbg=document.querySelector('#debug');
 const art=kind=>`<img class="glyph" src="${icon(kind)}" alt="" draggable="false">`;
 const tier={RICH:'出色',NORMAL:'合格',MODEST:'完成'};
