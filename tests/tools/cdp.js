@@ -17,7 +17,9 @@ async function launch({ port = 9333, width = 1280, height = 900, mobile = false,
   const client = await connect(page.webSocketDebuggerUrl);
   client.proc = proc; client.profile = dir;
   await client.send('Page.enable'); await client.send('Runtime.enable'); await client.send('Network.enable'); await client.send('Log.enable');
-  if (mobile) await client.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 2, mobile: true, screenWidth: width, screenHeight: height });
+  // Chrome 152 headless=new hangs Page.captureScreenshot when a mobile-emulated surface reaches 2048 device px on a side (e.g. 768x1024 @2x); layout in CSS px is unaffected by DPR, so such viewports capture at 1x.
+  const dpr = mobile && Math.max(width, height) * 2 >= 2048 ? 1 : 2;
+  if (mobile) await client.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: dpr, mobile: true, screenWidth: width, screenHeight: height });
   if (mobile) await client.send('Emulation.setTouchEmulationEnabled', { enabled: true });
   return client;
 }

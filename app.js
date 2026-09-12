@@ -53,6 +53,11 @@
         const c={generation:app.state.meta.generation,revision:app.state.meta.revision,sourceType:'recovery',sourceId:'rm-pause-'+app.state.meta.revision,type:'RM_PAUSE',payload:{sessionId:session.id}};
         app.state=(await store.execute(c)).state;
       }
+      if(app.state.progress?.work?.caravan&&app.state.progress.work.caravan.phase==='PLAYING'&&!app.state.progress.work.caravan.result){
+        const session=app.state.progress.work.caravan;
+        const c={generation:app.state.meta.generation,revision:app.state.meta.revision,sourceType:'recovery',sourceId:'caravan-abort-'+app.state.meta.revision,type:'CARAVAN_ABORT',payload:{sessionId:session.id}};
+        app.state=(await store.execute(c)).state;
+      }
       S.ui.mount(app);
       const visit=app.state.progress?.market?.visit;
       if(visit&&!visit.settled)S.ui.openPanel('market');

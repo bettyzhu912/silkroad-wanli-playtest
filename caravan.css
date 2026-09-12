@@ -1,0 +1,136 @@
+.caravan-shell{font-family:system-ui,-apple-system,'PingFang SC',sans-serif;color:#302b22;background:#253c3b;font-size:16px;--paper:#f6ead0;--ink:#302b22;--rust:#8c3f29;--gold:#b98136}
+.caravan-shell button,.caravan-shell select,.caravan-shell input{font:inherit}
+.caravan-shell button{cursor:pointer;touch-action:manipulation;color:inherit}
+.caravan-shell button:focus-visible,.caravan-shell input:focus-visible,.caravan-shell select:focus-visible{outline:3px solid #057caa;outline-offset:2px}
+.caravan-shell button:disabled{cursor:default;opacity:.5}
+.caravan-shell .head{height:48px;display:flex;align-items:center;gap:8px;padding:0 13px;border-bottom:1px solid #cbb991}
+.caravan-shell .head h1{font-family:serif;font-size:20px;letter-spacing:1px;margin:0;flex:1;white-space:nowrap}
+.caravan-shell .head .batch{font-size:13px;white-space:nowrap}
+.caravan-shell .timer{font-variant-numeric:tabular-nums;font-weight:700;font-size:17px;width:43px;text-align:right}
+.caravan-shell .timer.low{color:#9a5321}
+.caravan-shell .timer.urgent{color:#a22919}
+.caravan-shell .close{border:0;background:none;font-size:26px;line-height:1;width:34px;height:38px;padding:0}
+.caravan-shell .content{padding:20px;text-align:center}
+.caravan-shell .ready{height:calc(100% - 48px);display:flex;flex-direction:column;justify-content:center;gap:14px;padding:24px}
+.caravan-shell .ready .emblem{height:160px;display:flex;justify-content:center;align-items:center}
+.caravan-shell .ready .emblem .camel{position:relative;left:auto;bottom:auto;width:160px;height:155px;transform:none}
+.caravan-shell .ready h2{font-family:serif;margin:0;font-size:26px;letter-spacing:4px}
+.caravan-shell .ready p{font-size:16px;line-height:1.7;margin:0}
+.caravan-shell .primary,.caravan-shell .secondary,.caravan-shell .text-button{min-height:44px;border-radius:7px;padding:10px 16px;font-weight:600}
+.caravan-shell .primary{background:var(--rust);color:#fff5de;border:1px solid #73311f;box-shadow:0 2px 0 #632d20}
+.caravan-shell .secondary{background:#f9f0df;border:1px solid #b49b70}
+.caravan-shell .text-button{border:0;background:none;color:#745533}
+.caravan-shell .ready .status{font-size:13px;min-height:18px;color:#765b39}
+.caravan-shell .how{text-align:left;height:calc(100% - 48px);display:flex;flex-direction:column;gap:12px;padding:20px}
+.caravan-shell .how h2{font-size:17px;margin:0 0 5px;color:#8c3f29}
+.caravan-shell .how p{font-size:15px;line-height:1.6;margin:0}
+.caravan-shell .how button{margin-top:auto}
+.caravan-shell .game{height:calc(100% - 48px);display:grid;grid-template-rows:76px 1fr 180px;padding:0 12px 10px}
+.caravan-shell .balance-wrap{padding:13px 8px 0}
+.caravan-shell .balance-track{height:9px;position:relative;border-radius:8px;background:linear-gradient(to right,#b84930 0 20%,#d5a942 20% 35%,#749561 35% 65%,#d5a942 65% 80%,#b84930 80%);margin:0 6px 13px}
+.caravan-shell .bead{position:absolute;width:16px;height:16px;border:2px solid #463520;background:#fff5db;top:-4px;left:50%;border-radius:50%;transform:translateX(-50%);transition:left .18s}
+.caravan-shell .bead.empty{background:#b9b3a0;border-style:dashed;opacity:.6}
+.caravan-shell .context{font-size:13px;line-height:19px;white-space:nowrap;text-align:center;overflow:hidden;text-overflow:ellipsis;min-height:22px}
+.caravan-shell .stage{position:relative;min-height:180px;border-bottom:1px solid #c9b88f}
+.caravan-shell .camel{position:absolute;left:50%;bottom:38px;width:160px;height:190px;transform:translateX(-50%);background-image:none;background-size:200% 100%;background-position:left center;background-repeat:no-repeat;opacity:.92;transition:bottom .5s}
+.caravan-shell .stage.rise .camel{background-position:right center;bottom:56px}
+.caravan-shell .stage.wobble .camel{animation:cv-wobble .4s ease-in-out 2}
+.caravan-shell .stage.fade{opacity:.25;transition:opacity .4s}
+.caravan-shell .bag{position:absolute;bottom:17px;width:42%;height:144px;border:3px solid #795831;border-top:8px solid #634926;border-radius:8px 8px 35px 35px;background:linear-gradient(110deg,#c09b5f,#ad8349);box-shadow:inset 0 -10px 0 #95703e44;z-index:2}
+.caravan-shell .bag.left{left:0}
+.caravan-shell .bag.right{right:0}
+.caravan-shell .bag .action{position:absolute;bottom:calc(100% + 16px);left:50%;transform:translateX(-50%);white-space:nowrap;background:#faf1d9;border:1px solid #83683c;border-radius:6px;font-size:14px;height:38px;padding:0 12px;z-index:8}
+.caravan-shell .bag-item{position:absolute;left:8%;width:84%;height:43px;border:1px solid #7a6348;border-radius:9px;background:#e7d4a9;display:flex;align-items:flex-end;justify-content:center;padding:2px 1px;font-size:13px;gap:2px;box-shadow:0 2px 3px #50361355}
+.caravan-shell .bag-item .glyph{width:26px;height:26px;object-fit:contain;flex:none}
+.caravan-shell .bag-item .mini-name{line-height:24px;white-space:nowrap}
+.caravan-shell .selected{outline:3px solid #b44727!important;outline-offset:1px;background-color:#fff2bc!important}
+.caravan-shell .warn{position:absolute;right:-5px;top:-5px;background:#b44925;color:#fff;border-radius:50%;width:17px;height:17px;font-size:12px}
+.caravan-shell .feedback{position:absolute;left:0;right:0;top:3px;text-align:center;font-size:16px;font-weight:600;color:#714322;z-index:10;background:#f6ead0dc;padding:5px;border-radius:5px}
+.caravan-shell .waiting{height:180px;position:relative;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,82px);align-content:center;gap:0 4px}
+.caravan-shell .waiting.one-row{grid-template-rows:82px}
+.caravan-shell .cargo{border:0;background:transparent;padding:2px 0;min-width:0;height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:6px;gap:1px}
+.caravan-shell .cargo .glyph{width:40px;height:40px;object-fit:contain;flex:none}
+.caravan-shell .cargo .name{font-size:13px;line-height:16px;max-width:100%;min-height:16px}
+.caravan-shell .cargo .meta{font-size:12px;line-height:15px;white-space:nowrap;color:#745b36}
+.caravan-shell .cargo.absent{visibility:hidden;pointer-events:none}
+.caravan-shell .submit{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);white-space:nowrap;min-width:160px}
+.caravan-shell .abort-layer{position:absolute;inset:48px 0 0;background:#f6ead0f5;display:flex;flex-direction:column;justify-content:center;gap:17px;padding:27px;z-index:20;text-align:center}
+.caravan-shell .abort-layer h2{font-size:21px;margin:0}
+.caravan-shell .abort-layer p{line-height:1.7;margin:0}
+.caravan-shell .settlement{height:calc(100% - 48px);padding:25px;display:flex;flex-direction:column;justify-content:center;gap:16px}
+.caravan-shell .settlement h2{font-family:serif;font-size:25px;text-align:center;margin:0}
+.caravan-shell .tiers{display:flex;justify-content:space-between;font-size:14px;padding:12px 0;border-block:1px solid #c4b08a}
+.caravan-shell .tiers span{text-align:center;line-height:2}
+.caravan-shell .payrow{display:flex;justify-content:space-between}
+.caravan-shell .payrow.total{font-weight:700;font-size:23px;color:#813c23}
+.caravan-shell .settlement p{text-align:center;line-height:1.6;margin:0;font-size:14px}
+.caravan-shell .settlement .outlets{display:grid;gap:10px}
+@keyframes cv-wobble{0%,100%{margin-left:0}30%{margin-left:-7px}70%{margin-left:7px}}
+@media(max-height:700px){.caravan-shell .game{grid-template-rows:64px 1fr 166px}.caravan-shell .waiting{height:166px;grid-template-rows:repeat(2,78px)}.caravan-shell .waiting.one-row{grid-template-rows:78px}.caravan-shell .cargo{height:76px}.caravan-shell .ready{padding:17px;gap:10px}.caravan-shell .ready .emblem{height:120px}.caravan-shell .ready .emblem .camel{height:120px;width:125px}.caravan-shell .how{gap:8px;padding:15px}.caravan-shell .how p{font-size:14px}.caravan-shell .stage .camel{height:160px}.caravan-shell .bag{height:125px}.caravan-shell .settlement{gap:12px;padding:18px}}
+.caravan-shell{--bar-h:12px;--bead:18px}
+.caravan-shell .game{grid-template-rows:60px minmax(240px,1fr) minmax(176px,.85fr);row-gap:4px}
+.caravan-shell .balance-wrap{padding:9px 8px 0}
+.caravan-shell .balance-track{height:var(--bar-h);margin:0 6px 8px}
+.caravan-shell .bead{width:var(--bead);height:var(--bead);top:calc((var(--bar-h) - var(--bead))/2);transition:left .45s cubic-bezier(.22,.8,.3,1),background .25s}
+.caravan-shell .bead[data-band="green"]{background:#dff0d4;border-color:#3f6b33}
+.caravan-shell .bead[data-band="yellow"]{background:#f6e3ad;border-color:#8a6a1e}
+.caravan-shell .bead[data-band="red"]{background:#f1c1b4;border-color:#8a2f1e}
+.caravan-shell .context{min-height:20px;font-size:13px}
+.caravan-shell .stage{display:flex;align-items:center;justify-content:center;min-height:0;padding:4px 0 6px;border-bottom:1px solid #c9b88f;overflow:visible}
+.caravan-shell .rig{position:relative;width:100%;height:250px;flex:none}
+.caravan-shell .rig .camel{position:absolute;left:50%;bottom:9%;height:88%;width:auto;aspect-ratio:1/1;transform:translateX(-50%);background-image:none;background-size:200% 100%;background-position:left center;background-repeat:no-repeat;opacity:.94;transition:bottom .5s}
+.caravan-shell .stage.rise .rig .camel{background-position:right center;bottom:16%}
+.caravan-shell .rig .ground{position:absolute;left:12%;right:12%;bottom:3%;height:9%;border-radius:50%;background:radial-gradient(ellipse at center,#8d6a3d55,#8d6a3d00 70%);z-index:1;pointer-events:none}
+.caravan-shell .bag{position:absolute;bottom:3%;width:33%;height:auto;aspect-ratio:100/130;left:auto;right:auto;border:0;border-radius:0;background:none;box-shadow:none;z-index:2;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.caravan-shell .bag.left{left:3.5%}
+.caravan-shell .bag.right{right:3.5%}
+.caravan-shell .bag.shake{animation:cv-bagShake .4s ease-in-out}
+.caravan-shell .bag .action{bottom:calc(100% + 4px);z-index:8}
+.caravan-shell .bag .action.full{opacity:.7}
+.caravan-shell .bag-stack{position:absolute;inset:0;pointer-events:none}
+.caravan-shell .slot{position:absolute;width:38%;aspect-ratio:1/1;border:1.5px dashed #6b4f2c80;border-radius:10px;background:#0000000d;pointer-events:none}
+.caravan-shell .bag-item{position:absolute;width:38%;height:auto;aspect-ratio:1/1;border:1.5px solid #7a6348;border-radius:10px;background:rgba(247,236,211,.8);padding:3%;display:block;pointer-events:auto;box-shadow:0 2px 3px #3a250e55;transform:none;filter:none;transition:transform .2s,box-shadow .2s;left:auto}
+.caravan-shell .bag-item .glyph{width:100%;height:100%;object-fit:contain;display:block}
+.caravan-shell .bag-item.lower{filter:brightness(.96)}
+.caravan-shell .bag-item.top{transform:scale(1.04);box-shadow:0 4px 6px #3a250e77}
+.caravan-shell .slot.l0,.caravan-shell .bag-item.l0{left:15%;bottom:9%}
+.caravan-shell .slot.l1,.caravan-shell .bag-item.l1{left:45%;bottom:21.5%}
+.caravan-shell .slot.l2,.caravan-shell .bag-item.l2{left:21%;bottom:35%}
+.caravan-shell .slot.l3,.caravan-shell .bag-item.l3{left:40%;bottom:48.5%}
+.caravan-shell .cargo.selected{outline:3px solid #b44727;outline-offset:2px;background-color:#fff2bc66!important}
+.caravan-shell .warn{position:absolute;left:-6%;right:auto;top:-6%;width:18px;height:18px;line-height:18px;font-size:13px;font-weight:700;background:#b44925;color:#fff;border:2px solid #fff3d8;border-radius:50%;text-align:center;box-shadow:0 1px 2px #3a250e66;z-index:3}
+.caravan-shell .bag-item.l1 .warn,.caravan-shell .bag-item.l3 .warn{left:auto;right:-6%}
+@keyframes cv-bagPulse{from{filter:drop-shadow(0 0 2px #e4b652aa)}to{filter:drop-shadow(0 0 7px #e4b652)}}
+@keyframes cv-bagShake{0%,100%{margin-left:0}25%{margin-left:-5px}75%{margin-left:5px}}
+.caravan-shell .waiting{gap:0 4px}
+.caravan-shell .cargo .glyph{width:clamp(40px,6.2vh,52px);height:clamp(40px,6.2vh,52px)}
+.caravan-shell .cargo{height:auto;min-height:80px;padding:4px 0}
+.caravan-shell .head .batch{margin-right:6px}
+.caravan-shell .close{width:44px;height:44px;border-radius:50%}
+.caravan-shell .action.pop{animation:cv-popIn .22s cubic-bezier(.2,.9,.3,1.3)}
+@keyframes cv-popIn{0%{transform:translateX(-50%) scale(.7);opacity:0}100%{transform:translateX(-50%) scale(1);opacity:1}}
+@media(max-height:700px){.caravan-shell .game{grid-template-rows:54px minmax(220px,1fr) minmax(166px,.85fr)}}
+/* 驼队装货 — main-game host styling. GENERATED by tests/tools/gen-caravan-css.py from caravan-demo/style.css (standalone archive
+   v1.0): every rule scoped under .caravan-shell; the panel-level rules below replace the standalone page shell (body / main / test bar).
+   Camel and saddlebag art come from S.assets at runtime (caravan_camel_v0, caravan_saddlebag_v0) instead of CSS urls. */
+.paper-panel[data-panel-id="caravan"]>.panel-body{padding:6px 6px 4px;overflow:hidden;display:flex;flex-direction:column}
+.paper-panel[data-panel-id="caravan"]>.panel-footer{display:none}
+.paper-panel[data-panel-id="caravan"]>.panel-header h2,.paper-panel[data-panel-id="dunhuang-work"]>.panel-header h2{font-size:1.02rem;letter-spacing:.18em;font-weight:500}
+.caravan-shell{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:0;height:100%;font-family:system-ui,-apple-system,'PingFang SC',sans-serif;color:#302b22;font-size:16px;line-height:1.4;background:#f6ead0;border:1px solid #bb9b64;border-radius:12px;overflow:hidden}
+.caravan-shell *{box-sizing:border-box}
+.caravan-shell button,.caravan-shell select,.caravan-shell input{font:inherit}
+.caravan-shell>section{flex:1 1 auto;min-height:0}
+.caravan-shell .head{height:36px;padding:0 12px;border-bottom:1px solid #cbb991;display:flex;align-items:center;gap:8px}
+.caravan-shell .head .batch{flex:1;font-size:14px}
+.caravan-shell .game{height:calc(100% - 36px)}
+.caravan-shell .ready,.caravan-shell .how,.caravan-shell .settlement{height:100%}
+.caravan-shell .bag .bag-art{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;transition:filter .25s}
+.caravan-shell .bag.target .bag-art{animation:cv-bagPulse 1.1s ease-in-out infinite alternate}
+.caravan-shell .inline-error{color:#9a2f1e;font-size:13px;text-align:center;margin:6px 0 0}
+.caravan-job-card{padding:12px 14px;border:1px solid rgba(122,65,41,.22);border-radius:6px;background:rgba(255,250,236,.7)}
+.caravan-job-card h3{margin:0 0 4px;font-size:1rem;letter-spacing:.12em}
+.caravan-job-desc{margin:0 0 6px;font-size:.92rem;line-height:1.7}
+.caravan-job-meta{display:flex;gap:14px;font-size:.82rem;color:#7a5a3a;margin-bottom:8px}
+.caravan-job-art{height:110px;margin:4px 0 10px;background-size:200% 100%;background-position:left center;background-repeat:no-repeat;opacity:.94}
+.caravan-job-note{font-size:.82rem;color:#8a4a36;margin:0 0 8px}
+@media(prefers-reduced-motion:reduce){.caravan-shell *{animation-duration:.01ms!important;transition-duration:.01ms!important}}
