@@ -1,0 +1,66 @@
+/* 于阗织坊 — one continuous workshop look for every state (entry, teaching, formal loom, rush, result). Honey wood, warm ivory,
+   apricot / coral / jade / ochre / lake accents; small, restrained serif type. Procedural only: no bitmaps. */
+.paper-panel[data-panel-id="weaving"],.paper-panel[data-panel-id="khotan-work"]{--wv-ink:#4a2d21;--wv-muted:#866451;--wv-wood:#a86a3a;--wv-wood-dark:#6b3a28;--wv-paper:#fff6df;--wv-apricot:#e9a25c;--wv-coral:#c9583f;--wv-jade:#3f8a72;--wv-ochre:#c98a2a;--wv-lake:#3d7f95;color:var(--wv-ink)}
+.paper-panel[data-panel-id="weaving"]>.panel-header h2,.paper-panel[data-panel-id="khotan-work"]>.panel-header h2{font-size:1.02rem;letter-spacing:.18em;font-weight:500}
+.paper-panel[data-panel-id="weaving"].is-weaving-play>.panel-body{padding:6px 6px 4px;overflow:hidden;display:flex;flex-direction:column}
+.paper-panel[data-panel-id="weaving"].is-weaving-play>.panel-footer{display:none}
+.weave-shell{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;font-size:13px;line-height:1.6}
+.weave-shell>[hidden]{display:none!important}
+/* entry */
+.weave-manager{padding:12px 14px;border:1px solid rgba(122,65,41,.22);border-radius:6px;background:rgba(255,250,236,.7);box-shadow:inset 0 0 0 3px rgba(233,162,92,.12)}
+.weave-speaker{margin:0 0 4px;font-size:.78rem;letter-spacing:.16em;color:#8a4a36}
+.weave-line{margin:0;font-size:.95rem;line-height:1.8}
+.weave-still{position:relative;height:118px;margin:14px 6px 8px;border:5px solid var(--wv-wood);border-top-color:#bd7a48;border-bottom-color:#7c432c;border-radius:6px;background:linear-gradient(#fff3d1,#ffe9bd);box-shadow:inset 0 0 0 2px #dda05e;overflow:hidden;display:flex;justify-content:space-evenly;align-items:flex-start;padding-top:10px}
+.weave-still::before{content:"";position:absolute;left:8px;right:8px;top:6px;height:3px;background:#a06b3c;border-radius:2px}
+.weave-still::after{content:"";position:absolute;left:14px;right:14px;bottom:8px;height:14px;border-radius:2px;background:repeating-linear-gradient(90deg,#c9583f 0 6px,#e8d3a5 6px 10px,#3f8a72 10px 16px,#e8d3a5 16px 20px,#c98a2a 20px 26px,#e8d3a5 26px 30px);box-shadow:0 3px 0 #7c4a2e}
+.weave-still i{display:block;width:10px;height:58px;border-radius:0 0 5px 5px;opacity:.9;box-shadow:inset -2px 0 0 rgba(255,255,255,.35)}
+.weave-note{margin:6px 0 0;text-align:center;font-size:.78rem;color:var(--wv-muted);letter-spacing:.08em}
+.weave-availability{margin:8px 0 0;padding:8px 10px;border-radius:4px;background:#f6e2cb;color:#8a4636;font-size:.86rem;text-align:center}
+/* job card (营生入口) */
+.weave-job-card{padding:14px 14px 12px;border:1px solid rgba(122,65,41,.22);border-radius:6px;background:rgba(255,250,236,.72)}
+.weave-job-card h3{margin:0 0 6px;font-size:1.02rem;letter-spacing:.14em;font-weight:500}
+.weave-job-desc{margin:0 0 8px;font-size:.9rem;line-height:1.7}
+.weave-job-meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin-bottom:10px;font-size:.8rem;color:var(--wv-muted)}
+.weave-job-art{position:relative;height:72px;margin:0 0 12px;border:4px solid var(--wv-wood);border-radius:5px;background:linear-gradient(#fff3d1,#ffe9bd);display:flex;justify-content:space-evenly;align-items:flex-start;padding-top:8px;overflow:hidden}
+.weave-job-art i{display:block;width:9px;height:40px;border-radius:0 0 4px 4px;opacity:.9}
+.weave-job-card .ui-button{width:100%}
+/* transition */
+.weave-transition{flex:1;display:flex;align-items:center;justify-content:center;min-height:220px;font-size:1.55rem;letter-spacing:.42em;padding-left:.42em;color:#7b3e2b;font-weight:500;position:relative}
+.weave-transition::before{content:"";position:absolute;left:50%;top:50%;width:150px;height:150px;transform:translate(-50%,-50%);border:8px double var(--wv-wood);border-radius:22px 22px 30px 30px;background:repeating-linear-gradient(90deg,transparent 0 9px,rgba(205,108,65,.28) 9px 12px),#fff1c9;box-shadow:0 10px 24px rgba(77,44,27,.2);z-index:-1;opacity:.85}
+.weave-transition[data-step="1"]::before{background:repeating-linear-gradient(0deg,transparent 0 9px,rgba(63,138,114,.32) 9px 12px),#fff1c9}
+.weave-transition[data-step="2"]::before{background:repeating-linear-gradient(45deg,#f5ba5b 0 6px,#4f9b82 6px 12px,#f5e1a5 12px 18px,#df6c52 18px 24px);opacity:.5}
+/* play */
+.weave-play{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;gap:4px}
+.weave-hud{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:26px;padding:0 4px;font-size:.8rem}
+.weave-progress{font-weight:600;letter-spacing:.06em;white-space:nowrap}
+.weave-clock{display:flex;align-items:center;gap:5px;color:var(--wv-muted);font-size:.74rem;white-space:nowrap}
+.weave-sun-track{display:inline-block;width:64px;height:7px;border-radius:4px;background:#ead2a6;overflow:hidden;vertical-align:middle}
+.weave-sun-track i{display:block;height:100%;width:100%;background:var(--wv-ochre);transition:width .2s linear,background .25s}
+.weave-clock.is-low .weave-sun-track i{background:#c55b43}.weave-clock.is-rush .weave-sun-track i{background:var(--wv-coral)}
+.weave-clock.is-rush{color:#9d4938;font-weight:600}
+.weave-time{min-width:34px;font-variant-numeric:tabular-nums}
+.weave-rush-tag{padding:5px 10px;border:1px solid #c07a55;border-left:4px solid var(--wv-coral);border-radius:3px;background:#fbe4cf;color:#7d3a2a;font-size:.8rem;letter-spacing:.04em}
+.weave-message{min-height:22px;padding:2px 8px;text-align:center;font-size:.8rem;color:#71402f;border-radius:4px;opacity:0;transition:opacity .2s}
+.weave-message.is-visible{opacity:1;background:#ffe7bd;border:1px solid rgba(190,105,56,.25)}
+.weave-loom{position:relative;flex:1 1 auto;min-height:300px;border:6px solid var(--wv-wood);border-top-color:#bd7a48;border-bottom-color:#7c432c;border-radius:8px;background:linear-gradient(#fff4d1,#ffedbd);box-shadow:inset 0 0 0 2px #dda05e,0 5px 14px rgba(94,49,29,.14);overflow:hidden;touch-action:none}
+.weave-loom::before,.weave-loom::after{content:"";position:absolute;z-index:2;top:0;bottom:0;width:6px;background:linear-gradient(#b46b41,#77402c);pointer-events:none}
+.weave-loom::before{left:6px}.weave-loom::after{right:6px}
+.weave-canvas{display:block;width:100%;height:100%;touch-action:none}
+.weave-hint{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:78%;padding:7px 10px;border-radius:5px;text-align:center;color:#79533f;background:rgba(255,248,220,.9);font-size:.78rem;line-height:1.55;pointer-events:none;transition:opacity .3s;z-index:3}
+.weave-hint.is-hidden{opacity:0}
+/* result */
+.weave-result{display:flex;flex-direction:column;align-items:center;text-align:center;padding:6px 4px}
+.weave-result-kicker{margin:6px 0 2px;font-size:.8rem;letter-spacing:.2em;color:var(--wv-muted)}
+.weave-result-status{margin:0;font-size:1.06rem;letter-spacing:.12em;font-weight:500}
+.weave-wage{display:flex;align-items:baseline;gap:4px;margin:10px 0 2px;color:#9b4b31}
+.weave-wage strong{font-size:2rem;line-height:1;font-weight:600;font-variant-numeric:tabular-nums}
+.weave-summary{margin:4px 0 8px;font-size:.86rem;color:var(--wv-muted)}
+.weave-detail-toggle{border:0;background:transparent;color:#75513d;text-decoration:underline;padding:6px 14px;font:inherit;font-size:.84rem;cursor:pointer;min-height:40px}
+.weave-detail{width:100%;margin:2px 0 8px;padding:8px 12px;border-radius:5px;background:rgba(255,255,255,.5);text-align:left;font-size:.84rem}
+.weave-detail p{display:flex;justify-content:space-between;margin:5px 0}
+.weave-tags-title{margin-top:8px;color:var(--wv-muted);font-size:.78rem}
+.weave-tags{margin:4px 0 0;padding-left:18px}.weave-tags li{margin:3px 0}
+@media(max-height:620px){.weave-still{height:88px;margin:8px 6px 6px}.weave-still i{height:42px}.weave-manager{padding:8px 10px}.weave-transition{min-height:160px}.weave-loom{min-height:240px}.weave-hud{min-height:22px}}
+/* Chrome 61 baseline fallbacks (gated by compat.js capability classes) */
+.no-flex-gap .weave-job-meta>*+*{margin-left:18px;margin-top:6px}.no-flex-gap /* play */
+.weave-play>*+*{margin-top:4px}.no-flex-gap .weave-hud>*+*{margin-left:8px}.no-flex-gap .weave-clock>*+*{margin-left:5px}.no-flex-gap .weave-wage>*+*{margin-left:4px}
