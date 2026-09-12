@@ -1,0 +1,59 @@
+[
+ {
+  "w": 360,
+  "vw": 360,
+  "overflowX": 0,
+  "main": {
+   "l": 12,
+   "r": 348,
+   "t": 88,
+   "b": 708
+  },
+  "cargoInside": true,
+  "closeInside": true,
+  "timerVisible": true,
+  "balanceVisible": true,
+  "submitInside": true,
+  "bagsInside": true,
+  "mainH": 620,
+  "vh": 780
+ },
+ {
+  "w": 390,
+  "vw": 390,
+  "overflowX": 0,
+  "main": {
+   "l": 12,
+   "r": 378,
+   "t": 88,
+   "b": 708
+  },
+  "cargoInside": true,
+  "closeInside": true,
+  "timerVisible": true,
+  "balanceVisible": true,
+  "submitInside": true,
+  "bagsInside": true,
+  "mainH": 620,
+  "vh": 780
+ },
+ {
+  "w": 430,
+  "vw": 430,
+  "overflowX": 0,
+  "main": {
+   "l": 12,
+   "r": 418,
+   "t": 88,
+   "b": 708
+  },
+  "cargoInside": true,
+  "closeInside": true,
+  "timerVisible": true,
+  "balanceVisible": true,
+  "submitInside": true,
+  "bagsInside": true,
+  "mainH": 620,
+  "vh": 780
+ }
+]

@@ -1,0 +1,617 @@
+{
+ "python": "js-port",
+ "runs": {
+  "0": {
+   "boards": [
+    {
+     "batch": 1,
+     "cargo": [
+      "khotan_jade",
+      "pepper",
+      "fine_jade",
+      "dye"
+     ],
+     "reference": {
+      "left": [
+       "dye",
+       "fine_jade"
+      ],
+      "right": [
+       "khotan_jade",
+       "pepper"
+      ]
+     },
+     "referencePhysicalBalanceRatio": 1,
+     "referenceStackingScore": 100,
+     "referenceLayoutScore": 100,
+     "allFeasibleLayoutCount": 120,
+     "nearOptimalLayoutCount": 8,
+     "distinctNearOptimalSolutions": 1,
+     "bestFeasibleLayoutScore": 100,
+     "constraintWeight": 3.5,
+     "weightPartitionAmbiguity": "LOW",
+     "boundary": false,
+     "warnings": [
+      "WARN_NEAR_OPTIMAL_TARGET"
+     ],
+     "qaStatus": "ACCEPT_WITH_WARNING",
+     "generationAttempts": 1,
+     "decisionPatternSignature": "[4,[1,3,3,5],[\"HEAVY_DURABLE\",\"MEDIUM_FRAGILE_PRESSURE\",\"NORMAL_BALANCER\",\"NORMAL_BALANCER\"],1,1,0,1,0,[[6,[\"HEAVY_DURABLE\",\"NORMAL_BALANCER\"],[]],[6,[\"MEDIUM_FRAGILE_PRESSURE\",\"NORMAL_BALANCER\"],[]]]]"
+    },
+    {
+     "batch": 2,
+     "cargo": [
+      "medicinal_herbs",
+      "ceramics",
+      "felt_shoes",
+      "lacquerware",
+      "dye"
+     ],
+     "reference": {
+      "left": [
+       "ceramics",
+       "felt_shoes"
+      ],
+      "right": [
+       "dye",
+       "lacquerware",
+       "medicinal_herbs"
+      ]
+     },
+     "referencePhysicalBalanceRatio": 0.8571428571428571,
+     "referenceStackingScore": 100,
+     "referenceLayoutScore": 100,
+     "allFeasibleLayoutCount": 480,
+     "nearOptimalLayoutCount": 34,
+     "distinctNearOptimalSolutions": 7,
+     "bestFeasibleLayoutScore": 100,
+     "constraintWeight": 8,
+     "weightPartitionAmbiguity": "HIGH",
+     "boundary": false,
+     "warnings": [
+      "WARN_NEAR_OPTIMAL_TARGET",
+      "WARN_REPEAT_ARCHETYPE",
+      "WARN_REPEAT_CARGO",
+      "WARN_WEIGHT_COMPLEXITY"
+     ],
+     "qaStatus": "ACCEPT_WITH_WARNING",
+     "generationAttempts": 1,
+     "decisionPatternSignature": "[5,[1,1,3,3,5],[\"HEAVY_FRAGILE\",\"LIGHT_PRESSURE\",\"LIGHT_SOFT\",\"MEDIUM_FRAGILE_PRESSURE\",\"NORMAL_BALANCER\"],3,0,1,2,1,[[6,[\"HEAVY_FRAGILE\",\"LIGHT_SOFT\"],[]],[7,[\"MEDIUM_FRAGILE_PRESSURE\",\"NORMAL_BALANCER\"],[\"LIGHT_PRESSURE\"]]]]"
+    },
+    {
+     "batch": 3,
+     "cargo": [
+      "silk",
+      "hexi_wool",
+      "dye",
+      "felt_shoes",
+      "silverware",
+      "fine_jade",
+      "pepper",
+      "lacquerware"
+     ],
+     "reference": {
+      "left": [
+       "dye",
+       "hexi_wool",
+       "fine_jade",
+       "felt_shoes"
+      ],
+      "right": [
+       "silverware",
+       "pepper",
+       "lacquerware",
+       "silk"
+      ]
+     },
+     "referencePhysicalBalanceRatio": 1,
+     "referenceStackingScore": 88,
+     "referenceLayoutScore": 94,
+     "allFeasibleLayoutCount": 40320,
+     "nearOptimalLayoutCount": 2288,
+     "distinctNearOptimalSolutions": 41,
+     "bestFeasibleLayoutScore": 94,
+     "constraintWeight": 8,
+     "weightPartitionAmbiguity": "HIGH",
+     "boundary": false,
+     "warnings": [
+      "WARN_REPEAT_ARCHETYPE",
+      "WARN_REPEAT_CARGO"
+     ],
+     "qaStatus": "ACCEPT_WITH_WARNING",
+     "generationAttempts": 1,
+     "decisionPatternSignature": "[8,[1,1,1,3,3,3,3,5],[\"HEAVY_DURABLE\",\"LIGHT_SOFT\",\"LIGHT_SOFT\",\"MEDIUM_FRAGILE_PRESSURE\",\"MEDIUM_FRAGILE_PRESSURE\",\"MEDIUM_SOFT\",\"NORMAL_BALANCER\",\"NORMAL_BALANCER\"],2,1,0,2,3,[[10,[\"HEAVY_DURABLE\",\"NORMAL_BALANCER\"],[\"LIGHT_SOFT\",\"MEDIUM_FRAGILE_PRESSURE\"]],[10,[\"MEDIUM_SOFT\",\"NORMAL_BALANCER\"],[\"LIGHT_SOFT\",\"MEDIUM_FRAGILE_PRESSURE\"]]]]"
+    }
+   ],
+   "b2FirstFeedback": "NOT_PASS",
+   "final": {
+    "state": "SETTLEMENT",
+    "remaining": 64,
+    "completed": 3,
+    "tiers": [
+     "RICH",
+     "RICH",
+     "RICH"
+    ],
+    "cashDelta": 22,
+    "timeCostTicks": 2,
+    "payout": {
+     "baseWage": 9,
+     "extraWage": 13,
+     "cash": 22,
+     "rewards": [
+      {
+       "batchIndex": 1,
+       "completionReward": 2,
+       "qualityReward": 1
+      },
+      {
+       "batchIndex": 2,
+       "completionReward": 2,
+       "qualityReward": 2
+      },
+      {
+       "batchIndex": 3,
+       "completionReward": 3,
+       "qualityReward": 3
+      }
+     ]
+    },
+    "scores": {
+     "finalBalanceScores": [
+      100,
+      100,
+      100
+     ],
+     "finalStackingScores": [
+      100,
+      100,
+      88
+     ],
+     "finalLayoutScores": [
+      100,
+      100,
+      94
+     ]
+    },
+    "mockOuter": {
+     "cash": 122,
+     "worldTicks": 2,
+     "tripSummary": {
+      "livelihoodIncome": 0
+     },
+     "tradeProfit": 17,
+     "reputation": 3,
+     "reputationTurnover": 11,
+     "goods": [
+      "unchanged"
+     ],
+     "market": {
+      "unchanged": true
+     },
+     "workHistory": [
+      {
+       "runId": "46f3c597-ad9b-4e7f-8fa3-4b89e5c7d711",
+       "cash": 22,
+       "batchTiers": [
+        "RICH",
+        "RICH",
+        "RICH"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "200": {
+   "boards": [
+    {
+     "batch": 1,
+     "cargo": [
+      "khotan_jade",
+      "silverware",
+      "khotan_silk",
+      "pepper"
+     ],
+     "reference": {
+      "left": [
+       "khotan_jade",
+       "khotan_silk"
+      ],
+      "right": [
+       "silverware",
+       "pepper"
+      ]
+     },
+     "referencePhysicalBalanceRatio": 1,
+     "referenceStackingScore": 100,
+     "referenceLayoutScore": 100,
+     "allFeasibleLayoutCount": 120,
+     "nearOptimalLayoutCount": 16,
+     "distinctNearOptimalSolutions": 1,
+     "bestFeasibleLayoutScore": 100,
+     "constraintWeight": 2.5,
+     "weightPartitionAmbiguity": "MEDIUM",
+     "boundary": false,
+     "warnings": [
+      "WARN_NEAR_OPTIMAL_TARGET"
+     ],
+     "qaStatus": "ACCEPT_WITH_WARNING",
+     "generationAttempts": 1,
+     "decisionPatternSignature": "[4,[1,1,5,5],[\"HEAVY_DURABLE\",\"HEAVY_DURABLE\",\"LIGHT_SOFT\",\"NORMAL_BALANCER\"],0,2,0,0,1,[[6,[\"HEAVY_DURABLE\",\"LIGHT_SOFT\"],[]],[6,[\"HEAVY_DURABLE\",\"NORMAL_BALANCER\"],[]]]]"
+    },
+    {
+     "batch": 2,
+     "cargo": [
+      "silk",
+      "felt_shoes",
+      "pepper",
+      "lacquerware",
+      "medicinal_herbs",
+      "khotan_jade"
+     ],
+     "reference": {
+      "left": [
+       "felt_shoes",
+       "pepper",
+       "lacquerware",
+       "medicinal_herbs"
+      ],
+      "right": [
+       "khotan_jade",
+       "silk"
+      ]
+     },
+     "referencePhysicalBalanceRatio": 1,
+     "referenceStackingScore": 94,
+     "referenceLayoutScore": 97,
+     "allFeasibleLayoutCount": 2160,
+     "nearOptimalLayoutCount": 252,
+     "distinctNearOptimalSolutions": 14,
+     "bestFeasibleLayoutScore": 97,
+     "constraintWeight": 6.5,
+     "weightPartitionAmbiguity": "HIGH",
+     "boundary": false,
+     "warnings": [
+      "WARN_REPEAT_ARCHETYPE",
+      "WARN_REPEAT_CARGO",
+      "WARN_WEIGHT_COMPLEXITY"
+     ],
+     "qaStatus": "ACCEPT_WITH_WARNING",
+     "generationAttempts": 1,
+     "decisionPatternSignature": "[6,[1,1,1,1,3,5],[\"HEAVY_DURABLE\",\"LIGHT_PRESSURE\",\"LIGHT_SOFT\",\"LIGHT_SOFT\",\"MEDIUM_FRAGILE_PRESSURE\",\"NORMAL_BALANCER\"],2,1,0,2,2,[[6,[\"HEAVY_DURABLE\",\"LIGHT_SOFT\"],[]],[6,[\"LIGHT_SOFT\",\"NORMAL_BALANCER\"],[\"LIGHT_PRESSURE\",\"MEDIUM_FRAGILE_PRESSURE\"]]]]"
+    },
+    {
+     "batch": 3,
+     "cargo": [
+      "silk",
+      "khotan_silk",
+      "paper",
+      "ceramics",
+      "fine_jade",
+      "dried_fruit",
+      "hexi_wool",
+      "turquoise"
+     ],
+     "reference": {
+      "left": [
+       "ceramics",
+       "khotan_silk",
+       "fine_jade",
+       "paper"
+      ],
+      "right": [
+       "dried_fruit",
+       "hexi_wool",
+       "turquoise",
+       "silk"
+      ]
+     },
+     "referencePhysicalBalanceRatio": 1,
+     "referenceStackingScore": 88,
+     "referenceLayoutScore": 94,
+     "allFeasibleLayoutCount": 40320,
+     "nearOptimalLayoutCount": 1040,
+     "distinctNearOptimalSolutions": 29,
+     "bestFeasibleLayoutScore": 94,
+     "constraintWeight": 12,
+     "weightPartitionAmbiguity": "HIGH",
+     "boundary": false,
+     "warnings": [
+      "WARN_NEAR_OPTIMAL_TARGET",
+      "WARN_REPEAT_ARCHETYPE",
+      "WARN_REPEAT_CARGO"
+     ],
+     "qaStatus": "ACCEPT_WITH_WARNING",
+     "generationAttempts": 1,
+     "decisionPatternSignature": "[8,[1,1,1,3,3,3,3,5],[\"HEAVY_FRAGILE\",\"LIGHT_PRESSURE\",\"LIGHT_SOFT\",\"LIGHT_SOFT\",\"MEDIUM_FRAGILE_PRESSURE\",\"MEDIUM_FRAGILE_PRESSURE\",\"MEDIUM_SOFT\",\"NORMAL_BALANCER\"],4,0,1,3,3,[[10,[\"HEAVY_FRAGILE\",\"LIGHT_SOFT\"],[\"LIGHT_PRESSURE\",\"MEDIUM_FRAGILE_PRESSURE\"]],[10,[\"MEDIUM_SOFT\",\"NORMAL_BALANCER\"],[\"LIGHT_SOFT\",\"MEDIUM_FRAGILE_PRESSURE\"]]]]"
+    }
+   ],
+   "b2FirstFeedback": "NOT_PASS",
+   "final": {
+    "state": "SETTLEMENT",
+    "remaining": 64,
+    "completed": 3,
+    "tiers": [
+     "RICH",
+     "RICH",
+     "RICH"
+    ],
+    "cashDelta": 22,
+    "timeCostTicks": 2,
+    "payout": {
+     "baseWage": 9,
+     "extraWage": 13,
+     "cash": 22,
+     "rewards": [
+      {
+       "batchIndex": 1,
+       "completionReward": 2,
+       "qualityReward": 1
+      },
+      {
+       "batchIndex": 2,
+       "completionReward": 2,
+       "qualityReward": 2
+      },
+      {
+       "batchIndex": 3,
+       "completionReward": 3,
+       "qualityReward": 3
+      }
+     ]
+    },
+    "scores": {
+     "finalBalanceScores": [
+      100,
+      100,
+      100
+     ],
+     "finalStackingScores": [
+      100,
+      94,
+      88
+     ],
+     "finalLayoutScores": [
+      100,
+      97,
+      94
+     ]
+    },
+    "mockOuter": {
+     "cash": 122,
+     "worldTicks": 2,
+     "tripSummary": {
+      "livelihoodIncome": 0
+     },
+     "tradeProfit": 17,
+     "reputation": 3,
+     "reputationTurnover": 11,
+     "goods": [
+      "unchanged"
+     ],
+     "market": {
+      "unchanged": true
+     },
+     "workHistory": [
+      {
+       "runId": "07f1a938-2735-486c-aac8-7caf55119ae8",
+       "cash": 22,
+       "batchTiers": [
+        "RICH",
+        "RICH",
+        "RICH"
+       ]
+      }
+     ]
+    }
+   }
+  },
+  "400": {
+   "boards": [
+    {
+     "batch": 1,
+     "cargo": [
+      "dye",
+      "silk",
+      "khotan_silk",
+      "silverware"
+     ],
+     "reference": {
+      "left": [
+       "dye",
+       "khotan_silk",
+       "silk"
+      ],
+      "right": [
+       "silverware"
+      ]
+     },
+     "referencePhysicalBalanceRatio": 1,
+     "referenceStackingScore": 100,
+     "referenceLayoutScore": 100,
+     "allFeasibleLayoutCount": 120,
+     "nearOptimalLayoutCount": 12,
+     "distinctNearOptimalSolutions": 2,
+     "bestFeasibleLayoutScore": 100,
+     "constraintWeight": 2,
+     "weightPartitionAmbiguity": "LOW",
+     "boundary": false,
+     "warnings": [
+      "WARN_NEAR_OPTIMAL_TARGET"
+     ],
+     "qaStatus": "ACCEPT_WITH_WARNING",
+     "generationAttempts": 1,
+     "decisionPatternSignature": "[4,[1,1,3,5],[\"HEAVY_DURABLE\",\"LIGHT_SOFT\",\"LIGHT_SOFT\",\"NORMAL_BALANCER\"],0,1,0,0,2,[[5,[\"HEAVY_DURABLE\"],[]],[5,[\"LIGHT_SOFT\",\"NORMAL_BALANCER\"],[\"LIGHT_SOFT\"]]]]"
+    },
+    {
+     "batch": 2,
+     "cargo": [
+      "fine_jade",
+      "dye",
+      "dried_fruit",
+      "hexi_wool",
+      "khotan_jade",
+      "pepper",
+      "silk"
+     ],
+     "reference": {
+      "left": [
+       "dried_fruit",
+       "dye",
+       "hexi_wool",
+       "pepper"
+      ],
+      "right": [
+       "khotan_jade",
+       "fine_jade",
+       "silk"
+      ]
+     },
+     "referencePhysicalBalanceRatio": 0.9,
+     "referenceStackingScore": 100,
+     "referenceLayoutScore": 100,
+     "allFeasibleLayoutCount": 10080,
+     "nearOptimalLayoutCount": 1356,
+     "distinctNearOptimalSolutions": 67,
+     "bestFeasibleLayoutScore": 100,
+     "constraintWeight": 5,
+     "weightPartitionAmbiguity": "HIGH",
+     "boundary": false,
+     "warnings": [
+      "WARN_HIGH_CONSTRAINT_TARGET",
+      "WARN_REPEAT_ARCHETYPE",
+      "WARN_REPEAT_CARGO",
+      "WARN_WEIGHT_COMPLEXITY"
+     ],
+     "qaStatus": "ACCEPT_WITH_WARNING",
+     "generationAttempts": 1,
+     "decisionPatternSignature": "[7,[1,1,3,3,3,3,5],[\"HEAVY_DURABLE\",\"LIGHT_SOFT\",\"MEDIUM_FRAGILE_PRESSURE\",\"MEDIUM_SOFT\",\"NORMAL_BALANCER\",\"NORMAL_BALANCER\",\"NORMAL_BALANCER\"],1,1,0,1,2,[[9,[\"HEAVY_DURABLE\",\"MEDIUM_FRAGILE_PRESSURE\"],[\"LIGHT_SOFT\"]],[10,[\"NORMAL_BALANCER\",\"NORMAL_BALANCER\"],[\"MEDIUM_SOFT\",\"NORMAL_BALANCER\"]]]]"
+    },
+    {
+     "batch": 3,
+     "cargo": [
+      "felt_shoes",
+      "ceramics",
+      "medicinal_herbs",
+      "pepper",
+      "paper",
+      "khotan_jade",
+      "fine_jade",
+      "khotan_silk"
+     ],
+     "reference": {
+      "left": [
+       "ceramics",
+       "felt_shoes",
+       "fine_jade",
+       "khotan_silk"
+      ],
+      "right": [
+       "khotan_jade",
+       "pepper",
+       "medicinal_herbs",
+       "paper"
+      ]
+     },
+     "referencePhysicalBalanceRatio": 0.8,
+     "referenceStackingScore": 94,
+     "referenceLayoutScore": 97,
+     "allFeasibleLayoutCount": 40320,
+     "nearOptimalLayoutCount": 2488,
+     "distinctNearOptimalSolutions": 66,
+     "bestFeasibleLayoutScore": 97,
+     "constraintWeight": 11.5,
+     "weightPartitionAmbiguity": "HIGH",
+     "boundary": true,
+     "warnings": [
+      "WARN_REPEAT_ARCHETYPE",
+      "WARN_REPEAT_CARGO"
+     ],
+     "qaStatus": "ACCEPT_WITH_WARNING",
+     "generationAttempts": 1,
+     "decisionPatternSignature": "[8,[1,1,1,1,1,3,5,5],[\"HEAVY_DURABLE\",\"HEAVY_FRAGILE\",\"LIGHT_PRESSURE\",\"LIGHT_PRESSURE\",\"LIGHT_SOFT\",\"LIGHT_SOFT\",\"MEDIUM_FRAGILE_PRESSURE\",\"NORMAL_BALANCER\"],4,1,1,3,2,[[8,[\"HEAVY_DURABLE\",\"NORMAL_BALANCER\"],[\"LIGHT_PRESSURE\",\"LIGHT_PRESSURE\"]],[10,[\"HEAVY_FRAGILE\",\"LIGHT_SOFT\"],[\"LIGHT_SOFT\",\"MEDIUM_FRAGILE_PRESSURE\"]]]]"
+    }
+   ],
+   "b2FirstFeedback": "NOT_PASS",
+   "final": {
+    "state": "SETTLEMENT",
+    "remaining": 64,
+    "completed": 3,
+    "tiers": [
+     "RICH",
+     "RICH",
+     "RICH"
+    ],
+    "cashDelta": 22,
+    "timeCostTicks": 2,
+    "payout": {
+     "baseWage": 9,
+     "extraWage": 13,
+     "cash": 22,
+     "rewards": [
+      {
+       "batchIndex": 1,
+       "completionReward": 2,
+       "qualityReward": 1
+      },
+      {
+       "batchIndex": 2,
+       "completionReward": 2,
+       "qualityReward": 2
+      },
+      {
+       "batchIndex": 3,
+       "completionReward": 3,
+       "qualityReward": 3
+      }
+     ]
+    },
+    "scores": {
+     "finalBalanceScores": [
+      100,
+      100,
+      100
+     ],
+     "finalStackingScores": [
+      100,
+      100,
+      94
+     ],
+     "finalLayoutScores": [
+      100,
+      100,
+      97
+     ]
+    },
+    "mockOuter": {
+     "cash": 122,
+     "worldTicks": 2,
+     "tripSummary": {
+      "livelihoodIncome": 0
+     },
+     "tradeProfit": 17,
+     "reputation": 3,
+     "reputationTurnover": 11,
+     "goods": [
+      "unchanged"
+     ],
+     "market": {
+      "unchanged": true
+     },
+     "workHistory": [
+      {
+       "runId": "cd14f6b4-4ade-4f4f-b87d-02e335eee61c",
+       "cash": 22,
+       "batchTiers": [
+        "RICH",
+        "RICH",
+        "RICH"
+       ]
+      }
+     ]
+    }
+   }
+  }
+ }
+}

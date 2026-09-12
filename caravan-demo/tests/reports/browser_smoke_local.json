@@ -1,0 +1,188 @@
+{
+ "label": "local",
+ "url": "http://127.0.0.1:8190/",
+ "checks": [
+  {
+   "name": "1 page boots: engine worker ready + boards prepared, READY opens",
+   "ok": true,
+   "detail": "正在备货…"
+  },
+  {
+   "name": "1 engine worker reports ready",
+   "ok": true,
+   "detail": "js-port"
+  },
+  {
+   "name": "1 READY state with prepared boards",
+   "ok": true,
+   "detail": "{\"state\":\"READY\",\"prepared\":[0]}"
+  },
+  {
+   "name": "1 READY screen copy",
+   "ok": true,
+   "detail": "驼队装货 × 驼队待发 替货栈将货物稳妥装上驼背。 左右装匀，货物放稳，可多得工钱。 开始装货 试玩 玩法说明 ⓘ"
+  },
+  {
+   "name": "2 HOW_TO_PLAY opens",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "2 知道了 returns to READY",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "3 FORMAL session starts (mock mode only)",
+   "ok": true,
+   "detail": "{\"batch\":1,\"remaining\":74.78480000000074}"
+  },
+  {
+   "name": "3 tap-first 放入: all batch-1 cargo loaded, 确认装好 shown",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "3 PASS → automatic transition to batch 2",
+   "ok": true,
+   "detail": "{\"batch\":2,\"tier\":\"RICH\",\"state\":\"GAMEPLAY\"}"
+  },
+  {
+   "name": "4 NOT PASS feedback keeps the batch",
+   "ok": true,
+   "detail": "{\"feedback\":\"NOT_PASS\",\"state\":\"FEEDBACK\"}"
+  },
+  {
+   "name": "4 back to GAMEPLAY on the same batch",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "4 lower-layer tap only hints 先取出上层货物",
+   "ok": true,
+   "detail": "skip"
+  },
+  {
+   "name": "4 取出 ↑ returns cargo to fixed original positions",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "4 rearranged layout PASSes → batch 3",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "8 three completed batches → Settlement (immediately, no remaining-time reward)",
+   "ok": true,
+   "detail": "{\"completed\":3,\"tiers\":[\"RICH\",\"RICH\",\"RICH\"],\"base\":9,\"extra\":13,\"cash\":22}"
+  },
+  {
+   "name": "8 Settlement has no Global Close",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "8 mock outer applied once: cash 100→122, worldTicks +2, one work record",
+   "ok": true,
+   "detail": "{\"cash\":122,\"worldTicks\":2,\"tripSummary\":{\"livelihoodIncome\":0},\"tradeProfit\":17,\"reputation\":3,\"reputationTurnover\":11,\"goods\":[\"unchanged\"],\"market\":{\"unchanged\":true},\"workHistory\":[{\"runId\":\"c468bd8d-3b01-45da-93b5-a23c0d20e14e\",\"cash\":22,\"batchTiers\":[\"RICH\",\"RICH\",\"RICH\"]}]}"
+  },
+  {
+   "name": "9 返回营生 → livelihood list, no double commit",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "9 mock outer unchanged after navigation",
+   "ok": true,
+   "detail": "{\"cash\":122,\"worldTicks\":2,\"tripSummary\":{\"livelihoodIncome\":0},\"tradeProfit\":17,\"reputation\":3,\"reputationTurnover\":11,\"goods\":[\"unchanged\"],\"market\":{\"unchanged\":true},\"workHistory\":[{\"runId\":\"c468bd8d-3b01-45da-93b5-a23c0d20e14e\",\"cash\":22,\"batchTiers\":[\"RICH\",\"RICH\",\"RICH\"]}]}"
+  },
+  {
+   "name": "5 Timeout after B1 keeps the completed batch (出色 / 未完成 / 未完成, 12钱)",
+   "ok": true,
+   "detail": "{\"completed\":1,\"tiers\":[\"RICH\"],\"base\":9,\"extra\":3,\"cash\":12}"
+  },
+  {
+   "name": "9 退出营生 → city",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "6 Global Close in gameplay → abort confirmation copy",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "6 Abort cancel restores gameplay and the paused clock",
+   "ok": true,
+   "detail": "{\"before\":86.37289999999481,\"during\":86.37079999999705,\"after\":86.20589999999481}"
+  },
+  {
+   "name": "7 Abort confirm commits zero state (ABORTED, previous batch not paid)",
+   "ok": true,
+   "detail": "{\"cash\":100,\"worldTicks\":0,\"tripSummary\":{\"livelihoodIncome\":0},\"tradeProfit\":17,\"reputation\":3,\"reputationTurnover\":11,\"goods\":[\"unchanged\"],\"market\":{\"unchanged\":true},\"workHistory\":[]}"
+  },
+  {
+   "name": "10 TRIAL session starts",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "10 TRIAL settlement: 模拟所得 22, real mock state untouched",
+   "ok": true,
+   "detail": "{\"settlement\":{\"completed\":3,\"tiers\":[\"RICH\",\"RICH\",\"RICH\"],\"base\":9,\"extra\":13,\"cash\":22},\"outer\":{\"cash\":100,\"worldTicks\":0,\"tripSummary\":{\"livelihoodIncome\":0},\"tradeProfit\":17,\"reputation\":3,\"reputationTurnover\":11,\"goods\":[\"unchanged\"],\"market\":{\"unchanged\":true},\"workHistory\":[]}}"
+  },
+  {
+   "name": "11 Debug ON shows the debug record",
+   "ok": true,
+   "detail": "{\"hidden\":false,\"len\":1045}"
+  },
+  {
+   "name": "11 Debug OFF hides the panel; player UI leaks no scores",
+   "ok": true,
+   "detail": "{\"hidden\":true,\"len\":0}"
+  },
+  {
+   "name": "P parity: in-browser JS engine == native CPython 3.11.15 for runs 0/200/400 (generator + scripted session)",
+   "ok": true,
+   "detail": "identical"
+  },
+  {
+   "name": "R 360px width: no horizontal scroll, cargo/close/timer/balance/确认装好/bag items inside the modal",
+   "ok": true,
+   "detail": "{\"overflowX\":0,\"mainH\":620,\"cargoInside\":true,\"submitInside\":true}"
+  },
+  {
+   "name": "R 390px width: no horizontal scroll, cargo/close/timer/balance/确认装好/bag items inside the modal",
+   "ok": true,
+   "detail": "{\"overflowX\":0,\"mainH\":620,\"cargoInside\":true,\"submitInside\":true}"
+  },
+  {
+   "name": "R 430px width: no horizontal scroll, cargo/close/timer/balance/确认装好/bag items inside the modal",
+   "ok": true,
+   "detail": "{\"overflowX\":0,\"mainH\":620,\"cargoInside\":true,\"submitInside\":true}"
+  },
+  {
+   "name": "N no localhost URLs in runtime requests",
+   "ok": true,
+   "detail": "[]"
+  },
+  {
+   "name": "N no failed / 4xx / 5xx requests",
+   "ok": true,
+   "detail": "[]"
+  },
+  {
+   "name": "N request hosts = page origin only (no CDN, no API)",
+   "ok": true,
+   "detail": "127.0.0.1:8190"
+  },
+  {
+   "name": "N no console errors/exceptions",
+   "ok": true,
+   "detail": ""
+  }
+ ],
+ "passed": 36,
+ "total": 36
+}
