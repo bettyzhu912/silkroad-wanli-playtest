@@ -9,7 +9,11 @@
   let journeyController=null,lastRouteId=null,lastTripId=null;
   // LONG-BG TEST: coordinates are pixels on the 720×1600 (20:9) city artwork and scale with the art in fitScene(); they never follow the HUD or the viewport.
   // The 20:9 backgrounds are the 720×1280 composition placed at y=320..1600 with 320px of added sky above (pixel match, mean diff ≈0.5/255): x unchanged, y +320; no hotspot re-marked.
-  const cityArt = { w: 720, h: 1600, sky: 320 };
+  const cityArt = { w: 720, h: 1600, slackTop: 320, slackBottom: 0 };
+  // LONG-BG LAYOUT TEST: home (941×2091) and journey (657×1460) arts extended to 20:9 with parchment above/below the original composition; the added regions are the only croppable slack.
+  const homeArt = { w: 941, h: 2091, slackTop: 300, slackBottom: 119 }, travelArt = { w: 657, h: 1460, slackTop: 140, slackBottom: 137 };
+  // Fit rule shared by the long arts: the original composition (between the slack regions) is always complete at its own aspect ratio; the slack fills the remaining height and is cropped (top/bottom in proportion) only when the viewport is shorter than the full art; bands appear only when even the composition cannot fill.
+  function fitSlack(width,height,art){const stdH=art.h-art.slackTop-art.slackBottom,scale=Math.min(width/art.w,height/stdH),w=art.w*scale,h=art.h*scale,slack=art.slackTop+art.slackBottom;let top;if(h<=height)top=(height-h)/2;else{const crop=h-height;top=-(slack?crop*art.slackTop/slack:crop/2);}return {w,h,left:(width-w)/2,top};}
   const hotspots = {
     changan: [['work','营生',140,780],['depart','出发',367,850],['guifang','柜坊',489,916],['inn','客舍',199,932],['merchant_business','商号',641,1055],['inspect','商情',199,1154],['market','市场',516,1361]],
     dunhuang: [['depart','出发',497,795],['guifang','柜坊',170,993],['inn','客舍',252,1086],['inspect','商情',176,1208],['market','市场',589,1208],['work','营生',639,1376]],
@@ -119,13 +123,13 @@
     const progress=p();if(!progress)return;
     if(progress.world.route){
       ui.sceneCity=null;nodes.scene.classList.add('journey-scene');nodes.scene.setAttribute('aria-label','行进地图');
-      nodes.scene.querySelector(':scope > .world-map-button')?.remove();nodes.sceneWorld.replaceChildren();
-      renderTravelArt(context(),nodes.sceneWorld,progress.world.route);nodes.scene.append(mapButton(()=>openSecondary('map')));
+      for(const old of nodes.scene.querySelectorAll(':scope > .world-map-button, :scope > .travel-art-caption, :scope > .journey-status'))old.remove();nodes.sceneWorld.replaceChildren();
+      renderTravelArt(context(),nodes.sceneWorld,progress.world.route);const cap=nodes.sceneWorld.querySelector('.travel-art-caption');if(cap)nodes.scene.append(cap);nodes.scene.append(mapButton(()=>openSecondary('map')));
       const status=el('div','journey-status');status.setAttribute('aria-live','polite');
       if(ui.error){paragraph(status,ui.error,'inline-error');status.append(button('重试行程',()=>{ui.error='';journeyController?.retry();render(ui.state);}));status.append(button('重新载入存档',()=>location.reload()));}
-      nodes.sceneWorld.append(status);fitScene();return;
+      nodes.scene.append(status);fitScene();return;
     }
-    nodes.scene.classList.remove('journey-scene');
+    nodes.scene.classList.remove('journey-scene');for(const old of nodes.scene.querySelectorAll(':scope > .travel-art-caption, :scope > .journey-status'))old.remove();
     const city=progress.world.city;
     if(ui.sceneCity!==city){
       ui.sceneCity=city;nodes.sceneWorld.replaceChildren();nodes.scene.setAttribute('aria-label',cities[city]+'城市主界面');
@@ -143,13 +147,11 @@
   function fitScene() {
     if(!nodes.sceneWorld)return;const width=nodes.scene.clientWidth,height=nodes.scene.clientHeight;if(!width||!height)return;
     if(p()?.world.route){
-      // Journey art (657×1183): contain — the whole illustration stays visible at its own aspect ratio, centred with letterbox bands (never cropped or stretched).
-      const ratio=657/1183,travelWidth=Math.min(width,height*ratio),travelHeight=travelWidth/ratio;
-      nodes.sceneWorld.style.width=travelWidth+'px';nodes.sceneWorld.style.height=travelHeight+'px';nodes.sceneWorld.style.left=(width-travelWidth)/2+'px';nodes.sceneWorld.style.top=(height-travelHeight)/2+'px';return;
+      // Journey art (657×1460, parchment slack 140 above / 137 below the map): slack fit rule, see fitSlack()
+      const fit=fitSlack(width,height,travelArt);nodes.sceneWorld.style.width=fit.w+'px';nodes.sceneWorld.style.height=fit.h+'px';nodes.sceneWorld.style.left=fit.left+'px';nodes.sceneWorld.style.top=fit.top+'px';return;
     }
-    // LONG-BG TEST — city art (720×1600, top 320px = added sky): the standard 720×1280 composition is always shown complete at its own aspect ratio
-    // (worldW ≤ width and 0.8·worldH ≤ height); the added sky fills the remaining height and is the only region that may be cropped (at the top), so tall phones show no bands.
-    const ratio=cityArt.w/cityArt.h,stdRatio=cityArt.w/(cityArt.h-cityArt.sky),worldW=Math.min(width,height*stdRatio),worldH=worldW/ratio,left=(width-worldW)/2,top=worldH>height?height-worldH:(height-worldH)/2;
+    // City art (720×1600, top 320px = added sky): slack fit rule, see fitSlack(); the standard 720×1280 composition is always complete.
+    const fit=fitSlack(width,height,cityArt),worldW=fit.w,worldH=fit.h,left=fit.left,top=fit.top;
     nodes.sceneWorld.style.left=left+'px';nodes.sceneWorld.style.width=worldW+'px';nodes.sceneWorld.style.height=worldH+'px';nodes.sceneWorld.style.top=top+'px';
     // hotspots in px on the art; plaques are kept fully inside the viewport (only matters for plaques near the art edge on very narrow screens)
     for(const hot of nodes.sceneWorld.querySelectorAll('.city-hotspot')){const ax=Number(hot.dataset.artX),ay=Number(hot.dataset.artY);if(!ax)continue;const hw=(hot.offsetWidth||82)/2+2,hh=(hot.offsetHeight||44)/2+2;
@@ -158,9 +160,8 @@
   function fitHome() {
     const frame=nodes.start&&nodes.start.querySelector('.home-art-frame');if(!frame||nodes.start.hidden)return;
     const cs=getComputedStyle(nodes.start),availW=nodes.start.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),availH=nodes.start.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);if(!(availW>0&&availH>0))return;
-    // Home art (941×1672): contain — the complete illustration at its own aspect ratio, centred with letterbox bands; never cropped or stretched.
-    const ratio=941/1672,artW=Math.min(availW,availH*ratio);
-    frame.style.width=artW+'px';frame.style.height=artW/ratio+'px';frame.style.marginLeft=(availW-artW)/2+'px';
+    // Home art (941×2091, parchment slack 300 above / 119 below the original composition): slack fit rule, see fitSlack()
+    const fit=fitSlack(availW,availH,homeArt);frame.style.width=fit.w+'px';frame.style.height=fit.h+'px';frame.style.marginLeft=fit.left+'px';frame.style.marginTop=fit.top+'px';
   }
   function describe() {return S.time&&S.time.describe?S.time.describe(p()):{yearLabel:'贞元十六年',dateLabel:p().world.tick===0?'三月十一日':date(p().world.tick),phaseLabel:['晨','午','暮'][p().world.tick%3],tripLabel:p().trip?'商旅进行中':'商期 未启程'};}
   function renderHUD() {
@@ -291,7 +292,7 @@
     document.documentElement.style.setProperty('--viewport-height',height+'px');
     const wasKeyboard=ui.keyboard;
     ui.keyboard=Boolean(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))||Boolean(vv&&window.innerHeight-height>140);
-    if(nodes.root){nodes.root.classList.toggle('keyboard-open',ui.keyboard);nodes.root.style.setProperty('--art-scale',String(Math.max(.3,(nodes.root.clientWidth-24)/768)));}fitScene();fitHome();if(wasKeyboard!==ui.keyboard)renderNotices();
+    if(nodes.root){nodes.root.classList.toggle('keyboard-open',ui.keyboard);nodes.root.style.setProperty('--art-scale',String(Math.max(.3,(nodes.root.clientWidth-24)/768)));const safeBottom=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom'))||0;nodes.root.style.setProperty('--map-bottom',(Math.max(safeBottom,18)+6)+'px');}fitScene();fitHome();if(wasKeyboard!==ui.keyboard)renderNotices();
     if(ui.keyboard&&document.activeElement&&document.activeElement.scrollIntoView)document.activeElement.scrollIntoView({block:'nearest'});
   }
   function keyboardHandler(event) {
@@ -329,7 +330,7 @@
     background.src=asset(firstLeg?'B6_travel_changan_dunhuang_bg_v01':'B6_travel_dunhuang_khotan_bg_v01');background.alt=cities[route.from]+'至'+cities[route.to]+'的旅程景观';background.draggable=false;art.append(background);
     // The supplied artwork defines orientation; no mirroring or geographic-name inference.
     const direction=markerDirection(c.p),marker=locationMarker(direction),f=routeFraction(route);
-    const endpoints=firstLeg?{changan:[.90,.57],dunhuang:[.14,.425]}:{dunhuang:[.87,.54],khotan:[.14,.51]},from=endpoints[route.from],to=endpoints[route.to];
+    const onLong=([x,y])=>[x,(y*(travelArt.h-travelArt.slackTop-travelArt.slackBottom)+travelArt.slackTop)/travelArt.h];const endpoints=firstLeg?{changan:onLong([.90,.57]),dunhuang:onLong([.14,.425])}:{dunhuang:onLong([.87,.54]),khotan:onLong([.14,.51])},from=endpoints[route.from],to=endpoints[route.to];
     marker.style.left=((from[0]+(to[0]-from[0])*f)*100)+'%';marker.style.top=((from[1]+(to[1]-from[1])*f)*100)+'%';art.append(marker);
     const elapsedDay=Math.floor((c.p.world.tick-route.startedTick)/3)+1;
     const caption=el('figcaption','travel-art-caption',cities[route.from]+' — '+cities[route.to]+' · 第'+elapsedDay+'日 / 预计'+route.days+'日');art.append(caption);b.append(art);
