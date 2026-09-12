@@ -57,6 +57,15 @@ tests/   parity_*.js/.py adapter.test.js run_native_tests.py browser_smoke.js or
 
 Placeholders are hand-drawn SVGs derived from `CARGO_DATA.json` (银器: heavy durable silver ewer and bowls on a cloth; 绿松石: medium fragile/pressure-sensitive stones bedded in a padded box; 胡椒: light plain small tied sack with peppercorns). They are temporary; to replace one, drop the final icon in `assets/cargo/` and change the path in `cargo-icons.js`. Cargo data, scoring, generator, session and state flow never reference the art.
 
+## Round-2 UI polish (2026-09-12, commit 6612e72 → build stamp 6c9fbcefbb)
+Presentation-only changes agreed after the first public playtest review. No rule, value, copy of the P0/P1 texts, state flow or timing changed; `engine/` and `py/` are untouched (parity/regression evidence above still applies).
+- Stage: camel + saddlebags live in a centred `.rig` that `fitRig()` scales to the window (`min(stageH−8, stageW×0.72, 330)` high), so the window no longer looks empty; the modal size is unchanged.
+- Saddlebags: about 33 % of the rig width each, cinched mouth with a rope band, less of the camel covered. Loaded cargo shows image-only (no name, no card border), larger and slightly overlapping like a real load; the top item is emphasised and the selected item outlined. Unselected cargo still shows the "普通" tag like every other tag.
+- Balance bar: rail 12 px / bead 18 px, bead coloured by the band it sits in, 0.45 s eased movement, clamped so it never overshoots the rail ends. `main.thin-bar` keeps the previous 9 px rail for the A/B screenshot (`tests/ab_bar.js` → `tests/results/ab/`).
+- The 放入 button pops in only on the first waiting-cargo selection of a session; 44 px close target; batch/timer spacing.
+- The three TEMP_PLACEHOLDER icons (银器 / 绿松石 / 胡椒) were repainted in the main-game icon style (gradients, highlights, grain). They remain temporary art with the same filenames, so the replacement path in `cargo-icons.js` is unchanged.
+- The "时限 / 测试题组 / Debug" top bar stays in the playtest build and is to be removed from the formal build.
+
 ## Boundaries kept
 `MAIN_GAME_MODIFIED = NO` · `B7_INTEGRATED = NO` · `REAL_WALLET_WRITES = NO` · `REAL_WORLD_TIME_WRITES = NO` · `V0.4_BALANCE_CHANGES = NONE`.
 FORMAL updates only the in-memory `MockOuter`; TRIAL keeps 0 real cash / 0 time / 0 trip delta / no formal history; Abort commits nothing; Timeout keeps completed batches; Settlement exits are idempotent. No long-term save: reloading the page starts a fresh mock session (the P1 prototype's cookie session was in-memory as well). Debug is available through the top-bar checkbox. Test hooks (`advance`, `worst`, `parity`, `reset`) exist only on the worker bridge for automated tests and are never triggered by the player UI.
