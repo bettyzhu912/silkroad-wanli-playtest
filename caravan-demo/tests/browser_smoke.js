@@ -22,7 +22,7 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
   const clickText = text => ev(`(()=>{const b=[...document.querySelectorAll('#app button')].find(x=>!x.disabled&&x.textContent.trim()===${JSON.stringify(text)});if(!b)return false;b.click();return true})()`);
   const idle = async () => { await waitFor('!window.__appBusy', 4000, 50); await sleep(160); };
   const uiText = () => ev('document.querySelector("#app").innerText.replace(/\\s+/g," ")');
-  const placeViaUI = async (left, right) => { for (const [side, ids] of [['left', left], ['right', right]]) for (const id of ids) { await click(`.cargo[data-id="${id}"]`); await sleep(120); const ok = await click(`.bag.${side} .action[data-insert="${side}"]`); if (!ok) throw new Error('insert button missing for ' + id); await idle(); } };
+  const placeViaUI = async (left, right) => { for (const [side, ids] of [['left', left], ['right', right]]) for (const id of ids) { await click(`.cargo[data-id="${id}"]`); await sleep(120); const ok = await click(`.bag.${side}`); if (!ok) throw new Error('bag missing for ' + id); await idle(); } };
   const settleCycle = async () => { const ok = await clickText('确认装好'); if (!ok) throw new Error('确认装好 not visible'); await waitFor('(()=>{const s=window.__lastState;return s&&["GAMEPLAY","SETTLEMENT","LIVELIHOOD_LIST"].includes(s.state)&&s.state!=="EVALUATING"})()', 100, 100); await sleep(2600); await idle(); };
   const reference = async () => { const s = await st(); if (!s.debug) { await click('#debug'); await idle(); } const s2 = await st(); return s2.debug.referenceSolution; };
   const freshSession = async (mode, seconds = 75, index = 0) => { await ev(`__bridge.reset().then(()=>__bridge.action({op:'prepare',index:${index}}))`); await sleep(300); await waitFor(`(async()=>{const s=await __bridge.state();return s.prepared.includes(${index})&&s.state==='READY'})()`, 60000, 250); await ev(`document.querySelector('#seconds').value='${seconds}'`); await sleep(400); const ok = await clickText(mode === 'TRIAL' ? '试玩' : '开始装货'); if (!ok) throw new Error('start button not enabled'); await idle(); const s = await st(); if (s.state !== 'GAMEPLAY') throw new Error('not in gameplay: ' + s.state); return s; };
@@ -49,11 +49,12 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
     // remove everything from the top (top-layer only), check lower-layer hint
     const topOnly = await ev(`(()=>{const s=window.__lastState;const lower=s.left.length>1?s.left[0]:null;if(!lower)return 'skip';document.querySelector('.bag-item[data-id="'+lower+'"]').click();return document.querySelector('.context').textContent})()`);
     check('4 lower-layer tap only hints 先取出上层货物', topOnly === 'skip' || /先取出上层货物/.test(topOnly), topOnly);
-    for (const side of ['left', 'right']) { for (;;) { s = await st(); const bag = s[side]; if (!bag.length) break; const top = bag[bag.length - 1]; await click(`.bag-item[data-id="${top}"]`); await sleep(120); const ok = await click(`.bag.${side} .action[data-remove="${side}"]`); if (!ok) throw new Error('remove button missing'); await idle(); } }
-    s = await st(); check('4 取出 ↑ returns cargo to fixed original positions', s.waiting.length === s.slots.length && JSON.stringify(s.slots) === JSON.stringify((await st()).slots) && !s.canSubmit);
+    for (const side of ['left', 'right']) { for (;;) { s = await st(); const bag = s[side]; if (!bag.length) break; const top = bag[bag.length - 1]; const ok = await click(`.bag-item[data-id="${top}"]`); if (!ok) throw new Error('top item missing'); await idle(); } }
+    s = await st(); check('4 single tap on the top item takes it out, cargo returns to fixed original positions', s.waiting.length === s.slots.length && JSON.stringify(s.slots) === JSON.stringify((await st()).slots) && !s.canSubmit);
     const b2ref = await reference(); await placeViaUI(b2ref.left, b2ref.right); await settleCycle(); s = await st(); check('4 rearranged layout PASSes → batch 3', s.batch === 3 && s.state === 'GAMEPLAY');
     // 8 third batch → settlement
-    const b3ref = await reference(); await placeViaUI(b3ref.left, b3ref.right); await shot('formal-b3-loaded'); await settleCycle(); s = await st(); text = await uiText();
+    const b3ref = await reference(); await placeViaUI(b3ref.left, []); await click(`.cargo[data-id="${b3ref.right[0]}"]`); await sleep(120); await click('.bag.left'); await sleep(250); s = await st(); text = await ev('document.querySelector(".context").textContent');
+    check('8 tap on a full bag only hints 已满, nothing moves', s.left.length === 4 && s.waiting.includes(b3ref.right[0]) && /已满/.test(text), text); await click(`.cargo[data-id="${b3ref.right[0]}"]`); await sleep(120); await placeViaUI([], b3ref.right); await shot('formal-b3-loaded'); await settleCycle(); s = await st(); text = await uiText();
     check('8 three completed batches → Settlement (immediately, no remaining-time reward)', s.state === 'SETTLEMENT' && s.settlement && s.settlement.completed === 3 && s.settlement.cash === 22 && /驼队装货完成/.test(text) && /今日所得/.test(text) && !/×/.test(text), JSON.stringify(s.settlement)); await shot('settlement');
     const closeAbsent = await ev('!document.querySelector("#app .close")'); check('8 Settlement has no Global Close', closeAbsent);
     const outer1 = (await st()).debug.mockOuter; check('8 mock outer applied once: cash 100→122, worldTicks +2, one work record', outer1.cash === 122 && outer1.worldTicks === 2 && outer1.workHistory.length === 1, JSON.stringify(outer1));
@@ -107,7 +108,7 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
     const reqs = c.network.filter(r => typeof r.url === 'string');
     const local = reqs.filter(r => /localhost|127\.0\.0\.1/.test(r.url) && !(srv && r.url.startsWith('http://127.0.0.1:8190/')));
     const badReqs = c.network.filter(r => r.status === 'FAILED' || (typeof r.status === 'number' && r.status >= 400));
-    const hosts = [...new Set(reqs.map(r => { try { return new URL(r.url).host; } catch (_) { return r.url; } }))];
+    const hosts = [...new Set(reqs.filter(r => !/^(data|blob):/.test(r.url)).map(r => { try { return new URL(r.url).host; } catch (_) { return r.url; } }))];
     check('N no localhost URLs in runtime requests', local.length === 0, JSON.stringify(local.map(r => r.url)).slice(0, 200));
     check('N no failed / 4xx / 5xx requests', badReqs.length === 0, JSON.stringify(badReqs.map(r => [r.url, r.status])).slice(0, 300));
     check('N request hosts = page origin only (no CDN, no API)', hosts.every(h => (srv ? h === '127.0.0.1:8190' : /github\.io$/.test(h))), hosts.join(' '));

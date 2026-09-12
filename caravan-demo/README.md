@@ -57,6 +57,14 @@ tests/   parity_*.js/.py adapter.test.js run_native_tests.py browser_smoke.js or
 
 Placeholders are hand-drawn SVGs derived from `CARGO_DATA.json` (银器: heavy durable silver ewer and bowls on a cloth; 绿松石: medium fragile/pressure-sensitive stones bedded in a padded box; 胡椒: light plain small tied sack with peppercorns). They are temporary; to replace one, drop the final icon in `assets/cargo/` and change the path in `cargo-icons.js`. Cargo data, scoring, generator, session and state flow never reference the art.
 
+## Round-3 UI (2026-09-12) — tap-to-load, saddlebag art, 2+2 stack, capacity slots, instructions
+Presentation/interaction only; `engine/` and `py/` untouched, rules unchanged (bags 2 × 4, TOP_ONLY removal, all cargo loaded before submit).
+- Interaction: "hands full → put in, hands empty → take out". With a waiting cargo selected both bags become targets (pulsing glow, 放入 ↓ label above; the label is also a real button for keyboard users) and a tap anywhere on a bag inserts. With nothing selected a single tap on the top item takes it out (returns to its fixed waiting slot, not auto-selected). Tapping a lower item shakes the bag and hints 先取出上层货物; tapping a full bag shakes and hints 这只驼袋已满; tapping the selected waiting card again deselects. Only `insert` / `remove` are ever sent to the engine.
+- Saddlebag: `assets/saddlebag.svg` (also inlined into `style.css` as a data URI) — trapezoid sack, half-cinched rope mouth, pleats, rounded bottom; the bag box keeps a fixed 100:130 aspect ratio so the art never stretches.
+- Loaded cargo: 38 %-wide tiles (thin border, 80 % paper tint, icon padded 3 %) in an ascending 2+2 cascade (left → right → left → right, each layer higher than the previous, the top layer just under the rope); four dashed slots always show the capacity of 4 per bag. Warning badges sit on the outer corner of each tile so they are never covered.
+- Copy: hint line "选中货物，点驼袋放入；点袋中最上面的货物可取出"; 玩法说明 now states "每只驼袋最多装 4 件，两袋共 8 件".
+- Smoke: 37 checks (new check: a tap on a full bag only hints and moves nothing); `placeViaUI` taps the bag, unloading taps the top item; inline `data:` URLs are excluded from the request-host check.
+
 ## Round-2 UI polish (2026-09-12, commit 6612e72 → build stamp 6c9fbcefbb)
 Presentation-only changes agreed after the first public playtest review. No rule, value, copy of the P0/P1 texts, state flow or timing changed; `engine/` and `py/` are untouched (parity/regression evidence above still applies).
 - Stage: camel + saddlebags live in a centred `.rig` that `fitRig()` scales to the window (`min(stageH−8, stageW×0.72, 330)` high), so the window no longer looks empty; the modal size is unchanged.
