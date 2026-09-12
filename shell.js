@@ -207,12 +207,11 @@
     nodes.start.replaceChildren();const frame=el('div','home-art-frame'),art=el('img','home-art');
     art.src=asset('home_screen_visual_reference_v01');art.alt='丝路万里——我在大唐经商';art.draggable=false;frame.append(art);
     // Hotspots follow the complete approved 941×1672 artwork; the illustration is not sliced or redesigned.
-    for(const [id,label,action] of [['depart','启程',()=>{ui.startChoice=true;renderStart();}],['announcement','公告',()=>openPanel('notification')],['settings','设置',()=>openPanel('settings')]]){
+    // SILKROAD_NEW_PLAYER_GUIDE_PATCH_v1.0: 启程 starts the game directly; the 【按指引开始 / 自行探索】 choice is the guide's entry card on the 长安 map (guide-ui.js).
+    for(const [id,label,action] of [['depart','启程',()=>dispatch('game.start',{mode:'explore'})],['announcement','公告',()=>openPanel('notification')],['settings','设置',()=>openPanel('settings')]]){
       const hot=button('',action,{className:'home-hotspot home-'+id,label});hot.append(el('span','visually-hidden',label));frame.append(hot);
     }
-    if(ui.startChoice){const card=el('section','home-choice paper-panel');card.setAttribute('role','dialog');card.setAttribute('aria-label','选择开局方式');card.append(el('h2','','启程'));
-      const choices=el('div','start-choices');choices.append(button('按指引开始',()=>dispatch('game.start',{mode:'guided'})),button('自行探索',()=>dispatch('game.start',{mode:'explore'}),{className:'ui-button secondary-button'}),button('返回首页',()=>{ui.startChoice=false;renderStart();},{className:'text-button'}));card.append(choices);if(ui.error)paragraph(card,ui.error,'inline-error');nodes.start.append(frame,card);fitHome();return;
-    }else if(ui.error)paragraph(frame,ui.error,'home-error inline-error');
+    if(ui.error)paragraph(frame,ui.error,'home-error inline-error');
     nodes.start.append(frame);fitHome();
   }
   function renderPanelContent(current,parts,isSecondary) {
@@ -265,7 +264,7 @@
   function noticeRank(n) {const k=noticeKind(n);return k==='loan'||k==='risk'||k==='major'||k==='commissionFailure'?0:k==='tutorial'?1:2;}
   function selectNotice() {
     if(!p()||blocking()||ui.keyboard||p().presentation.unstable)return null;
-    const notices=(p().presentation.notices||[]).filter(n=>!p().presentation.seen[n.id]&&!(n.localCity&&(p().world.route||n.localCity!==p().world.city))&&!(noticeKind(n)==='tutorial'&&(!ui.state.preferences.tutorialEnabled||p().presentation.tutorialSeen[n.id]||ui.tutorialCooldown)));
+    const notices=(p().presentation.notices||[]).filter(n=>!p().presentation.seen[n.id]&&!(n.localCity&&(p().world.route||n.localCity!==p().world.city))&&noticeKind(n)!=='tutorial');   // retired tutorial notices are never shown (guide.js is the only new-player guide)
     notices.sort((a,b)=>noticeRank(a)-noticeRank(b)||(b.severity||0)-(a.severity||0)||(a.tutorialOrder||0)-(b.tutorialOrder||0));
     if(!notices.length)return null;const first=notices[0];
     if(noticeKind(first)!=='loan'||Array.isArray(first.loans))return {...first,ids:[first.id]};
@@ -295,6 +294,7 @@
       else if(field.hasAttribute('data-pending-disabled')){field.disabled=field.dataset.pendingDisabled==='true';delete field.dataset.pendingDisabled;}
     });
     nodes.root.querySelectorAll('button[data-busy-disabled]').forEach(b=>{b.disabled=ui.busy;});
+    runRenderHooks();
   }
   function render(state) {
     if(!ui.mounted)return;captureInputs();ui.state=state||ui.app.state;
@@ -319,6 +319,8 @@
     renderPanels();renderResult();renderModals();renderNotices();renderControls();
     journeyController?.refresh();
   }
+  const renderHooks=[];
+  function runRenderHooks(){for(const fn of renderHooks){try{fn(ui.state);}catch(error){console.error(error);}}}
   function viewportChanged() {
     const vv=window.visualViewport;const height=vv?vv.height:window.innerHeight;
     document.documentElement.style.setProperty('--viewport-height',height+'px');
@@ -429,6 +431,6 @@
     async function acknowledge(leave){await dispatch('result.ack',{resultId:result.id});if(!ui.error){ui.primary=leave?null:{id:'guifang',data:{}};ui.secondary=null;ui.back=[];render(ui.state);}}
     parts.footer.hidden=false;parts.footer.append(button('继续办理',()=>acknowledge(false),{natural:false}),button('离开柜坊',()=>acknowledge(true),{natural:false}));if(ui.error)paragraph(parts.body,ui.error,'inline-error');
   }
-  S.ui={mount,render,registerPanel,numericStepper,renderTravelArt,registerMenu(id,spec){registerPanel(id,spec);},registerResult(kind,fn){resultRenderers.set(kind,fn);},openPanel,openSecondary,closePanel,closeSecondary,showModal,dismissModal,dispatch,
+  S.ui={mount,render,registerPanel,numericStepper,onRender(fn){renderHooks.push(fn);},renderTravelArt,registerMenu(id,spec){registerPanel(id,spec);},registerResult(kind,fn){resultRenderers.set(kind,fn);},openPanel,openSecondary,closePanel,closeSecondary,showModal,dismissModal,dispatch,
     getState(){return {primary:ui.primary&&ui.primary.id,secondary:ui.secondary&&ui.secondary.id,secondaryHistory:ui.back.length,blockingModalCount:ui.modals.length?1:0,queuedModals:Math.max(0,ui.modals.length-1),busy:ui.busy,keyboard:ui.keyboard,tutorialCooldown:ui.tutorialCooldown};}};
 })(globalThis.Silk=globalThis.Silk||{});

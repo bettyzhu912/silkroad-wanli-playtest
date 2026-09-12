@@ -148,11 +148,10 @@
     for(const task of rows){const card=c.el('section','voucher-card');c.row(task.title,task.goodId+' × '+task.quantity,card);card.append(c.button('查看委托',()=>c.openSecondary('commission-detail',{commissionId:task.commissionId,returnGrace:true})));b.append(card);}
   },footer(c,f){f.append(c.button('返回返程事务',c.closeSecondary));}});
   S.ui.registerPanel('settings-controls',{render(c,b){
-    for(const [key,label]of [['tutorialEnabled','新手提示'],['soundEnabled','声音']]){c.row(label,c.state.preferences[key]?'开启':'关闭',b,()=>c.dispatch('settings.update',{key,value:!c.state.preferences[key]}));}
+    for(const [key,label]of [['soundEnabled','声音']]){c.row(label,c.state.preferences[key]?'开启':'关闭',b,()=>c.dispatch('settings.update',{key,value:!c.state.preferences[key]}));}
   }});
   S.ui.registerPanel('help',{title:'玩法说明',render(c,b){
     for(const line of S.content.helpText.split('\n'))if(line.trim())c.paragraph(b,line);
-    b.append(c.button(c.p.presentation.tutorialEnabled?'关闭新手提示':'重新开启新手提示',()=>c.dispatch('settings.update',{key:'tutorialEnabled',value:!c.p.presentation.tutorialEnabled})));
   }});
   S.ui.registerPanel('reputation',{title:'商誉详情',render(c,b){
     c.row('当前商誉',c.p.reputation.value,b);c.row('已累计有效交易额',c.formatMoney(c.p.reputation.turnover),b);
@@ -173,6 +172,6 @@
     if(r.other.length){header(c,b,'其他收支');for(const x of r.other)money(c,b,x.label,x.amount);}
     header(c,b,'期末资金');money(c,b,'随身铜钱',r.funds.cash);money(c,b,'资金总额',r.funds.totalFunds);money(c,b,'负债合计',r.funds.totalDebt);money(c,b,'净资金',r.funds.netFunds);
     if(r.important.length){header(c,b,'重要结果');for(const x of r.important)info(c,b,x.text);}
-    if(r.firstCompletedTrip&&r.tutorialEnabled){header(c,b,'初次商旅完成');c.paragraph(b,'你已经掌握最基本的跑商方式。之后可以继续出发，也可以留在长安经营；更多玩法会随商誉与经营进度逐步开放。');b.append(c.button('查看玩法说明',()=>c.openSecondary('help')));}
+
   });
 })(globalThis.Silk=globalThis.Silk||{});

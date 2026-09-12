@@ -38,7 +38,7 @@
     has(type) { return handlers.has(type); },
     run(p, command, context) {
       ensure(handlers.has(command.type), 'NOT_IMPLEMENTED', '此功能尚未完成接入');
-      const safeUI = ['result.ack', 'tutorial.dismiss', 'tutorial.visit', 'notice.dismiss'].includes(command.type);
+      const safeUI = ['result.ack', 'tutorial.dismiss', 'tutorial.visit', 'notice.dismiss'].includes(command.type) || command.type.startsWith('guide.');
       if (p.presentation.activeResult && !safeUI) ensure(false, 'RESULT_PENDING', '请先查看并确认上次操作结果');
       if(p.market.visit&&!p.market.visit.settled&&!safeUI)ensure(command.type.startsWith('market.')||command.type.startsWith('newspaper.')||['commission.accept','commission.pickup','commission.deliver','commission.abandon'].includes(command.type),'MARKET_VISIT_OPEN','请先离开当前市场');
       const tavernActive = p.work?.tavern && (!p.work.tavern.result || p.work.tavern.result.completionStatus === 'COMPLETED' && !p.work.tavern.resultAcknowledged);
