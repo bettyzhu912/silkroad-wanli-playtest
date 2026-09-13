@@ -10,6 +10,8 @@
   // City hotspots are scene-level: coordinates are pixels on the 720×1600 (20:9) city artwork and scale with the art in fitScene(); they never follow the HUD or the viewport.
   // The 20:9 backgrounds are the 720×1280 composition placed at y=320..1600 with 320px of added sky above (pixel match, mean diff ≈0.5/255): x unchanged, y +320; no hotspot re-marked.
   const cityArt = { w: 720, h: 1600, slackTop: 320, slackBottom: 0 };
+  // Round 28: top of the city-name block (长安·西市 / 敦煌·沙州驿市 / 于阗·绿洲市集) painted at the bottom-left of each city art (px on the 720×1600 art, measured); the five HUD windows end above it.
+  const cityTitleTop = { changan: 1418, dunhuang: 1382, khotan: 1380 };
   // Home (941×2091) and journey (657×1460) arts are the 20:9 versions with parchment above/below the original composition; the added regions are the only croppable slack.
   const homeArt = { w: 941, h: 2091, slackTop: 300, slackBottom: 119 }, travelArt = { w: 657, h: 1460, slackTop: 140, slackBottom: 137 };
   // Fit rule shared by the long arts: the original composition (between the slack regions) is always complete at its own aspect ratio; the slack fills the remaining height and is cropped (top/bottom in proportion) only when the viewport is shorter than the full art; bands appear only when even the composition cannot fill.
@@ -193,6 +195,19 @@
     for(const hot of nodes.sceneWorld.querySelectorAll('.city-hotspot')){const ax=Number(hot.dataset.artX),ay=Number(hot.dataset.artY);if(!ax)continue;const hw=(hot.offsetWidth||82)/2+2,hh=(hot.offsetHeight||44)/2+2;
       const cx=Math.min(Math.max(ax/cityArt.w*worldW,-left+hw),-left+width-hw),cy=Math.min(Math.max(ay/cityArt.h*worldH,-top+hh),-top+height-hh);hot.style.left=cx+'px';hot.style.top=cy+'px';}
   }
+  // Round 28 master rect of the five HUD windows (行囊 / 委托 / 消息 / 商号 / 更多): one rect for all five — top = 12 px below the HUD's second row
+  // (the real HUD box, not --hud-height), bottom = 10 px above the city-name block of the current city art (so the city name stays visible);
+  // written as --window-top / --window-bottom on the root, read by styles.css. Off the city scene (route / no progress) the CSS fallback applies.
+  function layoutWindows() {
+    if(!nodes.root||!nodes.hud||!nodes.sceneWorld)return;const progress=p();
+    if(!progress||progress.world.route||nodes.scene.hidden||nodes.hud.hidden){nodes.root.style.removeProperty('--window-top');nodes.root.style.removeProperty('--window-bottom');return;}
+    const rootRect=nodes.root.getBoundingClientRect(),hudRect=nodes.hud.getBoundingClientRect(),world=nodes.sceneWorld.getBoundingClientRect();if(!rootRect.height||!world.height)return;
+    const top=Math.round((hudRect.bottom-rootRect.top+12)*10)/10;
+    const titleTop=world.top-rootRect.top+world.height*((cityTitleTop[progress.world.city]||1380)-8)/cityArt.h;
+    let bottom=Math.round((rootRect.height-(titleTop-10))*10)/10;
+    if(rootRect.height-top-bottom<200)bottom=Math.max(0,rootRect.height-top-200); // never below a usable window on very short screens
+    nodes.root.style.setProperty('--window-top',top+'px');nodes.root.style.setProperty('--window-bottom',bottom+'px');
+  }
   function fitHome() {
     const frame=nodes.start&&nodes.start.querySelector('.home-art-frame');if(!frame||nodes.start.hidden)return;
     const cs=getComputedStyle(nodes.start),availW=nodes.start.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),availH=nodes.start.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);if(!(availW>0&&availH>0))return;
@@ -324,7 +339,7 @@
     const hasProgress=Boolean(p());nodes.start.hidden=hasProgress;nodes.hud.hidden=!hasProgress;nodes.scene.hidden=!hasProgress;
     if(!hasProgress){renderStart();}
     else {renderScene();renderHUD();}
-    renderPanels();renderResult();renderModals();renderNotices();renderControls();
+    renderPanels();renderResult();renderModals();renderNotices();renderControls();layoutWindows();
     journeyController?.refresh();
   }
   const renderHooks=[];
@@ -337,6 +352,7 @@
     if(nodes.root){nodes.root.classList.toggle('keyboard-open',ui.keyboard);nodes.root.style.setProperty('--art-scale',String(Math.max(.3,(nodes.root.clientWidth-24)/768)));
       // HUD_POLISH_CORRECTION_v0.2 / v0.3: integer-pixel type sizes for the three-row time module from the real HUD height — year = original date size, date/商期 = original + 1 px (bold 时辰 / 商期 numbers keep the row size); the shared row line-height (≤1.1) is reduced only as far as needed to keep ≥2 px between the text and the first-layer edges, never the font size.
       {const cs=getComputedStyle(document.documentElement);const safeT=parseFloat(cs.getPropertyValue('--safe-top'))||0,safeB=parseFloat(cs.getPropertyValue('--safe-bottom'))||0;const hudH=(height-safeT-safeB)*.089;const year=Math.max(8,Math.min(12,Math.round(hudH*.139)));const date=Math.max(8,Math.min(13,Math.round(hudH*.139+1)));const rowLh=Math.max(1,Math.min(1.1,(hudH*.53-4)/(year+date+date)));nodes.root.style.setProperty('--hud-year',year+'px');nodes.root.style.setProperty('--hud-date',date+'px');nodes.root.style.setProperty('--hud-row-lh',String(+rowLh.toFixed(3)));}const safeBottom=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom'))||0;nodes.root.style.setProperty('--map-bottom',(Math.max(safeBottom,18)+6)+'px');}fitScene();fitHome();if(wasKeyboard!==ui.keyboard)renderNotices();
+    layoutWindows();
     if(ui.keyboard&&document.activeElement&&document.activeElement.scrollIntoView)document.activeElement.scrollIntoView({block:'nearest'});
   }
   function keyboardHandler(event) {

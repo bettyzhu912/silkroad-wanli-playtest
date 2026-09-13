@@ -14,8 +14,8 @@ const COPY = {
   商誉: '商誉代表你在丝路上的信用与名声。随着商誉提升，可以逐步解锁委托、商号资格、更多货物，以及其他经营玩法。',
   行囊: '在这里可以查看你携带的商品、粮草、当前骆驼数量和可用货位。\n想扩充驼队，需要等长安商号满足筹办资格并正式开张后，在长安商号中购置更多骆驼。',
   委托: '委托是商旅中赚取钱财和积累经历的重要方式之一。\n在这里可以接取新的委托、查看正在进行中的委托，也会遇到一些特殊内容，例如商路奇缘。\n捎货：将委托人的指定货物带到指定地点。\n采买：使用自己的钱购买指定商品，再按要求交付。\n求货：找到并持有符合要求的商品后进行交付。\n不同委托会有自己的目的地、要求和期限，接取前记得看清条件。',
-  消息: '这里会收纳旅途中收到的各种消息和市面信息。\n想回看以前获得的商报，可以从这里进入【历期商报】查看。',
-  商情: '想判断当前城市哪些商品更值得关注，可以查看这里的商情。\n它会提供当前市面的行情信息，帮助你判断买入和卖出的时机。\n已经获得过的旧商报，可以在顶部【消息 → 历期商报】中回看。',
+  消息: '这里会收纳旅途中收到的各种消息和市面信息。\n想回看以前获得的商报，可以从这里进入【历史商报】查看。',
+  商情: '想判断当前城市哪些商品更值得关注，可以查看这里的商情。\n它会提供当前市面的行情信息，帮助你判断买入和卖出的时机。\n已经获得过的旧商报，可以在顶部【消息 → 历史商报】中回看。',
   补给: '旅途中需要的粮草可以在市场购买。\n每经过一日，整支商队会消耗 1 日份粮草。出发前一定要检查储备是否足够。',
   商品: '普通商品也在市场买卖。不同城市会有不同的商品和价格。\n在价格合适的城市买入，再带到其他城市出售，是商旅最基本的获利方式。',
   柜坊: '柜坊负责钱财周转，可以办理本地寄存、取钱、异地飞钱、借款和还款。\n进入柜坊后，可以查看当前适用的存款规则、借款额度、贷款利率、期限和飞钱手续费。',
@@ -52,7 +52,7 @@ test('NG-1', '步骤表 = v1.1 固定顺序与逐字文案；HUD 三项为说明
   const all = steps.map(s => [s.title, s.copy, s.inside || ''].join('')).join('') + FINISH + Object.values(S.guide.ENTRY).join('') + Object.values(S.guide.GUIDE_TEXT).map(x => typeof x === 'function' ? x('X') : x).join('');
   assert(!/tick/i.test(all) && !/settlementId|occurrenceId|eventSession/.test(all), 'no Tick / backstage words');
   assert(!/后续开放|未来才会开放|以后才会开放/.test(all) && steps[12].copy.includes('长期经营玩法'), '商号 is a live system');
-  assert(steps[1].copy.includes('期限') && steps[4].copy.includes('捎货') && steps[4].copy.includes('采买') && steps[4].copy.includes('求货') && steps[5].copy.includes('历期商报') && steps[6].copy.includes('消息 → 历期商报'), 'time deadlines, three commission types, 历期商报 distinction');
+  assert(steps[1].copy.includes('期限') && steps[4].copy.includes('捎货') && steps[4].copy.includes('采买') && steps[4].copy.includes('求货') && steps[5].copy.includes('历史商报') && steps[6].copy.includes('消息 → 历史商报'), 'time deadlines, three commission types, 历史商报 distinction (Round 28 sub-tab name)');
   return ['15 items, exact copy, finish 开始行动'];
 });
 test('NG-2', '新档：首次进入长安为 pending；按指引开始 → 15 项（12 项经 entered / returned）→ 结束卡 → 开始行动 → done；期间无任何 gameplay 变化', () => {

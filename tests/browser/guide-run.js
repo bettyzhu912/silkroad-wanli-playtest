@@ -3,7 +3,7 @@
 // A. entry card on the first 长安 map; 自行探索 → free map, no legacy first-use hints on the real pages, no replay after reload.
 // B. guided tour: 3 HUD callouts, then every must-enter item: the spotlit real entrance is clicked, the real page opens (real state, real
 //    time), the in-page callout is shown, the page is closed by its own control and the next item follows; 补给 → 下一步 → 商品 inside ONE
-//    market visit (leaving without a trade = 0 tick); 消息 rings 历期商报; 出发 shows the real 出发 / 开始行程 pages with 开始行程 held;
+//    market visit (leaving without a trade = 0 tick); 消息 rings 历史商报 (Round 28 sub-tab); 出发 shows the real 出发 / 开始行程 pages with 开始行程 held;
 //    更多 rings 玩法说明; a reload in the middle resumes; a double click advances once; finish card → 开始行动 → clean map, no v1.0 text anywhere.
 // C. replacement: a save carrying the v1.0 state (mid-tour) shows only v1.1 (restarted once); a v1.0 skipped save never replays.
 // Usage: node tests/browser/guide-run.js [label] [--root <dir>] [--port <http>] [--cdp <chrome port>]

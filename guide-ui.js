@@ -14,7 +14,7 @@
   };
   const byText = (scope, text) => [...document.querySelectorAll(scope + ' button')].find(b => b.textContent.trim().startsWith(text) && b.getClientRects().length) || null;
   const INSIDE = {   // rings inside the open real page (never blocking)
-    'message.archive': () => byText('[data-panel-id="message"]', '历期商报'),
+    'message.archive': () => document.querySelector('[data-panel-id="message"] .msg-subtab[data-subtab="history"]') || byText('[data-panel-id="message"]', '历史商报'),
     'market.provisions': () => document.querySelector('[data-panel-id="market"] .provisions-product'),
     'market.goods': () => document.querySelector('[data-panel-id="market"] .market-product:not(.provisions-product)'),
     'more.help': () => [...document.querySelectorAll('[data-panel-id="more"] .menu-entry')].find(b => b.textContent.includes('玩法说明')) || null
