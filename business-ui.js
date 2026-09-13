@@ -78,7 +78,7 @@
    if(task.deadlineWorldTick!==undefined)c.row('交付期限',c.date(task.deadlineWorldTick),card);
    if(task.delivery)c.row('货物准备',task.delivery.have+' / '+task.delivery.need+(task.delivery.prepared?(task.delivery.damaged?' · 已齐备 · 含受损货物':' · 已齐备'):''),card);
    if(!brief){c.paragraph(card,task.text);c.row('所需货位',task.requiredSlots,card);c.row('约定报酬',c.formatMoney(task.rewardCash),card);c.row('约定商誉',task.reputationReward,card);if(task.handoffPhase!==null&&task.handoffPhase!==undefined)c.row('交付时段',['晨','午'][task.handoffPhase],card);
-     if(task.status==='available')c.paragraph(card,'承接后有30个世界日的期限；在任何城市、任何时候都可承接。','form-hint');
+     if(task.status==='available')c.paragraph(card,'接取后 30 日内完成','form-hint');
      if(task.urgent)c.paragraph(card,'加急：承接后首次抵达交付城市时开窗——晨到可在当日晨、午、暮交付；午到可在当日午、暮交付；暮到可在当刻或紧接着的次日晨交付（只顺延这一次）。','form-hint');if(task.urgent&&task.urgentWindow)c.row('加急窗口',(task.urgentOpen?'开放中 · 截止':'已关闭 · 截止')+c.date(task.urgentWindow.deadlineTick),card);
      if(task.type!=='delivery')c.paragraph(card,'采买与求货只收承接之后随一次新入城实际带进交付城市的自有货物；在交付城市本地现买的货物不能用于交付。','form-hint');if(task.longHaul)c.paragraph(card,'途经两个路段。','form-hint');
      if(task.delivery&&!task.delivery.ok&&task.delivery.reason)c.paragraph(card,task.delivery.reason,'form-hint');}return card;}

@@ -127,7 +127,7 @@
   function eligibleCounts(p) { const counts = {}; for (const l of p.inventory.lots) if (eligibleLot(l)) counts[l.goodId] = (counts[l.goodId] || 0) + l.quantity; return counts; }
   function recordArrival(p) {
     p.world.arrivalSequence = arrivalSequence(p) + 1;
-    p.world.currentArrival = { arrivalSequence: p.world.arrivalSequence, city: p.world.city, tick: p.world.tick, eligibleCargoCounts: eligibleCounts(p) };
+    p.world.currentArrival = { arrivalSequence: p.world.arrivalSequence, city: p.world.city, arrivedAtWorldTick: p.world.tick, eligibleCargoCounts: eligibleCounts(p) };
     return p.world.currentArrival;
   }
   // Called by S.inventory.take (and the 商号 stocking move) before an intact, marketable, player-owned unit leaves the caravan:
@@ -167,46 +167,68 @@
     recordArrival(p);
     for (const c of activeRows(p)) if (c.status !== 'pending_pickup' && c.urgent && !c.urgentWindow && p.world.city === c.deliveryCity && arrivalSequence(p) > c.acceptedAtArrivalSequence) openUrgentWindow(p, c);
   }
-  // ---- typed cargo rule (part of the single delivery eligibility) ----
-  // 捎货: the bound commissionOwned lots (own intact goods may fill in for lost commission cargo, as before) — never the arrival rule.
-  // 采买 / 求货: player-owned intact goods that this arrival really brought in — the arrival must be later than the acceptance and
-  // the usable units are capped by currentArrival.eligibleCargoCounts[goodId]; 采买 keeps its purchase-city condition.
-  function cargoPlan(p, c) {
-    const lots = p.inventory.lots.filter(l => l.goodId === c.goodId && l.quantity > 0 && l.condition !== 'destroyed');
-    const plan = []; let needed = c.quantity, have = 0;
-    const push = (lot, max) => { const q = Math.min(needed, lot.quantity, max === undefined ? lot.quantity : max); if (q <= 0) return 0; plan.push({ lotId: lot.id, quantity: q, condition: lot.condition, ownership: lot.ownership }); needed -= q; have += q; return q; };
-    if (c.type === 'delivery') {
-      for (const lot of lots.filter(l => l.ownership === 'commissionOwned' && l.commissionId === c.commissionId)) push(lot);
-      if (needed > 0 && c.replaceable) for (const lot of lots.filter(eligibleLot)) push(lot);
-      return { rows: plan, have, need: c.quantity, complete: needed === 0, missing: needed, damaged: plan.some(r => r.condition === 'damaged'), code: needed ? 'CARGO_MISSING' : 'OK', reason: needed ? '还缺' + needed + '件委托货物。' : '', arrived: null, budget: null };
-    }
-    const a = p.world.currentArrival, here = Boolean(a) && !p.world.route && a.city === p.world.city, arrived = here && a.arrivalSequence > c.acceptedAtArrivalSequence;
-    const budget = arrived ? (a.eligibleCargoCounts?.[c.goodId] || 0) : 0;
-    const owned = lots.filter(l => eligibleLot(l) && (c.type !== 'procurement' || l.acquisitionCity === c.procurementCity));
-    let remaining = budget; for (const lot of owned) { if (!remaining) break; remaining -= push(lot, remaining); }
-    const held = owned.reduce((n, l) => n + l.quantity, 0);
+  // ---- typed delivery eligibility (MASTER v3.0 §13–§15) ----
+  // getCommissionDeliveryEligibility dispatches by type: 捎货 → getCourierCommissionEligibility (the commissionOwned cargo of that commission;
+  // own intact goods may still fill in for lost commission cargo, as before — never the arrival rule); 采买 / 求货 →
+  // getPlayerOwnedCommissionEligibility (a post-acceptance arrival in the delivery city and that arrival's eligibleCargoCounts budget; 采买
+  // keeps the purchase city its data configures). 货物准备 x / y, the 交付委托 button and commission.deliver read only this result.
+  const REASONS = {
+    NOT_ACTIVE: () => '此委托已结束。', EXPIRED: () => '此委托已过期。', PICKUP_REQUIRED: c => '请先到' + cityLabel(c.pickupCity) + '领取委托货物。',
+    ON_ROUTE: c => '请抵达' + cityLabel(c.deliveryCity) + '后交付。', WRONG_CITY: c => '请前往' + cityLabel(c.deliveryCity) + '交付。',
+    NO_ARRIVAL: c => '请把货物带到' + cityLabel(c.deliveryCity) + '。', NO_POST_ACCEPTANCE_ARRIVAL: c => '须在接取后重新入城，把货物实际带进' + cityLabel(c.deliveryCity) + '。',
+    HANDOFF_PHASE: c => '约定' + ['晨', '午'][c.handoffPhase] + '时交付，请候至该时辰。', URGENT_WINDOW: c => c.urgentWindow ? '加急交付窗口已关闭。' : '加急委托须在抵达交付城市后的交付窗口内交付。'
+  };
+  function verdict(c, cargo, code) {
+    const ok = code === 'OK', reason = ok ? '' : REASONS[code] ? REASONS[code](c) : cargo.reason || '';
+    return { ok, canDeliver: ok, code, failureReason: ok ? null : code, reason, have: cargo.have, eligibleQuantity: cargo.have, need: c.quantity, requiredQuantity: c.quantity, prepared: cargo.complete, damaged: cargo.damaged, plan: cargo.rows, cargoCode: cargo.code, deliveryCity: c.deliveryCity };
+  }
+  function commonGate(p, c) { if (!activeStatuses.has(c.status)) return 'NOT_ACTIVE'; if (p.world.tick > c.deadlineWorldTick) return 'EXPIRED'; if (c.status === 'pending_pickup') return 'PICKUP_REQUIRED'; if (p.world.route) return 'ON_ROUTE'; if (p.world.city !== c.deliveryCity) return 'WRONG_CITY'; return null; }
+  // the commission's own stricter conditions (§10: 加急 / 晨交 / 午交 stay in force inside the 30-day limit)
+  function specificGate(p, c) { if (c.handoffPhase !== null && c.handoffPhase !== undefined && S.time.phase(p) !== c.handoffPhase) return 'HANDOFF_PHASE'; if (c.urgent && !urgentOpen(p, c)) return 'URGENT_WINDOW'; return null; }
+  function planner(c) { const plan = [], st = { needed: c.quantity, have: 0 }; return { plan, st, push(lot, max) { const q = Math.min(st.needed, lot.quantity, max === undefined ? lot.quantity : max); if (q <= 0) return 0; plan.push({ lotId: lot.id, quantity: q, condition: lot.condition, ownership: lot.ownership }); st.needed -= q; st.have += q; return q; } }; }
+  function courierCargo(p, c) {
+    const lots = p.inventory.lots.filter(l => l.goodId === c.goodId && l.quantity > 0 && l.condition !== 'destroyed'), pl = planner(c);
+    for (const lot of lots.filter(l => l.ownership === 'commissionOwned' && l.commissionId === c.commissionId)) pl.push(lot);
+    if (pl.st.needed > 0 && c.replaceable) for (const lot of lots.filter(eligibleLot)) pl.push(lot);
+    const needed = pl.st.needed;
+    return { rows: pl.plan, have: pl.st.have, need: c.quantity, complete: needed === 0, missing: needed, damaged: pl.plan.some(r => r.condition === 'damaged'), code: needed ? 'CARGO_MISSING' : 'OK', reason: needed ? '还缺' + needed + '件委托货物。' : '', arrivalHere: null, postAcceptance: null, budget: null };
+  }
+  function playerOwnedCargo(p, c) {
+    const lots = p.inventory.lots.filter(l => l.goodId === c.goodId && l.quantity > 0 && l.condition !== 'destroyed'), pl = planner(c);
+    const a = p.world.currentArrival, arrivalHere = Boolean(a) && !p.world.route && a.city === p.world.city, postAcceptance = arrivalHere && a.arrivalSequence > c.acceptedAtArrivalSequence;
+    const budget = postAcceptance ? (a.eligibleCargoCounts?.[c.goodId] || 0) : 0;
+    const owned = lots.filter(l => eligibleLot(l) && (c.type !== 'procurement' || !c.procurementCity || l.acquisitionCity === c.procurementCity));
+    let remaining = budget; for (const lot of owned) { if (!remaining) break; remaining -= pl.push(lot, remaining); }
+    const held = owned.reduce((n, l) => n + l.quantity, 0), needed = pl.st.needed;
     let code = 'OK', reason = '';
     if (needed) {
-      if (!arrived) { code = 'ARRIVAL_REQUIRED'; reason = here ? '须在接取后重新入城，把货物实际带进' + cityLabel(c.deliveryCity) + '。' : '请把货物带到' + cityLabel(c.deliveryCity) + '。'; }
+      if (!postAcceptance) { code = arrivalHere ? 'NO_POST_ACCEPTANCE_ARRIVAL' : 'NO_ARRIVAL'; reason = REASONS[code](c); }
       else if (held >= c.quantity) { code = 'LOCAL_GOODS'; reason = '本地现买或未随本次入城带入的货物不能用于交付，仍缺' + needed + '件带入货物。'; }
-      else { code = 'CARGO_MISSING'; reason = '还缺' + needed + '件' + (c.type === 'procurement' ? '在' + cityLabel(c.procurementCity) + '购入的' : '') + '完好自有货物。'; }
+      else { code = 'CARGO_MISSING'; reason = '还缺' + needed + '件' + (c.type === 'procurement' && c.procurementCity ? '在' + cityLabel(c.procurementCity) + '购入的' : '') + '完好自有货物。'; }
     }
-    return { rows: plan, have, need: c.quantity, complete: needed === 0, missing: needed, damaged: false, code, reason, arrived, budget };
+    return { rows: pl.plan, have: pl.st.have, need: c.quantity, complete: needed === 0, missing: needed, damaged: false, code, reason, arrivalHere, postAcceptance, budget, held };
   }
-  // The one delivery eligibility. 货物准备 x / x, the 交付委托 button and commission.deliver all read this result and nothing else.
-  function deliveryEligibility(p, c) {
-    const cargo = cargoPlan(p, c);
-    const result = (ok, code, reason) => ({ ok, code, reason, have: cargo.have, need: cargo.need, prepared: cargo.complete, damaged: cargo.damaged, plan: cargo.rows, cargoCode: cargo.code, deliveryCity: c.deliveryCity });
-    if (!activeStatuses.has(c.status)) return result(false, 'NOT_ACTIVE', '此委托已结束。');
-    if (c.status === 'pending_pickup') return result(false, 'PICKUP_REQUIRED', '请先到' + cityLabel(c.pickupCity) + '领取委托货物。');
-    if (p.world.route) return result(false, 'ON_ROUTE', '请抵达' + cityLabel(c.deliveryCity) + '后交付。');
-    if (p.world.city !== c.deliveryCity) return result(false, 'WRONG_CITY', '请前往' + cityLabel(c.deliveryCity) + '交付。');
-    if (p.world.tick > c.deadlineWorldTick) return result(false, 'EXPIRED', '此委托已过期。');
-    if (!cargo.complete) return result(false, cargo.code, cargo.reason);
-    if (c.handoffPhase !== null && c.handoffPhase !== undefined && S.time.phase(p) !== c.handoffPhase) return result(false, 'HANDOFF_PHASE', '约定' + ['晨', '午'][c.handoffPhase] + '时交付，请候至该时辰。');
-    if (c.urgent && !urgentOpen(p, c)) return result(false, 'URGENT_WINDOW', c.urgentWindow ? '加急交付窗口已关闭。' : '加急委托须在抵达交付城市后的交付窗口内交付。');
-    return result(true, 'OK', '');
+  function cargoPlan(p, c) { return c.type === 'delivery' ? courierCargo(p, c) : playerOwnedCargo(p, c); }
+  function getCourierCommissionEligibility(p, c) {
+    const cargo = courierCargo(p, c), gate = commonGate(p, c); if (gate) return verdict(c, cargo, gate);
+    if (!cargo.complete) return verdict(c, cargo, cargo.code);
+    return verdict(c, cargo, specificGate(p, c) || 'OK');
   }
+  function getPlayerOwnedCommissionEligibility(p, c) {
+    const cargo = playerOwnedCargo(p, c), gate = commonGate(p, c); if (gate) return verdict(c, cargo, gate);
+    if (!cargo.arrivalHere) return verdict(c, cargo, 'NO_ARRIVAL');
+    if (!cargo.postAcceptance) return verdict(c, cargo, 'NO_POST_ACCEPTANCE_ARRIVAL');
+    if (!cargo.complete) return verdict(c, cargo, cargo.code);
+    return verdict(c, cargo, specificGate(p, c) || 'OK');
+  }
+  function getCommissionDeliveryEligibility(p, c) {
+    switch (c.type) {
+      case 'delivery': return getCourierCommissionEligibility(p, c);
+      case 'procurement': case 'wanted': return getPlayerOwnedCommissionEligibility(p, c);
+      default: E(false, 'INVALID_COMMISSION');
+    }
+  }
+  const deliveryEligibility = getCommissionDeliveryEligibility;
   function deliver(p, x) {
     const c = getActive(p, x.commissionId), el = deliveryEligibility(p, c); E(el.ok, 'CANNOT_DELIVER', el.reason || '当前城市、时辰、货物或期限尚不符合交付条件。');
     const ratio = el.damaged ? c.valuable ? .5 : .7 : 1, actualCash = Math.ceil(c.rewardCash * ratio), previous = p.reputation.value, tripId = p.trip?.id || null;
@@ -255,6 +277,7 @@
   // ---- save migration to v3.0 (every pre-v3 save; idempotent) ----
   function migrate(p) {
     const s = p.commissions = p.commissions || initial(); s.history ||= []; s.results ||= []; s.active ||= []; s.templateHistory ||= [];
+    const arrival = p.world.currentArrival; if (arrival && arrival.arrivedAtWorldTick === undefined) { arrival.arrivedAtWorldTick = S.util.integer(arrival.tick) ? arrival.tick : null; delete arrival.tick; }   // r24 field name → MASTER §11.2
     if (s.boardVersion === 3 && Array.isArray(s.board)) return;
     // 1. global arrival sequence: four arrivals per finished trip plus the stops already reached on the current one; never reset later.
     if (!S.util.integer(p.world.arrivalSequence)) p.world.arrivalSequence = 4 * (p.tripHistory || []).length + Math.max(0, ((p.trip?.routeHistory || []).length || 1) - 1);
@@ -293,16 +316,17 @@
     if (!p.world.currentArrival) {
       if (seq > 0 && !p.world.route) {
         const counts = {}; for (const l of p.inventory.lots) if (eligibleLot(l) && (l.acquisitionCity !== p.world.city || l.hasLeftAcquisitionCity === true)) counts[l.goodId] = (counts[l.goodId] || 0) + l.quantity;
-        p.world.currentArrival = { arrivalSequence: seq, city: p.world.city, tick: null, eligibleCargoCounts: counts, migrated: true };
+        p.world.currentArrival = { arrivalSequence: seq, city: p.world.city, arrivedAtWorldTick: null, eligibleCargoCounts: counts, migrated: true };
       } else p.world.currentArrival = null;
     }
     // 5. trip-side leftovers of the old coupling; terminal rows out of `active`.
     if (p.trip) { for (const k of ['graceIds', 'graceArrivalTick', 'graceDeadlineTick', 'graceFrozenTick', 'graceClosePending', 'graceClosed', 'graceEnd', 'draftId']) delete p.trip[k]; if (p.trip.returnTasks) delete p.trip.returnTasks.commission; }
     archiveTerminal(p);
-    // 6. one-time top-up to the reputation tier's target (CASE 02: 商誉21 with an empty board → 7 candidates), flagged so it never repeats.
-    s.boardTarget = 0; s.lastRefillDay = null; s.boardVersion = 3;
-    const added = syncBoard(p, S.core.context('commission-migration'));
-    s.boardMigrated = { tick: p.world.tick, migratedCandidates: migratedCount, added: added.length };
+    // 6. MASTER v3.0 §20.1: an empty migrated board is initialised to the tier target at once (CASE 02: 商誉21 → 7 candidates); migrated
+    //    candidates are kept exactly as they are and any shortfall is topped up at the next world-day boundary (§6.3) — never a second roll now.
+    s.boardVersion = 3; s.lastRefillDay = null;
+    if (s.board.length === 0) { s.boardTarget = 0; const added = syncBoard(p, S.core.context('commission-migration')); s.boardMigrated = { tick: p.world.tick, migratedCandidates: 0, added: added.length }; }
+    else { s.boardTarget = boardTarget(p); s.boardMigrated = { tick: p.world.tick, migratedCandidates: migratedCount, added: 0, topUp: 'nextWorldDay' }; }
   }
   function validate(p) {
     const s = p.commissions; E(s && Array.isArray(s.board) && Array.isArray(s.active) && Array.isArray(s.results), 'INVALID_COMMISSIONS', '委托记录无效');
@@ -328,7 +352,7 @@
       arrival: p.world.currentArrival ? clone(p.world.currentArrival) : null
     };
   }
-  S.commissions = { initial, capacity, boardTarget, config, fillBoard, syncBoard, hasAcceptable, arrivalSequence, recordArrival, cargoRemoved, accept, pickup, cargoPlan, deliveryEligibility, deliver, expire, cleanup, arrived, waitTarget, acknowledgeNotices, ackResult, archiveTerminal, migrate, validate, snapshot, templateFields, attributeLabels, urgentOpen, DEADLINE_TICKS, activeStatuses, terminalStatuses };
+  S.commissions = { initial, capacity, boardTarget, config, fillBoard, syncBoard, hasAcceptable, arrivalSequence, recordArrival, cargoRemoved, accept, pickup, cargoPlan, deliveryEligibility, getCommissionDeliveryEligibility, getCourierCommissionEligibility, getPlayerOwnedCommissionEligibility, deliver, expire, cleanup, arrived, waitTarget, acknowledgeNotices, ackResult, archiveTerminal, migrate, validate, snapshot, templateFields, attributeLabels, urgentOpen, DEADLINE_TICKS, activeStatuses, terminalStatuses };
   for (const [type, fn] of Object.entries({ accept, pickup, deliver, abandon })) S.commands.register('commission.' + type, fn);
   S.time.register('commissions', { afterTick, dayStart(p, ctx) { syncBoard(p, ctx, 'day'); } });
 })(globalThis.Silk = globalThis.Silk || {});

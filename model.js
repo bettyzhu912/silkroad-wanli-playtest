@@ -73,13 +73,13 @@
     longStories30Runtime: 'BLOCK', npcAffinity: 'BLOCK', futureCities: 'BLOCK', goodsQuality: 'DELETED', legacyProject: 'REFERENCE_ONLY'
   });
   S.core = {
-    versions: Object.freeze({ releaseVersion: 'v0.3.0-competition-rc3', schemaVersion: 2, balanceVersion: '2026-09-13-commission-master-v3' }),
+    versions: Object.freeze({ releaseVersion: 'v0.3.0-competition-rc3', schemaVersion: 2, balanceVersion: '2026-09-13-commission-master-v3-1' }),
     emptyEnvelope() { return { meta: { ...S.core.versions, generation: 0, revision: 0 }, preferences: { tutorialEnabled: true, soundEnabled: true }, progress: null, ledger: {}, pending: null, results: {} }; },
     upgradeEnvelope(envelope) {
       S.core.validate(envelope);
       if(S.core.isCurrent(envelope))return {state:clone(envelope),changed:false};
       const fromRC2=['2026-09-09-effective','2026-09-10-g01-g05'].includes(envelope.meta.balanceVersion);
-      ensure(fromRC2||['2026-09-11-rc3-logic-patch','2026-09-13-weighted-avg-cost','2026-09-13-qiyuan-final'].includes(envelope.meta.balanceVersion),'BALANCE_UNSUPPORTED','此存档来自另一套规则版本，原记录已保留');
+      ensure(fromRC2||['2026-09-11-rc3-logic-patch','2026-09-13-weighted-avg-cost','2026-09-13-qiyuan-final','2026-09-13-commission-master-v3'].includes(envelope.meta.balanceVersion),'BALANCE_UNSUPPORTED','此存档来自另一套规则版本，原记录已保留');
       ensure(!envelope.pending,'TRANSACTION_PENDING','请先恢复上次尚未保存的操作');
       const next=clone(envelope),p=next.progress;
       if(p&&fromRC2){

@@ -69,7 +69,7 @@ function buildCase06Save() {
     check('A1 顶部【委托】: 同时进行 0 / 3, 可接委托 lists the 7 migrated candidates, no 出发前 / 本商期 / 选定 wording', /同时进行\s*0 \/ 3/.test(text) && cards.groups.some(g => g[0] === 'board' && g[1] === 7) && !/出发前|本商期委托|选定|到达.*后可承接/.test(text), JSON.stringify(cards.groups) + ' ' + text.slice(0, 80));
     await shot('A-commission-board-7');
     await ev(`(()=>{const card=document.querySelector('[data-panel-id="commission"] [data-commission-group="board"] [data-commission-id]');const b=[...card.querySelectorAll('button')].find(x=>x.textContent.trim()==='查看委托');b.click()})()`); await sleep(500); await busyWait();
-    text = await panelText('commission-detail'); check('A2 detail page of a candidate: 承接委托 available (any city, no posting-stop text), 30-day note', /承接委托/.test(text) && /30个世界日/.test(text) && !/到达.*后可承接|本期已无法承接/.test(text), text.slice(0, 160));
+    text = await panelText('commission-detail'); check('A2 detail page of a candidate: 承接委托 available (any city, no posting-stop text), note 接取后 30 日内完成 (§6.4)', /承接委托/.test(text) && /接取后 30 日内完成/.test(text) && !/到达.*后可承接|本期已无法承接|30个世界日/.test(text), text.slice(0, 160));
     await shot('A-candidate-detail');
     const beforeAccept = await st(); const ok = await clickBtn('[data-panel-id="commission-detail"]', '承接委托'); await sleep(600); await busyWait(); s = await settle(x => !x.activeResult);
     check('A3 accept from the detail page: 1 / 3, board 6, deadline = accepted + 90, commission stays in the same 长安 (no trip needed)', ok && s.activeCount === 1 && s.board === 6 && s.trip === null && s.active[0].deadline === beforeAccept.tick + 90 && s.active[0].seq === 0, JSON.stringify(s.active));

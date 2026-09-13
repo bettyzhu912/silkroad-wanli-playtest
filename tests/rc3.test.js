@@ -66,8 +66,8 @@ test('RC3-T02', 'v3.0', '无货 / 错城 / 已逾期 / 抵达后才接取的委�
   const late = fakeCommission(d, { commissionId: 'c-late' }); d.p.commissions.active.push(late);   // accepted after this arrival
   d.overnight('stay');
   const el = id => S.commissions.deliveryEligibility(d.p, d.p.commissions.active.find(c => c.commissionId === id));
-  assert(el('c-nocargo').code === 'CARGO_MISSING' && el('c-wrongcity').code === 'WRONG_CITY' && el('c-late').code === 'ARRIVAL_REQUIRED' && el('c-good').ok === true, 'reasons: ' + JSON.stringify(['c-nocargo', 'c-wrongcity', 'c-late', 'c-good'].map(id => el(id).code)));
-  return ['nocargo CARGO_MISSING, wrongcity WRONG_CITY, late ARRIVAL_REQUIRED, good OK', 'overdue expired'];
+  assert(el('c-nocargo').code === 'CARGO_MISSING' && el('c-wrongcity').code === 'WRONG_CITY' && el('c-late').code === 'NO_POST_ACCEPTANCE_ARRIVAL' && el('c-good').ok === true && el('c-good').canDeliver === true && el('c-late').failureReason === 'NO_POST_ACCEPTANCE_ARRIVAL', 'reasons: ' + JSON.stringify(['c-nocargo', 'c-wrongcity', 'c-late', 'c-good'].map(id => el(id).code)));
+  return ['nocargo CARGO_MISSING, wrongcity WRONG_CITY, late NO_POST_ACCEPTANCE_ARRIVAL, good OK', 'overdue expired'];
 });
 // ---------------------------------------------------------------- RC3-T03 / T04
 test('RC3-T03', 'v3.0', '加急：承接后首次抵达交付城市开窗（不再区分去程 / 返程）；在交付城市承接的加急要等下一次真实入城', () => {
@@ -80,7 +80,7 @@ test('RC3-T03', 'v3.0', '加急：承接后首次抵达交付城市开窗（不�
   // accepted here, after this arrival: no window until a later real arrival in 敦煌
   d.p.commissions.active.push(fakeCommission(d, { commissionId: 'c-urgent2', goodId: '药材', quantity: 1, sourceCity: 'dunhuang', deliveryCity: 'dunhuang', urgent: true }));
   d.run('inn.wait', { ticks: 1 }); d.ack(); const b = () => d.p.commissions.active.find(x => x.commissionId === 'c-urgent2');
-  assert(b().urgentWindow === null && S.commissions.deliveryEligibility(d.p, b()).code === 'ARRIVAL_REQUIRED', 'no window, needs a new arrival');
+  assert(b().urgentWindow === null && S.commissions.deliveryEligibility(d.p, b()).code === 'NO_POST_ACCEPTANCE_ARRIVAL', 'no window, needs a new arrival');
   while (S.time.phase(d.p) === 2) d.overnight('camp'); d.run('trip.depart', { acknowledgeSupplyWarning: true }); d.journeyToArrival(); assert(d.p.world.city === 'khotan' && b().urgentWindow === null, '于阗: still no window');
   while (S.time.phase(d.p) === 2) d.overnight('camp'); d.run('trip.depart', { acknowledgeSupplyWarning: true }); d.journeyToArrival(); assert(d.p.world.city === 'dunhuang' && d.p.world.arrivalSequence === 3, 'return dunhuang');
   assert(b().urgentWindow && b().urgentWindow.arrivalSequence === 3, 'window opened at the next real arrival: ' + JSON.stringify(b().urgentWindow));

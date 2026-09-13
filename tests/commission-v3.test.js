@@ -235,10 +235,11 @@ test('MIGRATE-1', '旧 active 委托：能还原 acceptedTick → deadline=accep
   assert(two.acceptedAtWorldTick === tick && two.deadlineWorldTick === tick + 90 && two.deadlineMigrated === true, 'not restorable: now + 90 flagged');
   assert(one.tripId === undefined && one.deadlineTick === undefined && one.sourceStage === undefined && Number.isInteger(one.acceptedAtArrivalSequence), 'route-stop fields gone');
   assert(q.commissions.board.some(c => c.commissionId === 'old-a' && c.status === 'available') && q.commissions.board.some(c => c.commissionId === 'old-b' && c.status === 'available'), 'old pool rows migrated, not re-rolled');
-  assert(q.commissions.board.length === 5 && q.commissions.boardMigrated.migratedCandidates === 2 && q.commissions.boardMigrated.added === 3, 'topped up 2 → 5 once');
+  assert(q.commissions.board.length === 2 && q.commissions.boardMigrated.migratedCandidates === 2 && q.commissions.boardMigrated.added === 0 && q.commissions.boardTarget === 5 && q.commissions.lastRefillDay === null, 'MASTER §20.1: migrated candidates kept, no second roll now');
+  { const e = driver(S, 3231); e.p = q; e.run('notice.dismiss', { ids: [] }); assert(e.p.commissions.board.length === 2, 'no immediate top-up by a command either'); e.overnight('camp'); assert(e.p.commissions.board.length === 5 && ['old-a', 'old-b'].every(x => e.p.commissions.board.some(c => c.commissionId === x)), 'next world day: topped up 2 → 5 (§6.3), old rows kept'); }
   assert(q.world.arrivalSequence === 1 && q.world.currentArrival && q.world.currentArrival.city === 'dunhuang', 'arrival sequence recovered from the trip stop');
   const again = S.core.upgradeEnvelope(JSON.parse(JSON.stringify(up.state))); assert(again.changed === false && again.state.progress.commissions.active.find(c => c.commissionId === 'old-2').deadlineWorldTick === tick + 90, 'a later load never extends again');
-  return ['old-1 deadline 94, old-2 ' + (tick + 90) + ' flagged', 'pool rows kept, +3 topped up'];
+  return ['old-1 deadline 94, old-2 ' + (tick + 90) + ' flagged', 'pool rows kept; +3 only at the next world day'];
 });
 test('MIGRATE-2', '货物 eligibility 迁移：只有购入地≠当前城市或旧旗标证明已离城的完好自有货计入；本地未离城的货等待下次真实入城', () => {
   const d = driver(S, 324); d.p.reputation.value = 12; d.p.cash = 400; d.p.inventory.provisions = 30; d.quietCity(60); d.quietRoute(60); d.run('trip.begin'); d.run('trip.depart', { acknowledgeSupplyWarning: true }); d.journeyToArrival();
@@ -265,7 +266,7 @@ test('SOURCE-1', '无针对长安 / 敦煌 / 于阗 / 精制玉器 / 特定 comm
   const c = src('commissions.js'), t = src('trip.js'), b = src('business-ui.js');
   assert(!/精制玉器|CA-E|DH-E|HT-E|commissionId\s*===\s*'(?!string')/.test(c), 'no good / template / id special case in the domain');
   assert(!/'khotan'\s*(===|!==)|(===|!==)\s*'khotan'|'dunhuang'\s*(===|!==)|(===|!==)\s*'dunhuang'|'changan'\s*(===|!==)|(===|!==)\s*'changan'/.test(c), 'no city special case in the domain');
-  assert((c.match(/function deliveryEligibility\(/g) || []).length === 1 && /E\(el\.ok, 'CANNOT_DELIVER'/.test(c) && /task\.delivery\.have\s*\+\s*' \/ '/.test(b) && /const el=task\.delivery;if\(el\.ok\)mutate/.test(b), 'card text, button and submit read the one eligibility result');
+  assert((c.match(/function getCommissionDeliveryEligibility\(/g) || []).length === 1 && (c.match(/function getCourierCommissionEligibility\(/g) || []).length === 1 && (c.match(/function getPlayerOwnedCommissionEligibility\(/g) || []).length === 1 && /E\(el\.ok, 'CANNOT_DELIVER'/.test(c) && /task\.delivery\.have\s*\+\s*' \/ '/.test(b) && /const el=task\.delivery;if\(el\.ok\)mutate/.test(b), 'typed dispatcher (§14) and the three consumers (§15) read the one eligibility result');
   assert(!/commissions\.(activateDraft|finalizeFailures|freezeGrace|generatePool|draftPool)/.test(t) && !/graceIds|departureDraft/.test(t) && !/p\.commissions\.(pool|board)\s*=/.test(t), 'trip never generates, freezes, fails, resets or clears commissions');
   assert(!/routeIndex|deliveryIndex|pickupIndex|sourceStage/.test(c.replace(/\/\/[^\n]*/g, '').replace(/migrate\(p\)[\s\S]*?\n  }\n  function validate/, '')), 'no route index in the live commission rules (only the migration reads the old fields)');
   return ['source guarantees hold'];
@@ -299,6 +300,54 @@ test('PICKUP-1', '捎货三城分离：于阗承接 长安取货 敦煌交付；
   finishTrip(d); toMorning(d); d.run('trip.begin'); d.run('trip.depart', { acknowledgeSupplyWarning: true }); d.journeyToArrival(); assert(d.p.world.city === 'dunhuang', '敦煌 on the second trip');
   el = S.commissions.deliveryEligibility(d.p, active(d, id)); assert(el.ok, 'deliverable: ' + JSON.stringify(el)); d.run('commission.deliver', { commissionId: id }); d.ack(); assert(archived(d, id).status === 'completed', 'done');
   return ['accept 于阗 → pickup 长安 → deliver 敦煌 (second trip)'];
+});
+
+test('MATRIX-A4', '§22 A4 商誉 9→10：上限 1→2，目标 3→5，只补 2，旧 3 不变', () => {
+  const d = fresh(341, 9); sync(d); const old = d.p.commissions.board.map(c => c.commissionId); assert(old.length === 3 && S.commissions.capacity(d.p) === 1, '9: 3 / cap 1');
+  d.p.reputation.value = 10; sync(d); const now = d.p.commissions.board.map(c => c.commissionId);
+  assert(now.length === 5 && S.commissions.capacity(d.p) === 2 && old.every(x => now.includes(x)) && now.filter(x => !old.includes(x)).length === 2, '10: 5 / cap 2, exactly 2 new, old 3 kept: ' + JSON.stringify([old, now]));
+  return ['9→10: +2 only'];
+});
+test('MATRIX-D5', '§22 D5 入城 eligible 3 → 卖 2 → eligible 1，不可交 ×3', () => {
+  const d = fresh(342, 12, 800); const id = post(d, { goodId: '河西毛织', quantity: 3, requiredSlots: 3, sourceCity: 'dunhuang', deliveryCity: 'dunhuang' }); accept(d, id);
+  buy(d, '河西毛织', 3); startTrip(d); d.journeyToArrival(); assert(eligible(d, '河西毛织') === 3 && S.commissions.deliveryEligibility(d.p, active(d, id)).canDeliver, 'eligible 3');
+  sell(d, '河西毛织', 2); const el = S.commissions.deliveryEligibility(d.p, active(d, id));
+  assert(eligible(d, '河西毛织') === 1 && el.eligibleQuantity === 1 && el.requiredQuantity === 3 && el.canDeliver === false && el.failureReason === 'CARGO_MISSING', 'eligible 1 / 3: ' + JSON.stringify(el));
+  return ['sell 2 of 3 → 1 / 3'];
+});
+test('MATRIX-D6', '§22 D6 接单时已在交付城市且背包足量：不能原地交，须一次接取后的新入城（同时覆盖 E2 采买 / E3 求货的既有库存）', () => {
+  const d = fresh(343, 21, 2000);
+  buy(d, '河西毛织', 2); buy(d, '药材', 2); startTrip(d); d.journeyToArrival(); assert(d.p.world.city === 'dunhuang' && eligible(d, '河西毛织') === 2, '敦煌 with goods already carried in');
+  const W = post(d, { goodId: '河西毛织', quantity: 2, requiredSlots: 2, sourceCity: 'dunhuang', deliveryCity: 'dunhuang' }); accept(d, W);
+  const P = post(d, { type: 'procurement', goodId: '药材', quantity: 2, requiredSlots: 2, procurementCity: 'changan', deliveryCity: 'dunhuang' }); accept(d, P);
+  let w = S.commissions.deliveryEligibility(d.p, active(d, W)), pr = S.commissions.deliveryEligibility(d.p, active(d, P));
+  assert(!w.canDeliver && w.failureReason === 'NO_POST_ACCEPTANCE_ARRIVAL' && !pr.canDeliver && pr.failureReason === 'NO_POST_ACCEPTANCE_ARRIVAL', 'in place: no post-acceptance arrival: ' + JSON.stringify([w.code, pr.code]));
+  assert(d.tryRun('commission.deliver', { commissionId: W }).code === 'CANNOT_DELIVER', 'submit refused');
+  travel(d); assert(d.p.world.city === 'khotan', '于阗'); travel(d); assert(d.p.world.city === 'dunhuang' && d.p.world.arrivalSequence === 3, 'back in 敦煌');
+  w = S.commissions.deliveryEligibility(d.p, active(d, W)); pr = S.commissions.deliveryEligibility(d.p, active(d, P));
+  assert(w.canDeliver && w.eligibleQuantity === 2 && pr.canDeliver && pr.eligibleQuantity === 2, 'pre-owned goods carried in after acceptance deliver (求货 E3 / 采买 E2 with its configured purchase city 长安): ' + JSON.stringify([w.code, pr.code]));
+  d.run('commission.deliver', { commissionId: W }); d.ack(); d.run('commission.deliver', { commissionId: P }); d.ack(); assert(d.p.commissions.active.length === 0, 'both delivered');
+  return ['in-place refused (NO_POST_ACCEPTANCE_ARRIVAL)', 'delivered after the next real arrival with goods owned before acceptance'];
+});
+test('MATRIX-F2-F3', '§22 F2/F3 读档：acceptedAt / deadline 不变；入城 eligibility 数量不变、不被本地库存重新灌满', () => {
+  const d = fresh(344, 12, 800); const id = post(d, { goodId: '河西毛织', quantity: 3, requiredSlots: 3, sourceCity: 'dunhuang', deliveryCity: 'dunhuang' }); accept(d, id);
+  const acceptedAt = active(d, id).acceptedAtWorldTick, deadline = active(d, id).deadlineWorldTick;
+  buy(d, '河西毛织', 2); startTrip(d); d.journeyToArrival(); buy(d, '河西毛织', 1); assert(held(d, '河西毛织') === 3 && eligible(d, '河西毛织') === 2, 'eligible 2 with 3 held');
+  const before = JSON.stringify([d.p.world.currentArrival, S.commissions.deliveryEligibility(d.p, active(d, id))]);
+  reload(d);
+  assert(active(d, id).acceptedAtWorldTick === acceptedAt && active(d, id).deadlineWorldTick === deadline, 'F2: reload keeps acceptedAt / deadline');
+  assert(JSON.stringify([d.p.world.currentArrival, S.commissions.deliveryEligibility(d.p, active(d, id))]) === before && eligible(d, '河西毛织') === 2 && Number.isInteger(d.p.world.currentArrival.arrivedAtWorldTick), 'F3: arrival eligibility identical after reload (2, not 3)');
+  return ['deadline ' + deadline + ' kept', 'eligible 2 kept after reload'];
+});
+test('MIGRATE-3', 'r24（v3）存档：只改 currentArrival 字段名 tick → arrivedAtWorldTick，其余不变，不重 Roll，不延长', () => {
+  const d = fresh(345, 12, 400); sync(d); const id = post(d, {}); accept(d, id); buy(d, '绢帛', 1); startTrip(d); d.journeyToArrival();
+  const env = JSON.parse(JSON.stringify(d.envelope())); env.meta = { ...S.core.versions, balanceVersion: '2026-09-13-commission-master-v3', generation: 0, revision: 4 }; env.preferences = { tutorialEnabled: false, soundEnabled: true }; env.ledger = {}; env.pending = null; env.results = {};
+  const a = env.progress.world.currentArrival; a.tick = a.arrivedAtWorldTick; delete a.arrivedAtWorldTick;   // r24 shape
+  const snapshot = JSON.stringify([env.progress.commissions.board, env.progress.commissions.active, env.progress.world.arrivalSequence, a.eligibleCargoCounts]);
+  const up = S.core.upgradeEnvelope(env); const q = up.state.progress; S.core.validate(up.state);
+  assert(up.changed && q.world.currentArrival.arrivedAtWorldTick === a.tick && q.world.currentArrival.tick === undefined, 'field renamed');
+  assert(JSON.stringify([q.commissions.board, q.commissions.active, q.world.arrivalSequence, q.world.currentArrival.eligibleCargoCounts]) === snapshot, 'board / active / sequence / counts untouched');
+  return ['r24 save upgraded by the field rename only'];
 });
 
 // ---------------------------------------------------------------- report
