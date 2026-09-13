@@ -72,14 +72,26 @@
     p.market.visit = { id: S.util.id(p, 'market'), city: p.world.city, enteredTick: p.world.tick, journalStart:p.journal.length, initialSlots:S.inventory.used(p), hadActivity: false, settled: false };
     return { kind: 'marketEntered', visit: p.market.visit, modal: false };
   }
+  // 市场交易页 (2026-09-13): one summary builder for the 0-tick MARKET_EXIT_CONFIRM preview and the final leave record.
+  function buildSummary(p, v, currentTick) {
+    const records=Number.isInteger(v.journalStart)?p.journal.slice(v.journalStart).filter(r=>['marketBuy','marketSell','provisions'].includes(r.type)):[];
+    return {kind:'marketSummary',title:'本次市场交易',visitId:v.id,elapsed:1,currentTick,cashDelta:records.reduce((n,r)=>n+(r.type==='marketBuy'?-r.total:r.type==='marketSell'?r.total:r.amount),0),bought:records.filter(r=>r.type==='marketBuy'),sold:records.filter(r=>r.type==='marketSell'),provisions:records.filter(r=>r.type==='provisions').reduce((n,r)=>n-r.amount,0),slots:S.inventory.used(p),slotsChanged:v.initialSlots!==S.inventory.used(p),continueLabel:'确认'};
+  }
+  // Read-only: the latest summary of the open visit (regenerated on every call). No state change, no time.
+  function summaryPreview(p, visitId) {
+    const v = visit(p, { visitId }); ensure(v.hadActivity, 'NO_MARKET_ACTIVITY', '本次尚无成功交易');
+    return { ...buildSummary(p, v, p.world.tick), preview: true, modal: false };
+  }
   function leave(p, payload, ctx) {
     const v = visit(p, payload); const elapsed = v.hadActivity ? 1 : 0;
+    // Atomic: close the visit and advance exactly once; a second leave for the same visit fails on STALE_MARKET_VISIT above.
     v.settled = true; v.closedTick = p.world.tick;
     if (elapsed) ctx.advance(p, elapsed, 'marketVisit');
     if(!elapsed)return {kind:'marketLeft',visitId:v.id,elapsed:0,modal:false};
-    const records=Number.isInteger(v.journalStart)?p.journal.slice(v.journalStart).filter(r=>['marketBuy','marketSell','provisions'].includes(r.type)):[];
-    const summary={kind:'marketSummary',title:'本次市场交易',visitId:v.id,elapsed,currentTick:p.world.tick,cashDelta:records.reduce((n,r)=>n+(r.type==='marketBuy'?-r.total:r.type==='marketSell'?r.total:r.amount),0),bought:records.filter(r=>r.type==='marketBuy'),sold:records.filter(r=>r.type==='marketSell'),provisions:records.filter(r=>r.type==='provisions').reduce((n,r)=>n-r.amount,0),slots:S.inventory.used(p),slotsChanged:v.initialSlots!==S.inventory.used(p),continueLabel:'确认'};
-    v.summary=S.util.clone(summary);return summary;
+    const summary=buildSummary(p,v,p.world.tick);
+    v.summary=S.util.clone(summary);
+    // The player has already confirmed this summary on the MARKET_EXIT_CONFIRM page; the record is kept on the visit, no second page.
+    return {...summary,modal:false};
   }
   function buy(p, payload, ctx) {
     const v = visit(p, payload); const row = S.inventory.good(payload.goodId);
@@ -129,8 +141,19 @@
     p.journal.push({ type: 'provisions', amount: -payload.quantity, tick: p.world.tick, tripId: p.trip?.id || null });
     return { kind: 'provisionsBought', quantity: payload.quantity, cashDelta: -payload.quantity, totalProvisions: p.inventory.provisions };
   }
+  // 市场交易页 UI feedback (2026-09-13): one blocking reason at a time, fixed priority 未解锁 → 货位不足 → 铜钱不足 → 数量限制. Pure read model over the existing rules and their messages; the reducers above stay the authority.
+  function blockReason(kind,f){
+    const n=f.valid?f.n:1; // an empty / zero entry is judged as the smallest trade so the real blocker (slots, cash) still wins over 数量限制
+    if(kind==='buy'&&!f.unlocked)return '尚未建立该货源关系';
+    if(kind==='buy'&&n*f.slotCost>f.available)return '行囊货位不足';
+    if(kind==='provisions'&&f.needsSlot&&f.available<1)return '补给需要一个货位';
+    if((kind==='buy'||kind==='provisions')&&n*f.unit>f.cash)return '随身现钱不足';
+    if(!f.valid)return kind==='sell'?'出售件数无效':kind==='provisions'?'请输入正整数日份':'请输入正整数件数';
+    if(kind==='sell'&&f.n>f.max)return '出售件数无效';
+    return '';
+  }
   const reducers = { 'market.enter': enter, 'market.leave': leave, 'market.buy': buy, 'market.sell': sell, 'market.sellAll': sellAll, 'market.provisions': provisions };
-  S.market = { price, quote:(p,city,id)=>S.pricing.quote(p,city,id), buyQuote, sellUnitPrice, enter, leave, buy, sell, sellAll, provisions, settlePurchaseTurnover, validate };
+  S.market = { price, quote:(p,city,id)=>S.pricing.quote(p,city,id), buyQuote, sellUnitPrice, enter, leave, summaryPreview, blockReason, buy, sell, sellAll, provisions, settlePurchaseTurnover, validate };
   for (const [type, fn] of Object.entries(reducers)) S.commands.register(type, fn);
   S.time.register('purchaseTurnover',{dayStart:settlePurchaseTurnover});
 })(globalThis.Silk = globalThis.Silk || {});

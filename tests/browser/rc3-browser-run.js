@@ -53,6 +53,8 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
   const overflow = () => c.eval(`document.documentElement.scrollWidth - window.innerWidth`);
   async function waitIdle() { for (let i = 0; i < 40; i++) { const busy = await c.eval('Silk.app.busy'); if (!busy) return; await sleep(100); } }
   // generic driver: acknowledge results, answer events (first enabled choice / skip skill games), until the predicate holds
+  // 市场交易页: with trades in the visit, 离开市场 opens MARKET_EXIT_CONFIRM (0 tick); 确认离市 closes the visit and advances once.
+  async function leaveMarket() { const r = await click('离开市场'); await sleep(300); const confirm = await c.eval(`(()=>{const s=document.querySelector('[data-panel-id="market-exit-confirm"]');return Boolean(s&&s.offsetParent!==null)})()`); if (confirm) { timeline.push({ label: 'market-exit-confirm' }); await click('确认离市'); } return r; }
   async function settle(pred, { max = 400, label = '' } = {}) {
     for (let i = 0; i < max; i++) {
       await waitIdle(); const s = await st();
@@ -102,7 +104,7 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
     r = await dispatch('market.provisions', { visitId: await vid(), quantity: 8 }); check('market.provisions accepted', r.ok, r.ok ? r.kind : r); s = await settle(x => !x.activeResult);
     r = await dispatch('newspaper.purchase', { visitId: await vid() }); const tickBeforeNews = s.tick; s = await settle(x => !x.activeResult); check('newspaper inside market costs 0 tick (BUG-11)', r.ok && s.tick === tickBeforeNews, { r: r.ok ? r.kind : r, tick: s.tick });
     await shot('market-after-buy');
-    await click('离开市场'); s = await settle(x => !x.visitOpen && !x.activeResult && !x.event, { label: 'leave market' });
+    await leaveMarket(); s = await settle(x => !x.visitOpen && !x.activeResult && !x.event, { label: 'leave market' });
     check('purchase turnover pending, reputation unchanged (BUG-07)', s.lots.every(l => l.pending && l.left === false) && s.rep === 0 && s.turnover === 0 && s.pendingTurnoverLots >= 1, { lots: s.lots, pending: s.pendingTurnoverLots, rep: s.rep, turnover: s.turnover });
     const afterBuy = await note('after-market');
     // ---------- 3. reload: state identical, no double money ----------
@@ -143,7 +145,7 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
       const plan2 = await c.eval(`(()=>{const p=Silk.app.state.progress,city=p.world.city;const goods=Silk.inventory.goods.filter(g=>g.originCity===city&&Silk.inventory.unlocked(p,g.id));if(!goods.length)return null;const g=goods[0];const unit=Silk.pricing.quote(p,city,g.id);const qty=Math.max(1,Math.min(Math.floor(p.cash*0.5/unit),Math.floor(Silk.inventory.available(p)/g.slotCost)));return {goodId:g.id,unit,qty}})()`);
       if (plan2 && plan2.qty > 0) { r = await dispatch('market.buy', { visitId: await vid(), goodId: plan2.goodId, quantity: plan2.qty }); s = await settle(x => !x.activeResult); check('buy in ' + cityLabel, r.ok, { plan2, r: r.ok ? r.kind : r }); }
       if (s.provisions < 6) { r = await dispatch('market.provisions', { visitId: await vid(), quantity: 6 }); s = await settle(x => !x.activeResult); }
-      await click('离开市场'); s = await settle(x => !x.visitOpen && !x.activeResult && !x.event, { label: 'leave ' + cityLabel });
+      await leaveMarket(); s = await settle(x => !x.visitOpen && !x.activeResult && !x.event, { label: 'leave ' + cityLabel });
       return s;
     }
     async function toDuskAndStay(cityLabel) {
@@ -176,7 +178,7 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
     s = await settle(x => !x.activeResult && !x.event && !x.visitOpen, { label: 'before return tasks' }); await click('出发', { scope: 'page' }); await sleep(300); await shot('trip-panel-returned'); await click('处理返程事务'); await sleep(300); await shot('return-tasks');
     const rtText = await panelText('secondary-panel'); check('return tasks panel lists 市场/委托 tasks', /返程事务|市场|委托/.test(rtText || ''), (rtText || '').slice(0, 200));
     const view = await c.eval(`Silk.trip.returnView(Silk.app.state.progress)`); timeline.push({ label: 'returnView', view });
-    if (view.tasks.market === 'pending') { await click('前往市场'); s = await waitFor(x => x.visitOpen); if (s.lots.length) { r = await dispatch('market.sellAll', { visitId: await vid() }); s = await settle(x => !x.activeResult); } await click('离开市场'); s = await settle(x => !x.visitOpen && !x.activeResult && !x.event, { label: 'return market' }); await click('出发', { scope: 'page' }); await sleep(200); await click('处理返程事务'); await sleep(200); }
+    if (view.tasks.market === 'pending') { await click('前往市场'); s = await waitFor(x => x.visitOpen); if (s.lots.length) { r = await dispatch('market.sellAll', { visitId: await vid() }); s = await settle(x => !x.activeResult); } await leaveMarket(); s = await settle(x => !x.visitOpen && !x.activeResult && !x.event, { label: 'return market' }); await click('出发', { scope: 'page' }); await sleep(200); await click('处理返程事务'); await sleep(200); }
     for (const task of ['commission', 'merchant']) { const v2 = await c.eval(`Silk.trip.returnView(Silk.app.state.progress)`); if (v2.tasks[task] === 'pending') { const lbl = task === 'commission' ? '暂不处理委托' : '暂不处理商号'; const cr = await click(lbl); s = await settle(x => !x.activeResult && !x.event); timeline.push({ label: 'resolve:' + task, cr }); } }
     const v3 = await c.eval(`Silk.trip.returnView(Silk.app.state.progress)`); check('return tasks ready after processing', v3.ready === true, v3); await shot('return-tasks-ready');
     // ---------- 11. finalize → summary → reload → ack ----------

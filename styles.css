@@ -93,3 +93,54 @@
 .numeric-stepper .stepper-input:disabled{opacity:.6}
 .form-field .field-label{font-size:.95rem;color:var(--ink)}
 @media(max-width:360px){.numeric-stepper .stepper-btn{flex-basis:50px}.numeric-stepper .stepper-input{font-size:18px}}
+
+/* ---- 市场交易页 UI/UX (2026-09-13, approved implementation): centred title, three-column status, time hint, 35/65 goods cards, unified tags (specialty bold), in-card buy/sell expand, live blocking reason, provisions special card, card-level button tier (≈75 % of the page-level 离开市场), three equal bottom entries. ---- */
+[data-panel-id="market"]>.panel-header{flex-wrap:wrap;padding-bottom:6px}
+[data-panel-id="market"]>.panel-header h2{flex:1 1 100%;text-align:center;margin:0}
+.market-status-block{width:100%}
+.market-status-row{display:grid;grid-template-columns:auto auto auto;justify-content:space-between;gap:4px 6px;width:100%;font-size:.78rem;color:var(--muted)}
+.market-status-cell{display:flex;align-items:center;gap:3px;min-width:0;white-space:nowrap;overflow:hidden;font-size:.78rem;line-height:1.2}
+.market-status-cell .ui-icon{width:16px;height:16px;flex:none}
+.market-status-cell .status-label{font-weight:400;white-space:pre}
+.market-status-cell .status-value{font-weight:700;color:var(--ink);font-size:.86rem;line-height:1.2}
+.market-time-hint{width:100%;text-align:left;font-size:.75rem;color:var(--muted);margin:4px 0 0;font-weight:400}
+.market-product{display:grid;grid-template-columns:35% minmax(0,1fr);column-gap:10px;align-items:start}
+.market-product>img.goods-art{grid-column:1;float:none;width:100%;height:auto;aspect-ratio:1;max-height:112px;margin:0;object-fit:contain}
+.market-product>.market-info{grid-column:2;min-width:0}
+.market-product>.market-card-actions,.market-product>.trade-expand,.market-product>.form-hint{grid-column:1/-1}
+.market-title{font-size:1.02rem;margin:0 0 4px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
+.market-tag{display:inline-block;padding:1px 7px;border:1px solid #ba945d80;border-radius:3px;font-size:.72rem;line-height:1.5;color:#86613c;background:#fbf3e4a0;vertical-align:middle}
+.market-tag.tag-specialty{font-weight:700;color:#7a4d1f;border-color:#a67c3ccc}
+.market-tag.tag-attr{font-weight:400}
+.market-stat-line{display:flex;flex-wrap:wrap;gap:2px 9px;font-size:.8rem;line-height:1.45;color:var(--ink);margin:3px 0}
+.market-stat-line .stat-item{white-space:nowrap}
+.market-stat-line .stat-label{color:var(--muted);font-weight:400;white-space:pre}
+.market-stat-line .stat-value{font-weight:700;font-size:inherit}
+.market-judgement .stat-value{color:#7a4d1f}
+.market-holding-line{border-top:1px dashed #bea66f66;padding-top:4px}
+.market-info>.form-hint{margin:4px 0 0}
+.market-card-actions{grid-gap:8px;gap:8px;margin-top:8px;clear:both}
+.market-product .ui-button,.market-tools .ui-button{min-height:33px;padding:5px 10px;font-size:.92rem;line-height:1.3}
+.market-card-actions .ui-button[aria-expanded="true"]{background:#e2c48c;border-color:#8d6a33}
+.trade-expand{margin-top:8px;padding:8px 8px 6px;border-top:1px dashed #bea66f80;background:#fff9ec66;border-radius:4px}
+.trade-expand .trade-quantity{display:flex;flex-direction:column;gap:4px}
+.trade-expand .field-label{font-size:.9rem;color:var(--ink)}
+.trade-expand>.form-hint{margin:2px 0 0}
+.trade-summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;font-size:.88rem;margin:6px 0;font-variant-numeric:tabular-nums}
+.trade-summary>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trade-expand>.ui-button{width:100%;margin-top:2px}
+.trade-block-reason{color:#9b3d29;font-size:.78rem;line-height:1.4;margin:4px 0 0;font-weight:400}
+.trade-block-reason[hidden]{display:none}
+.trade-unit{margin-top:0}
+.lot-picker{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.lot-choice{border:1px solid #b69a66;border-radius:4px;background:#f7ecd6;padding:4px 8px;font-size:.8rem;min-height:30px;color:var(--ink)}
+.lot-choice[aria-pressed="true"]{background:#e2c48c;border-color:#8d6a33;font-weight:700}
+.provisions-product{display:block}
+.provisions-product .provisions-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.provisions-product .provisions-head .market-title{margin:0}.provisions-head .stat-item{font-size:.8rem}.provisions-head .stat-label{color:var(--muted);white-space:pre}.provisions-head .stat-value{font-weight:700;font-size:inherit}
+.provisions-product>.form-hint{margin:2px 0 0}
+.provisions-actions{grid-template-columns:1fr;max-width:60%}
+.market-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:6px 0 2px}
+.market-tools .ui-button{min-width:0;padding-left:4px;padding-right:4px;white-space:nowrap}
+[data-panel-id="market-exit-confirm"]>.panel-footer .ui-button{flex:1}
+@media(max-width:360px){.market-status-row{font-size:.72rem}.market-stat-line{font-size:.8rem}.market-product .ui-button,.market-tools .ui-button{font-size:.86rem}}
