@@ -261,6 +261,8 @@
     if(isEventResult())ui.primary={id:'event',data:{}};
     if(isInnResult()){ui.primary={id:'inn',data:{}};ui.secondary=null;ui.back=[];}
     nodes.primary.hidden=!ui.primary;nodes.secondary.hidden=!ui.secondary;
+    // Round 29: the five HUD windows (art shell) get no translucent mask behind them — the layer still blocks the scene
+    nodes.primary.classList.toggle('art-shell-layer',Boolean(ui.primary)&&['pack','commission','message','merchant_business','more'].includes(ui.primary.id));
     if(ui.primary){if(isFinanceResult())renderFinanceResult(nodes.primaryParts,activeResult());else if(isEventResult()||isInnResult())renderResultContent(nodes.primaryParts,activeResult());else renderPanelContent(ui.primary,nodes.primaryParts,false);}
     if(ui.secondary)renderPanelContent(ui.secondary,nodes.secondaryParts,true);
     renderHUD();renderControls();journeyController?.refresh();

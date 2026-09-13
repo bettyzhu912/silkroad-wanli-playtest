@@ -43,6 +43,8 @@
    bar.append(tabs);
    if(msgView.tab==='report'){const sub=c.el('div','msg-subtabs');sub.setAttribute('role','tablist');for(const [id,label] of [['latest','最新商报'],['history','历史商报']]){const t=c.button(label,()=>{if(msgView.sub!==id){msgView.sub=id;msgView.open=null;rerender();}},{className:'msg-subtab'});t.setAttribute('role','tab');t.setAttribute('aria-selected',String(msgView.sub===id));t.dataset.subtab=id;sub.append(t);}bar.append(sub);}
    b.append(bar);
+   // Round 29: the sticky bar is transparent at rest (the art's top-right sketch shows through) and gets a light paper backdrop only while the list is scrolled
+   const stuck=()=>bar.classList.toggle('is-stuck',b.scrollTop>2);b.onscroll=stuck;stuck();
    const rows=reportsNewestFirst(c.p);
    if(msgView.tab==='report'&&msgView.sub==='latest'){const box=c.el('section','msg-report');box.dataset.view='latest';if(!rows.length)box.append(c.el('p','msg-empty','尚未购入商报。各城【商情】可购买当期商报。'));else reportBody(c,box,rows[0]);b.append(box);return;}
    if(msgView.tab==='report'){const list=c.el('section','msg-history');list.dataset.view='history';if(!rows.length)list.append(c.el('p','msg-empty','暂无历史商报。'));
