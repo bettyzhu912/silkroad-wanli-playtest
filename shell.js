@@ -154,7 +154,7 @@
   function renderScene() {
     const progress=p();if(!progress)return;
     if(progress.world.route){
-      ui.sceneCity=null;nodes.scene.classList.add('journey-scene');nodes.scene.setAttribute('aria-label','行进地图');
+      ui.sceneCity=null;nodes.scene.classList.add('journey-scene');nodes.scene.removeAttribute('data-phase');nodes.scene.setAttribute('aria-label','行进地图');
       for(const old of nodes.scene.querySelectorAll(':scope > .world-map-button, :scope > .travel-art-caption, :scope > .journey-status'))old.remove();nodes.sceneWorld.replaceChildren();
       renderTravelArt(context(),nodes.sceneWorld,progress.world.route);const cap=nodes.sceneWorld.querySelector('.travel-art-caption');if(cap)nodes.scene.append(cap);nodes.scene.append(mapButton(()=>openSecondary('map')));
       const status=el('div','journey-status');status.setAttribute('aria-live','polite');
@@ -163,13 +163,20 @@
     }
     nodes.scene.classList.remove('journey-scene');for(const old of nodes.scene.querySelectorAll(':scope > .travel-art-caption, :scope > .journey-status'))old.remove();
     const city=progress.world.city;
+    // CITY_TIME_AND_INTERACTION_POLISH v0.1: the scene only *reads* the existing world time (晨 / 午 / 暮) and exposes it as data-phase for the background-only atmosphere filter; no timer, no rule, no transition show.
+    nodes.scene.dataset.phase=['morning','noon','dusk'][S.time.phase(progress)]||'noon';
     if(ui.sceneCity!==city){
       ui.sceneCity=city;nodes.sceneWorld.replaceChildren();nodes.scene.setAttribute('aria-label',cities[city]+'城市主界面');
       nodes.scene.querySelector(':scope > .world-map-button')?.remove();nodes.scene.append(mapButton(()=>openPanel('map')));
       const img=el('img','city-background');img.src=asset('B7_city_'+city+'_bg_v0'+(city==='changan'?'2':'1'));img.alt=cities[city]+'城市景观';img.draggable=false;nodes.sceneWorld.append(img);
+      // atmosphere overlay: decorative, never intercepts clicks; sits between the background and the hotspots
+      const atmosphere=el('div','city-atmosphere');atmosphere.setAttribute('aria-hidden','true');nodes.sceneWorld.append(atmosphere);
       for(const [id,label,x,y] of hotspots[city]){
         const hot=button('',()=>{if(id==='work'&&city==='dunhuang'){openPanel('dunhuang-work');return;}if(id==='work'&&city!=='changan'){showModal({title:label,body:'敬请期待',actions:[{label:'返回',run:dismissModal}]});return;}openPanel(id);},{className:'city-hotspot text-hotspot',label});
         hot.dataset.hotspot=id;hot.dataset.artX=x;hot.dataset.artY=y;hot.style.left=(x/cityArt.w*100)+'%';hot.style.top=(y/cityArt.h*100)+'%';
+        // availability is the existing click rule: 营生 outside 长安 / 敦煌 only answers 敬请期待 → static, weakened hint, no breathing
+        hot.dataset.availability=(id==='work'&&city!=='changan'&&city!=='dunhuang')?'unavailable':'available';
+        {const halo=el('span','hotspot-halo');halo.setAttribute('aria-hidden','true');halo.style.animationDelay=(-([0,1.3,2.5,0.7,1.9,3.1,0.4][hotspots[city].findIndex(h=>h[0]===id)]||0))+'s';hot.append(halo);}
         {const plaque=el('span','hotspot-visual '+(['guifang','inn'].includes(id)?'global-plaque':'b7-plaque'));const frame=el('img','plaque-frame');frame.src=asset(['guifang','inn'].includes(id)?'global_scene_hotspot_label_frame_v01':'city_marker_frame_v01');frame.alt='';plaque.append(frame,el('span','hotspot-label',label));hot.append(plaque);}
         nodes.sceneWorld.append(hot);
       }

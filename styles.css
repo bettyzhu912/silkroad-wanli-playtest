@@ -153,3 +153,28 @@
 [data-panel-id="market-exit-confirm"]>.panel-footer .ui-button{flex:1;font-weight:600}
 [data-panel-id="market"]>.panel-footer .ui-button{font-weight:600}
 @media(max-width:360px){.market-status-cell{font-size:.68rem}.market-stat-line{font-size:.7rem}.market-product .ui-button,.market-tools .ui-button{font-size:.84rem}}
+
+/* ---- CITY_TIME_AND_INTERACTION_POLISH v0.1 (2026-09-13) ----
+   1) Background-only atmosphere per existing phase: a filter on the city background image plus a decorative overlay (pointer-events none),
+      both inside .scene-world under the hotspots; the HUD, plaques, labels and halos are never tinted. No transition show.
+   2) Scene hotspots: static thin warm-ivory edge on the plaque + a separate low-intensity warm halo whose OPACITY alone breathes
+      (base .30 → peak .33, i.e. +10 % of the base; 3.6 s per full cycle, ease-in-out, alternate); phases staggered non-sequentially.
+   3) HUD entries: the same static edge + low halo on the icon, no animation. Unavailable / inert entries: no breathing, weaker hint. */
+.city-scene[data-phase="morning"] .city-background{filter:brightness(1.03) saturate(1.04) contrast(1.01)}
+.city-scene[data-phase="noon"] .city-background{filter:brightness(1.05) saturate(1) contrast(1.03)}
+.city-scene[data-phase="dusk"] .city-background{filter:brightness(.9) saturate(.9) sepia(.12) contrast(1.02)}
+.city-atmosphere{position:absolute;inset:0;pointer-events:none;z-index:1;opacity:0}
+.city-scene[data-phase="morning"] .city-atmosphere{opacity:1;background:linear-gradient(180deg,rgba(255,224,176,.16) 0%,rgba(255,214,190,.10) 55%,rgba(255,236,214,.06) 100%);mix-blend-mode:soft-light}
+.city-scene[data-phase="noon"] .city-atmosphere{opacity:1;background:linear-gradient(180deg,rgba(255,246,228,.06),rgba(255,246,228,.02));mix-blend-mode:soft-light}
+.city-scene[data-phase="dusk"] .city-atmosphere{opacity:1;background:linear-gradient(180deg,rgba(255,158,96,.20) 0%,rgba(214,120,84,.20) 45%,rgba(140,78,58,.24) 100%);mix-blend-mode:multiply}
+.city-hotspot .hotspot-halo{position:absolute;left:50%;top:50%;width:112%;height:150%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(ellipse at center,rgba(255,226,170,.9) 0%,rgba(255,214,150,.55) 42%,rgba(255,200,130,0) 72%);opacity:.30;pointer-events:none;z-index:0;will-change:opacity;animation:hotspotBreath 3.6s ease-in-out infinite alternate}
+@keyframes hotspotBreath{from{opacity:.30}to{opacity:.33}}
+.city-hotspot .hotspot-visual{z-index:1}
+.city-hotspot .plaque-frame{filter:drop-shadow(0 0 .6px #fff3dc) drop-shadow(0 0 .6px #fff3dc)}
+.city-hotspot[data-availability="unavailable"] .hotspot-halo{animation:none;opacity:.14}
+.city-hotspot[data-availability="unavailable"] .plaque-frame{filter:drop-shadow(0 0 .4px #f3e6d0) grayscale(.35)}
+.city-hotspot[data-availability="unavailable"] .hotspot-label{color:#6b5a46}
+.city-scene[inert] .hotspot-halo{animation-play-state:paused}
+.hud-tool .ui-icon{filter:drop-shadow(0 0 .6px #fff3dc) drop-shadow(0 0 5px rgba(255,214,150,.38)) drop-shadow(0 1px 1px #fff)}
+.hud-tool:disabled .ui-icon,.global-hud.is-blocked .hud-tool .ui-icon{filter:drop-shadow(0 0 .4px #f3e6d0) drop-shadow(0 1px 1px #fff)}
+@media(prefers-reduced-motion:reduce){.city-hotspot .hotspot-halo{animation:none}}
