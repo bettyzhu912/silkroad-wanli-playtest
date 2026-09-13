@@ -12,29 +12,32 @@ function jumpTo(d, city, routeIndex) { d.p.world.route = null; d.p.world.city = 
 function startTrip(d) { d.run('trip.begin'); d.run('trip.depart', { acknowledgeSupplyWarning: true }); }
 
 t('T1', '求货委托在交付城市现买现交', 'BUG', () => {
-  let found = null;
-  for (let seed = 1; seed < 300 && !found; seed++) { const d = driver(S, seed); d.p.reputation.value = 12; d.p.cash = 400; d.p.inventory.provisions = 20; d.quietCity(80); d.quietRoute(80); d.run('trip.begin'); const c = d.p.departureDraft.pool.find(x => x.type === 'wanted' && x.sourceStage === 0 && x.status !== 'unavailable' && S.inventory.unlocked(d.p, x.goodId)); if (c) found = { d, c }; }
-  assert(found, 'a changan wanted commission exists'); const { d, c } = found;
-  d.run('trip.draftSelect', { commissionId: c.commissionId, selected: true }); d.run('trip.depart', { acknowledgeSupplyWarning: true }); jumpTo(d, 'changan', 4); d.p.trip.arrivedChanganTick = d.p.world.tick; d.p.trip.phase = 'return_tasks'; d.p.trip.returnStatus = 'on_time';
+  // COMMISSION v3.0: only goods brought in by an arrival after the acceptance count (eligibleCargoCounts); a local purchase never does.
+  const d = driver(S, 3); d.p.reputation.value = 12; d.p.cash = 400; d.p.inventory.provisions = 20; d.quietCity(80); d.quietRoute(80); d.run('notice.dismiss', { ids: [] });
+  const c = d.p.commissions.board.find(x => x.type === 'wanted' && x.deliveryCity === 'changan') || (() => { d.p.commissions.board.push({ ...d.p.commissions.board[0], commissionId: 'w-changan', templateId: 'W-CA', type: 'wanted', goodId: '绢帛', quantity: 1, requiredSlots: 1, pickupCity: null, procurementCity: null, deliveryCity: 'changan', rewardCash: 40 }); return d.p.commissions.board[d.p.commissions.board.length - 1]; })();
+  d.run('commission.accept', { commissionId: c.commissionId }); d.ack();
+  startTrip(d); jumpTo(d, 'changan', 4); d.p.trip.arrivedChanganTick = d.p.world.tick; d.p.trip.phase = 'return_tasks'; d.p.trip.returnStatus = 'on_time'; S.commissions.arrived(d.p);   // one real arrival in 长安 with nothing carried in
   d.run('market.enter'); const v = d.p.market.visit; d.run('market.buy', { visitId: v.id, goodId: c.goodId, quantity: c.quantity }); d.ack();
   const r = d.tryRun('commission.deliver', { commissionId: c.commissionId }); assert(!r.ok && r.code === 'CANNOT_DELIVER', 'instant delivery now rejected: ' + r.code);
-  d.run('market.leave', { visitId: v.id }); d.ack(); S.inventory.add(d.p, { goodId: c.goodId, quantity: c.quantity, acquisitionPrice: 20, acquisitionCity: 'dunhuang', hasLeftAcquisitionCity: true });
-  const ok = d.tryRun('commission.deliver', { commissionId: c.commissionId }); assert(ok.ok, 'transported goods deliver: ' + ok.code);
-  return ['fresh purchase rejected, transported goods accepted (' + c.templateId + ')'];
+  d.run('market.leave', { visitId: v.id }); d.ack(); d.p.world.currentArrival.eligibleCargoCounts[c.goodId] = c.quantity;   // as if the units had been carried in by that arrival
+  const ok = d.tryRun('commission.deliver', { commissionId: c.commissionId }); assert(ok.ok, 'brought-in goods deliver: ' + ok.code);
+  return ['fresh purchase rejected, brought-in goods accepted (' + c.templateId + ')'];
 });
 t('T2', '暮返长安晨交委托被排除在宽限外', 'BUG', () => {
+  // COMMISSION v3.0: no return grace at all — the 晨交 commission simply stays active and is delivered the next 晨 by the ordinary phase rule.
   const d = driver(S, 11); d.p.reputation.value = 12; d.p.cash = 300; d.quietRoute(60); d.quietCity(60); startTrip(d); jumpTo(d, 'dunhuang', 3);
-  d.p.commissions.active.push({ commissionId: 'c1', templateId: 'X', title: '求货 · 绢帛', text: 't', type: 'wanted', scale: 'good', goodId: '绢帛', quantity: 1, requiredSlots: 1, sourceCity: 'changan', pickupCity: null, procurementCity: null, deliveryCity: 'changan', pickupIndex: null, deliveryIndex: 4, segmentCount: 0, urgent: false, handoffPhase: 0, valuable: false, fragile: false, rare: false, longHaul: false, replaceable: true, rewardCash: 50, referencePrice: 24, rewardRate: .2, reputationReward: 2, status: 'accepted', urgentArrivalTick: null, urgentWindow: null, tripId: d.p.trip.id, deadlineTick: d.p.trip.deadlineTick, generatedTick: 0, acceptedTick: 0, sourceStage: 0 });
+  d.p.commissions.active.push({ commissionId: 'c1', templateId: 'X', title: '求货 · 绢帛', text: 't', type: 'wanted', scale: 'good', goodId: '绢帛', quantity: 1, requiredSlots: 1, sourceCity: 'changan', pickupCity: null, procurementCity: null, deliveryCity: 'changan', segmentCount: 0, urgent: false, handoffPhase: 0, valuable: false, fragile: false, rare: false, longHaul: false, replaceable: true, rewardCash: 50, referencePrice: 24, rewardRate: .2, reputationReward: 2, status: 'accepted', urgentArrivalTick: null, urgentWindow: null, acceptedAtWorldTick: d.p.world.tick, deadlineWorldTick: d.p.world.tick + 90, acceptedAtArrivalSequence: 0 });
   S.inventory.add(d.p, { goodId: '绢帛', quantity: 1, acquisitionPrice: 24, acquisitionCity: 'dunhuang', hasLeftAcquisitionCity: true });
   while (S.time.phase(d.p) !== 0) { d.run('inn.wait', { ticks: 1 }); d.ack(); } d.run('trip.depart', { acknowledgeSupplyWarning: true }); d.p.world.route.remainingTicks = 8; d.journeyToArrival();
-  assert(S.time.phase(d.p) === 2 && d.p.trip.graceIds.includes('c1'), 'frozen: ' + JSON.stringify(d.p.trip.graceIds)); d.overnight('stay'); const r = d.tryRun('commission.deliver', { commissionId: 'c1' }); assert(r.ok, 'deliverable next morning');
-  return ['graceIds contains the 晨交 commission; delivered next morning'];
+  assert(S.time.phase(d.p) === 2 && d.p.trip.graceIds === undefined && d.p.commissions.active[0].status === 'accepted', 'no freeze list, still active'); d.overnight('stay'); const r = d.tryRun('commission.deliver', { commissionId: 'c1' }); assert(r.ok, 'deliverable next morning');
+  return ['no grace list; delivered next morning by the phase rule'];
 });
 t('T3', '返程加急委托在去程敦煌被误判', 'BUG', () => {
-  const d = driver(S, 5); d.p.reputation.value = 12; d.p.cash = 300; d.quietRoute(60); d.quietCity(60); startTrip(d);
-  d.p.commissions.active.push({ commissionId: 'cu', templateId: 'X', title: '求货 · 药材(加急)', text: 't', type: 'wanted', scale: 'good', goodId: '药材', quantity: 1, requiredSlots: 1, sourceCity: 'dunhuang', pickupCity: null, procurementCity: null, deliveryCity: 'dunhuang', pickupIndex: null, deliveryIndex: 3, segmentCount: 0, urgent: true, handoffPhase: null, valuable: false, fragile: false, rare: false, longHaul: false, replaceable: true, rewardCash: 60, referencePrice: 15, rewardRate: .2, reputationReward: 2, status: 'accepted', urgentArrivalTick: null, urgentWindow: null, tripId: d.p.trip.id, deadlineTick: d.p.trip.deadlineTick, generatedTick: 0, acceptedTick: 0, sourceStage: 3 });
-  d.journeyToArrival(); d.run('inn.wait', { ticks: 1 }); d.ack(); const c = d.p.commissions.active[0]; assert(c.status === 'accepted' && !c.urgentWindow, 'still active, no window at outbound stop');
-  return ['outbound dunhuang: status accepted, window null'];
+  // COMMISSION v3.0: the urgent window opens at the first real arrival in the delivery city after the acceptance — outbound or return alike.
+  const d = driver(S, 5); d.p.reputation.value = 12; d.p.cash = 300; d.quietRoute(60); d.quietCity(60);
+  d.p.commissions.active.push({ commissionId: 'cu', templateId: 'X', title: '求货 · 药材(加急)', text: 't', type: 'wanted', scale: 'good', goodId: '药材', quantity: 1, requiredSlots: 1, sourceCity: 'dunhuang', pickupCity: null, procurementCity: null, deliveryCity: 'dunhuang', segmentCount: 0, urgent: true, handoffPhase: null, valuable: false, fragile: false, rare: false, longHaul: false, replaceable: true, rewardCash: 50, referencePrice: 24, rewardRate: .2, reputationReward: 2, status: 'accepted', urgentArrivalTick: null, urgentWindow: null, acceptedAtWorldTick: d.p.world.tick, deadlineWorldTick: d.p.world.tick + 90, acceptedAtArrivalSequence: 0 });
+  startTrip(d); d.journeyToArrival(); const c = d.p.commissions.active[0]; assert(c.status === 'accepted' && c.urgentWindow && c.urgentWindow.arrivalSequence === 1, 'window at the first arrival after acceptance');
+  return ['outbound dunhuang: window open (accepted before departure)'];
 });
 t('T4a', '加固纸样货损抛 MISSING_STORY_AUTHORITY', 'BUG', () => {
   const d = driver(S, 21); d.p.reputation.value = 12; d.p.reputation.firstVisits.dunhuang = true; d.p.cash = 100; d.quietCity(60); d.run('story.begin', { lineId: 'QY01', choiceId: 'reinforce' }); d.ack();
@@ -80,13 +83,15 @@ t('T16', '贷款逾期 + 1钱飞钱', 'BUG', () => {
   const d = driver(S, 41); d.p.cash = 100; d.quietCity(60); d.run('finance.borrow', { amount: 200 }); d.ack(); for (let i = 0; i < 31; i++) d.overnight('restOutside'); const snap = S.finance.snapshot(d.p); assert(snap.loans[0].status === 'overdue' && !snap.borrowingAllowed, 'overdue');
   const r = d.tryRun('finance.issueVoucher', { amount: 1, source: 'cash', destinationCity: 'dunhuang' }); assert(!r.ok && r.code === 'VOUCHER_TOO_SMALL', '1钱 rejected'); return ['loan overdue path intact; 1钱 voucher rejected'];
 });
-t('T19', '委托池可满足性（草稿）', 'OK', () => {
-  let bad = 0; for (const rep of [5, 10, 20, 40]) for (const all of [false, true]) for (let seed = 1; seed <= 30; seed++) { const d = driver(S, seed * 31 + rep); d.p.reputation.value = rep; d.p.cash = 500; if (all) for (const g of ['染料', '漆器', '于阗玉', '精制玉器']) d.p.merchant.suppliers[g] = { stage: 'established', discountRate: 0, sourceCity: S.merchant.suppliers[g].city }; const r = d.tryRun('trip.begin'); if (!r.ok) bad++; }
-  assert(bad === 0, 'failures ' + bad); return ['240 drafts generated, 0 unsatisfiable'];
+t('T19', '委托榜可满足性（分档目标 3/5/7/9，有无高级货源）', 'OK', () => {
+  // COMMISSION v3.0: the board is filled by the after-command sync; every tier must reach its target without a price / template failure.
+  let bad = 0; const target = { 5: 3, 10: 5, 20: 7, 40: 9 }; for (const rep of [5, 10, 20, 40]) for (const all of [false, true]) for (let seed = 1; seed <= 30; seed++) { const d = driver(S, seed * 31 + rep); d.p.reputation.value = rep; d.p.cash = 500; if (all) for (const g of ['染料', '漆器', '于阗玉', '精制玉器']) d.p.merchant.suppliers[g] = { stage: 'established', discountRate: 0, sourceCity: S.merchant.suppliers[g].city }; const r = d.tryRun('notice.dismiss', { ids: [] }); if (!r.ok || d.p.commissions.board.length !== target[rep]) bad++; }
+  assert(bad === 0, 'failures ' + bad); return ['240 boards filled to 3/5/7/9, 0 short'];
 });
 t('T20', '跨城承接', 'BUG', () => {
-  const d = driver(S, 12); d.p.reputation.value = 25; d.p.cash = 500; d.quietCity(60); for (const g of ['染料', '漆器', '于阗玉']) d.p.merchant.suppliers[g] = { stage: 'established', discountRate: 0, sourceCity: S.merchant.suppliers[g].city }; d.run('trip.begin');
-  const far = d.p.departureDraft.pool.find(c => c.sourceCity !== 'changan'); assert(far, 'far candidate'); const r = d.tryRun('commission.accept', { commissionId: far.commissionId }); assert(!r.ok && r.code === 'COMMISSION_WRONG_STOP', 'rejected: ' + r.code); return ['敦煌/于阗 posting cannot be taken in 长安'];
+  // COMMISSION v3.0: any posting city is acceptable anywhere (the former COMMISSION_WRONG_STOP is gone).
+  const d = driver(S, 12); d.p.reputation.value = 25; d.p.cash = 500; d.quietCity(60); for (const g of ['染料', '漆器', '于阗玉']) d.p.merchant.suppliers[g] = { stage: 'established', discountRate: 0, sourceCity: S.merchant.suppliers[g].city }; d.run('notice.dismiss', { ids: [] });
+  const far = d.p.commissions.board.find(c => c.sourceCity !== 'changan'); assert(far, 'far candidate'); const r = d.tryRun('commission.accept', { commissionId: far.commissionId }); assert(r.ok, 'accepted in 长安: ' + r.code); return ['敦煌/于阗 posting taken in 长安'];
 });
 t('T21', '异地商品可在任意城市购买（设计保留）', 'OK', () => { const d = driver(S, 13); d.p.cash = 500; d.run('market.enter'); const r = d.tryRun('market.buy', { visitId: d.p.market.visit.id, goodId: '毛毡鞋', quantity: 1 }); assert(r.ok, 'still allowed'); return ['12 goods purchasable everywhere (unchanged by design)']; });
 t('T22', '市场内购报耗时', 'BUG', () => { const d = driver(S, 14); d.p.cash = 100; d.quietCity(60); d.run('market.enter'); const v = d.p.market.visit; d.run('newspaper.purchase', { visitId: v.id }); const t0 = d.p.world.tick; d.run('market.leave', { visitId: v.id }); assert(d.p.world.tick === t0 && S.timeRisk.actionTicks(d.p, 'newspaper.purchase', { visitId: v.id }) === 0, '0 tick'); return ['0 tick, time-risk consistent']; });

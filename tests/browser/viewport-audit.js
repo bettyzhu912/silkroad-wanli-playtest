@@ -53,11 +53,11 @@ const METRICS = `(() => {
       await clickText('行囊', 'page'); await sleep(300); await capture('06b-pack'); await closeAll();
       await clickText('消息', 'page'); await sleep(300); await capture('06c-message'); await closeAll();
       await clickText('柜坊', 'page'); await sleep(300); await capture('07-guifang'); await closeAll();
-      await clickText('出发', 'page'); await sleep(300); await capture('08-depart'); await clickText('敦煌'); await sleep(500); await capture('09-draft'); await closeAll();
+      await clickText('出发', 'page'); await sleep(300); await capture('08-depart'); await clickText('敦煌'); await sleep(500); await capture('09-departure'); await closeAll();
       await clickText('地图', 'page'); await sleep(400); await capture('10-map'); await closeAll();
       await clickText('更多', 'page'); await sleep(300); await capture('11-more'); await closeAll();
       // start the trip to see the journey scene
-      await clickText('出发', 'page'); await sleep(300); await clickText('出发前委托'); await sleep(300); await clickText('开始行程'); await sleep(300); await clickText('开始行程'); await sleep(1200); await capture('12-journey');
+      await clickText('出发', 'page'); await sleep(300); await clickText('敦煌'); await sleep(500); await clickText('开始行程'); await sleep(300); await clickText('开始行程'); await sleep(1200); await capture('12-journey');
     } catch (e) { issues.push('harness error: ' + String(e.message || e).slice(0, 200)); try { await shot('error'); } catch (_) { } }
     const errors = c.console.filter(m => m.type === 'error' || m.type === 'exception').map(m => m.text.slice(0, 160));
     report.viewports.push({ ...v, issues, consoleErrors: errors, screens, shots });

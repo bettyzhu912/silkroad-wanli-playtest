@@ -52,13 +52,13 @@
       const before = tracked ? { cash:p.cash, finance:S.finance?.snapshot(p) } : null;
       // RC3 BUG-04: the city-event roll is keyed by the world day at which the action started.
       const cityCtx = { tick: p.world.tick, day: Math.floor(p.world.tick / 3), city: p.world.city, onRoute: Boolean(p.world.route) };
-      if(S.trip?.authorizeGraceAdvance)S.trip.authorizeGraceAdvance(p,command,context);
       let result = handlers.get(command.type)(p, command.payload || {}, context);
       if(S.market?.settlePurchaseTurnover)S.market.settlePurchaseTurnover(p);
       if(S.events?.afterCityAction)S.events.afterCityAction(p,command,cityCtx,context);
       if(S.trip?.afterCommand)result=S.trip.afterCommand(p,command,result,context);
       if (tracked) p.journal.push({type:command.type.startsWith('finance.')?'finance':'merchant',operation:command.type,tripId:p.trip?.id||null,tick:p.world.tick,cashDelta:p.cash-before.cash,before,after:{cash:p.cash,finance:S.finance?.snapshot(p)},result:clone(result)});
-      if (p.reputation.value >= 5 && !p.commissions.starterGenerated && S.commissions?.generateStarterIfNeeded) S.commissions.generateStarterIfNeeded(p, context);
+      // COMMISSION v3.0: the board follows the reputation tier after every command (first unlock / tier up fill immediately; consumption is topped up at the next world-day start by the time hook).
+      if (S.commissions?.syncBoard) S.commissions.syncBoard(p, context);
       if(S.tutorial?.onCommand)S.tutorial.onCommand(p,command,result);
       return result;
     },
@@ -73,13 +73,13 @@
     longStories30Runtime: 'BLOCK', npcAffinity: 'BLOCK', futureCities: 'BLOCK', goodsQuality: 'DELETED', legacyProject: 'REFERENCE_ONLY'
   });
   S.core = {
-    versions: Object.freeze({ releaseVersion: 'v0.3.0-competition-rc3', schemaVersion: 2, balanceVersion: '2026-09-13-qiyuan-final' }),
+    versions: Object.freeze({ releaseVersion: 'v0.3.0-competition-rc3', schemaVersion: 2, balanceVersion: '2026-09-13-commission-master-v3' }),
     emptyEnvelope() { return { meta: { ...S.core.versions, generation: 0, revision: 0 }, preferences: { tutorialEnabled: true, soundEnabled: true }, progress: null, ledger: {}, pending: null, results: {} }; },
     upgradeEnvelope(envelope) {
       S.core.validate(envelope);
       if(S.core.isCurrent(envelope))return {state:clone(envelope),changed:false};
       const fromRC2=['2026-09-09-effective','2026-09-10-g01-g05'].includes(envelope.meta.balanceVersion);
-      ensure(fromRC2||['2026-09-11-rc3-logic-patch','2026-09-13-weighted-avg-cost'].includes(envelope.meta.balanceVersion),'BALANCE_UNSUPPORTED','此存档来自另一套规则版本，原记录已保留');
+      ensure(fromRC2||['2026-09-11-rc3-logic-patch','2026-09-13-weighted-avg-cost','2026-09-13-qiyuan-final'].includes(envelope.meta.balanceVersion),'BALANCE_UNSUPPORTED','此存档来自另一套规则版本，原记录已保留');
       ensure(!envelope.pending,'TRANSACTION_PENDING','请先恢复上次尚未保存的操作');
       const next=clone(envelope),p=next.progress;
       if(p&&fromRC2){
@@ -93,12 +93,13 @@
         // RC3 logic patch migrations (BUG-02 urgent windows, BUG-06/07 transport flags, BUG-04 city rolls, BUG-14 archive).
         if(S.inventory?.migrate)S.inventory.migrate(p);
         if(S.events?.migrate)S.events.migrate(p);
-        if(S.commissions?.migrate)S.commissions.migrate(p);
       }
       // WEIGHTED_AVERAGE_INVENTORY_COST_PATCH v1.0 (RC2 and RC3-logic-patch saves): fold the batches of each good once into one integer 持仓均价.
       if(p&&S.inventory?.migrateCost)S.inventory.migrateCost(p);
       // 商路奇缘 FINAL v1.0 (all older saves): finale chapters, read-only result snapshots for completed lines, legacy chapter-5 handling — never a roll, never a reward.
       if(p&&S.stories?.migrate)S.stories.migrate(p);
+      // COMMISSION_SYSTEM_MASTER_PATCH v3.0 (all older saves): global commission board, independent 30-day deadlines, arrival provenance; no second roll of existing candidates.
+      if(p&&S.commissions?.migrate)S.commissions.migrate(p);
       next.meta.migrations=[...(next.meta.migrations||[]),{from:envelope.meta.balanceVersion,to:S.core.versions.balanceVersion,atRevision:envelope.meta.revision}];
       Object.assign(next.meta,S.core.versions);next.meta.revision++;
       S.core.validate(next);return {state:next,changed:true};
@@ -108,11 +109,11 @@
       ensure(mode === 'guided' || mode === 'explore', 'INVALID_MODE');
       const progress = {
         idCounter: 0, rngState: (seed >>> 0) || 0x83ba65c1,
-        world: { tick: 0, city: 'changan', route: null }, cash: 200,
+        world: { tick: 0, city: 'changan', route: null, arrivalSequence: 0, currentArrival: null }, cash: 200,
         inventory: { lots: [], provisions: 0, camelCount: 1 },
         reputation: { value: 0, turnover: 0, milestones: {}, firstVisits: {} },
-        trip: null, departureDraft: null, tripHistory: [], market: { visit: null, prices: {}, scheduled: [], purchaseTurnoverLots: {}, pendingPurchaseTurnover: 0 },
-        commissions: S.commissions ? S.commissions.initial() : { pool: [], active: [], results: [], starterGenerated: false },
+        trip: null, tripHistory: [], market: { visit: null, prices: {}, scheduled: [], purchaseTurnoverLots: {}, pendingPurchaseTurnover: 0 },
+        commissions: S.commissions ? S.commissions.initial() : { board: [], active: [], results: [], history: [] },
         stories: S.stories?S.stories.initial():{ lines: {}, lastNewChapterTrip: null, activeCargoChapter: null },
         inn: S.inn ? S.inn.initial() : { daily: {}, recentTalks: [], chains: {}, prepared: false },
         finance: S.finance ? S.finance.initial() : {}, merchant: S.merchant ? S.merchant.initial() : {},
@@ -150,7 +151,7 @@
       if (S.trip?.validate) S.trip.validate(p);
       if (S.merchant?.validate) S.merchant.validate(p);
       if (S.inn?.validate) S.inn.validate(p);
-      if (S.commissions?.validate) S.commissions.validate(p);
+      if (S.core.isCurrent(envelope) && S.commissions?.validate) S.commissions.validate(p);
       if (S.newspapers?.validate) S.newspapers.validate(p);
       if (S.stories?.validate) S.stories.validate(p);
       if (S.market?.validate) S.market.validate(p);
@@ -161,7 +162,6 @@
       return {
         sourceId,
         advance(p, count, reason) { return S.time.advance(p, count, { ...this, reason }); },
-        graceEligibility(p, commission) { return S.trip.graceEligibility(p, commission); },
         // RC3 BUG-04: a formal inn stay uses the same once-per-city-day 50% roll, with the inn context attached.
         innNight(p) { return S.events?.innNight ? S.events.innNight(p, this) : null; },
         marketPrice(p, city, goodId, worldDay) {

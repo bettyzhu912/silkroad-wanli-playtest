@@ -28,6 +28,7 @@ for (let i = 0; i < SEEDS; i++) {
     const env = { meta: { ...OLD.core.versions, generation: 0, revision: 7 }, preferences: { tutorialEnabled: true, soundEnabled: true }, progress: JSON.parse(JSON.stringify(oldRun.progress)), ledger: {}, pending: null, results: {} };
     OLD.core.validate(env);
     const before = { tick: env.progress.world.tick, cash: env.progress.cash, rep: env.progress.reputation.value, turnover: env.progress.reputation.turnover, activeTerminal: env.progress.commissions.active.filter(c => ['completed', 'failed'].includes(c.status)).length, pendingLots: env.progress.inventory.lots.filter(l => l.purchaseTurnoverPending).length, trip: env.progress.trip?.phase || null, story: Object.keys(env.progress.stories.lines) };
+    const oldCandidates = [...(env.progress.commissions.pool || []), ...((env.progress.departureDraft && env.progress.departureDraft.pool) || [])].filter(c => ['available', 'unavailable'].includes(c.status) && !env.progress.commissions.active.some(a => a.commissionId === c.commissionId)).map(c => c.commissionId);
     const up = NEW.core.upgradeEnvelope(env);
     if (!up.changed) throw new Error('upgrade should change the envelope');
     NEW.core.validate(up.state);
@@ -42,12 +43,17 @@ for (let i = 0; i < SEEDS; i++) {
     for (const l of [...p.inventory.lots, ...p.merchant.cabinets.flatMap(c => c.lots)]) if (l.ownership === 'playerOwned' && !l.nonMarketable && l.condition !== 'destroyed' && !Number.isInteger(l.avgCost)) throw new Error('pool lot without integer avgCost after migration');
     for (const l of p.inventory.lots) if (l.ownership === 'storyOwned' && ['QY01_SAMPLE', 'QY02_TRIAL'].includes(l.storyCargoKind) && l.condition === 'destroyed') throw new Error('destroyed initial sample survived migration');
     if (!p.events || typeof p.events.cityRollDays !== 'object') throw new Error('city roll state missing');
-    if (p.departureDraft !== null) throw new Error('draft must be null after migration');
+    if (p.departureDraft !== undefined) throw new Error('the departure draft must be gone after migration');
+    // COMMISSION_SYSTEM_MASTER_PATCH v3.0: one global board (old candidates carried over, never re-rolled), independent deadlines, arrival provenance
+    if (!Array.isArray(p.commissions.board) || p.commissions.pool !== undefined || !Number.isInteger(p.world.arrivalSequence)) throw new Error('v3 board / arrival sequence missing');
+    for (const id of oldCandidates) if (!p.commissions.board.some(c => c.commissionId === id)) throw new Error('old candidate re-rolled or dropped: ' + id);
+    for (const c of p.commissions.active) if (!(Number.isInteger(c.deadlineWorldTick) && (c.deadlineWorldTick === c.acceptedAtWorldTick + 90 || c.deadlineMigrated === true) && Number.isInteger(c.acceptedAtArrivalSequence))) throw new Error('active commission without an independent deadline / arrival provenance');
+    if (p.trip && (p.trip.graceIds !== undefined || (p.trip.returnTasks && p.trip.returnTasks.commission !== undefined))) throw new Error('trip still carries commission coupling');
     for (const c of p.commissions.active) if (c.urgent && Number.isSafeInteger(c.urgentArrivalTick) && !c.urgentWindow && ['accepted', 'in_transit', 'ready_to_turn_in'].includes(c.status)) throw new Error('urgent window not rebuilt');
     // keep playing on the new engine from the migrated state
     const after = simulate(NEW, seed + 1000, NEW_STEPS, { crashes, validationBugs, stuck, coverage: {}, progress: p });
     if (crashes.size || validationBugs.size || stuck.size) throw new Error('post-migration play issues: ' + JSON.stringify({ crashes: [...crashes.keys()], validation: [...validationBugs.keys()], stuck: [...stuck.keys()].slice(0, 2) }));
-    row.ok = true; row.before = before; row.after = { tick: after.tick, cash: after.cash, rep: after.rep, trips: after.trips }; row.migrations = up.state.meta.migrations.length;
+    row.ok = true; row.before = before; row.after = { tick: after.tick, cash: after.cash, rep: after.rep, trips: after.trips }; row.migrations = up.state.meta.migrations.length; row.commissions = { oldCandidates: oldCandidates.length, board: p.commissions.board.length, active: p.commissions.active.length, boardMigrated: p.commissions.boardMigrated };
   } catch (e) { row.error = String(e.message || e); }
   results.push(row); console.log((row.ok ? 'PASS' : 'FAIL') + ' seed ' + seed + (row.ok ? ' before ' + JSON.stringify(row.before) + ' after ' + JSON.stringify(row.after) : ' ' + row.error));
 }

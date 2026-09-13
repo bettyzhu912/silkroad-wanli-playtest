@@ -44,7 +44,7 @@ test('NG-3', '幂等与拒绝：重复 next 忽略、错步拒绝、提前 finis
 });
 test('NG-4', '旧存档：没有 guide 字段的进行中存档 = done（不补播）；未动过的旧新档 = pending', () => {
   const d = driver(S, 34); delete d.p.presentation.guide; assert(S.guide.view(d.p).status === 'pending', 'untouched save gets the entry');
-  d.p.cash = 200; d.quietRoute(60); d.quietCity(60); d.run('trip.begin'); delete d.p.presentation.guide; assert(S.guide.view(d.p).status === 'done' && S.guide.effective(d.p).legacy, 'in-progress save is done');
+  d.p.cash = 200; d.quietRoute(60); d.quietCity(60); d.run('inn.wait', { ticks: 1 }); d.ack(); delete d.p.presentation.guide; assert(S.guide.view(d.p).status === 'done' && S.guide.effective(d.p).legacy, 'in-progress save is done');
   return ['legacy handling'];
 });
 test('NG-5', '旧新手教学彻底停用：无 preparation 任务链、进入市场/柜坊/委托/营生不再弹教学、tutorial.visit 为空操作、旧存档中的 tutorial 通知被清除', () => {

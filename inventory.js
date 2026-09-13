@@ -87,6 +87,8 @@
   }
   function take(p, id, quantity) {
     const lot = p.inventory.lots.find(l => l.id === id); ensure(lot && integer(quantity, 1, lot.quantity), 'LOT_UNAVAILABLE', '这批货物或数量已经改变');
+    // COMMISSION v3.0: an intact, marketable, player-owned unit leaving the caravan can never count as brought-in cargo again.
+    if (S.commissions?.cargoRemoved) S.commissions.cargoRemoved(p, lot, quantity);
     const detached = { ...clone(lot), quantity };
     lot.quantity -= quantity;
     if (!lot.quantity) p.inventory.lots = p.inventory.lots.filter(l => l.id !== id);

@@ -7,37 +7,25 @@
     {from:'khotan',to:'dunhuang',days:4},
     {from:'dunhuang',to:'changan',days:3}
   ]);
-  const graceWarningText='继续过夜将结束本次返程宽限，尚未交付的冻结委托会按未完成处理。';
+  // COMMISSION_SYSTEM_MASTER_PATCH v3.0: the trip owns only the 22-day period and the route. Ordinary commissions live in the
+  // commission domain (S.commissions) — starting, returning, summarising or finishing a trip never generates, freezes, fails,
+  // resets or clears them. The departure page may know whether there is something to accept, nothing more.
   function departureView(p){
     const leg=plan[p.trip?p.trip.routeIndex:0];
-    return {leg:leg?clone(leg):null,requiresSupplyWarning:Boolean(leg&&p.inventory.provisions<leg.days),requiresCargoWarning:!p.inventory.lots.some(l=>l.ownership==='playerOwned'&&!l.nonMarketable&&l.condition!=='destroyed'),pendingPickupIds:S.commissions?.departureWarnings(p)||[],canDepart:!p.world.route&&(!p.market.visit||p.market.visit.settled)&&(!p.trip||p.trip.phase==='in_city')&&S.time.phase(p)!==2,draft:!p.trip&&S.commissions?.draftView?S.commissions.draftView(p):null};
+    return {leg:leg?clone(leg):null,requiresSupplyWarning:Boolean(leg&&p.inventory.provisions<leg.days),requiresCargoWarning:!p.inventory.lots.some(l=>l.ownership==='playerOwned'&&!l.nonMarketable&&l.condition!=='destroyed'),canDepart:!p.world.route&&(!p.market.visit||p.market.visit.settled)&&(!p.trip||p.trip.phase==='in_city')&&S.time.phase(p)!==2,commissionHint:Boolean(S.commissions?.hasAcceptable?.(p))};
   }
-  // RC3 BUG-08: preparing a departure only builds a persisted draft. Nothing about the 22-day period starts here.
-  function ensureDraft(p,ctx){
-    if(p.departureDraft)return p.departureDraft;
-    ensure(p.world.city==='changan','TRIP_START_CITY','商旅只能从长安出发。');
-    const draft={id:S.util.id(p,'draft'),createdTick:p.world.tick,city:'changan',reputation:p.reputation.value,pool:[],selectedIds:[]};
-    draft.pool=p.reputation.value>=5&&S.commissions?.draftPool?S.commissions.draftPool(p,ctx,draft):[];
-    p.departureDraft=draft;return draft;
-  }
-  function begin(p,a,ctx){
+  // RC3 BUG-08: preparing a departure is a 0-tick step; nothing about the 22-day period starts here.
+  function begin(p){
     ensure(!p.world.route,'ON_ROUTE','当前已经在路上');
     ensure(!p.market.visit||p.market.visit.settled,'MARKET_VISIT_OPEN','请先完整离开市场');
     if(p.trip)return {kind:'tripPrepared',modal:false};
-    ensureDraft(p,ctx);
-    return {kind:'departureDraft',modal:false,draft:S.commissions.draftView(p)};
-  }
-  function draftSelect(p,a,ctx){
-    ensure(!p.trip&&p.departureDraft,'NO_DEPARTURE_DRAFT','请先打开出发准备。');
-    return S.commissions.draftToggle(p,a);
-  }
-  // The single atomic transaction that really starts a trip: currentTrip, deadline, pool, selected commissions.
-  function startTrip(p,ctx){
     ensure(p.world.city==='changan','TRIP_START_CITY','商旅只能从长安出发。');
-    const draft=ensureDraft(p,ctx);
-    p.trip={id:S.util.id(p,'trip'),startedAt:p.world.tick,deadlineTick:p.world.tick+66,routeIndex:0,routePlan:clone(plan),routeHistory:['changan'],arrivedChanganTick:null,returnStatus:null,graceIds:[],phase:'in_city',overduePenaltyApplied:false,initialReputation:p.reputation.value,initialMilestones:clone(p.reputation.milestones),initialFunds:S.finance.snapshot(p),initialMerchantLedgerIndex:p.merchant.ledger?.length||0,summary:null,draftId:draft.id};
-    ensure(S.commissions?.activateDraft,'COMMISSION_NOT_CONNECTED','委托候选尚未完成接入');
-    S.commissions.activateDraft(p,ctx,p.trip);
+    return {kind:'departurePrepared',modal:false,commissionHint:departureView(p).commissionHint};
+  }
+  // The single atomic transaction that really starts a trip: currentTrip and its deadline.
+  function startTrip(p){
+    ensure(p.world.city==='changan','TRIP_START_CITY','商旅只能从长安出发。');
+    p.trip={id:S.util.id(p,'trip'),startedAt:p.world.tick,deadlineTick:p.world.tick+66,routeIndex:0,routePlan:clone(plan),routeHistory:['changan'],arrivedChanganTick:null,returnStatus:null,phase:'in_city',overduePenaltyApplied:false,initialReputation:p.reputation.value,initialMilestones:clone(p.reputation.milestones),initialFunds:S.finance.snapshot(p),initialMerchantLedgerIndex:p.merchant.ledger?.length||0,summary:null};
     if(S.stories?.onTripStart)S.stories.onTripStart(p);
   }
   function depart(p,a,ctx){
@@ -49,8 +37,6 @@
     const leg=plan[p.trip.routeIndex];ensure(leg.from===p.world.city,'ROUTE_MISMATCH');
     ensure(!a.destinationCity||a.destinationCity===leg.to,'ROUTE_DESTINATION_MISMATCH','本趟商旅沿长安、敦煌、于阗、敦煌、长安的路线行进。');
     if(p.inventory.provisions<leg.days)ensure(a.acknowledgeSupplyWarning===true,'SUPPLY_WARNING_REQUIRED','补给少于下一段基础路程，请确认后再出发');
-    const missed=S.commissions?.departureWarnings(p)||[];
-    if(missed.length){ensure(a.confirmMissedPickup===true,'PICKUP_WARNING_REQUIRED','本次离城后将无法再领取这些委托货物');S.commissions.finalizeFailures(p,missed,{reason:'pickup_city_missed'});}
     p.world.route={id:S.util.id(p,'route'),index:p.trip.routeIndex,...clone(leg),startedTick:p.world.tick,remainingTicks:leg.days*3,traveledTicks:0,provisionTicks:0,eventCount:0,targetEvents:p.tripHistory.length===0?3:(S.random.next(p)<(leg.days===3?.6:.4)?2:3),eventDays:[],lastStarvationDay:null,prepared:Boolean(p.inn.prepared)};
     p.inn.prepared=false;p.trip.phase='traveling';p.presentation.tutorialSeen.preparation=true;
     // RC3 BUG-06/07: cargo bought in this city has now really left it.
@@ -66,12 +52,12 @@
     S.events?.arrivedRoute?.(p,route.id);
     p.world.city=route.to;S.inventory.transported(p,route.to);p.trip.routeHistory.push(route.to);p.trip.routeIndex=route.index+1;p.world.route=null;
     if(S.inn?.arrived)S.inn.arrived(p);
+    // COMMISSION v3.0: one real arrival = arrivalSequence + 1 and a fresh eligibleCargoCounts snapshot (S.commissions.arrived).
     if(S.commissions?.arrived)S.commissions.arrived(p);
     if(['dunhuang','khotan'].includes(p.world.city)&&!p.reputation.firstVisits[p.world.city]){p.reputation.firstVisits[p.world.city]=true;S.reputation.change(p,1,{type:'firstVisit',city:p.world.city});}
     if(p.world.city==='changan'){
       p.trip.arrivedChanganTick=p.world.tick;p.trip.returnStatus=p.world.tick-p.trip.startedAt<=66?'on_time':'overdue';
       p.trip.phase=S.time.phase(p)===2?'returned_at_dusk_pending_rest':'return_tasks';
-      if(S.time.phase(p)===2){ensure(S.commissions?.freezeGrace,'COMMISSION_NOT_CONNECTED');p.trip.graceIds=S.commissions.freezeGrace(p);p.trip.graceArrivalTick=p.world.tick;}
     }else p.trip.phase='in_city';
     if(S.stories?.arrived)S.stories.arrived(p);
     if(p.world.city==='changan')p.trip.returnTasks=returnTaskStatus(p);
@@ -103,14 +89,9 @@
     const r=p.world.route,t=p.trip,leg=r&&plan.find(x=>x.from===r.from&&x.to===r.to);
     return Boolean(r&&t&&leg&&r.index===plan.indexOf(leg)&&t.routeIndex===r.index&&t.phase==='traveling'&&p.world.city===r.from&&S.util.integer(r.startedTick)&&r.startedTick<=p.world.tick&&S.util.integer(r.remainingTicks)&&S.util.integer(r.traveledTicks)&&S.util.integer(r.provisionTicks,0,2)&&r.days===leg.days&&r.id);
   }
-  function validate(p){
-    const d=p.departureDraft;
-    if(d===undefined||d===null)return true;
-    ensure(!p.trip&&typeof d.id==='string'&&Array.isArray(d.pool)&&Array.isArray(d.selectedIds)&&S.util.integer(d.createdTick,0,p.world.tick)&&d.selectedIds.every(id=>d.pool.some(c=>c.commissionId===id)),'INVALID_DEPARTURE_DRAFT','出发草稿记录无效');
-    return true;
-  }
+  // Old envelopes are validated before they are migrated, so nothing trip-specific is asserted here any more (the departure draft is gone).
+  function validate(){return true;}
   function migrate(p){
-    if(p.departureDraft===undefined)p.departureDraft=null;
     const r=p.world.route;if(!r)return;
     // Recover only redundant fields from a valid persisted endpoint pair. Never
     // manufacture movement, money, event outcomes or a new random seed.
@@ -121,88 +102,34 @@
     if(!p.trip.phase)p.trip.phase='traveling';
     if(r.provisionTicks===undefined&&S.util.integer(r.startedTick)&&r.startedTick<=p.world.tick)r.provisionTicks=(p.world.tick-r.startedTick)%3;
   }
-  function graceDeadline(p){
-    const t=p.trip;
-    if(!t||t.graceClosed||!Number.isSafeInteger(t.graceArrivalTick))return null;
-    // Internal world tick is zero-based; the approved 66/67/68/69/70 world
-    // period example is 65/66/67/68/69. Existing saves derive this same bound.
-    return Number.isSafeInteger(t.graceDeadlineTick)?t.graceDeadlineTick:t.graceArrivalTick+3;
-  }
-  function graceEligibility(p,commission){
-    const trip=p.trip;const id=typeof commission==='string'?commission:commission.id||commission.commissionId;
-    if(!trip||trip.graceClosePending||!trip.graceIds.includes(id))return false;
-    const deadline=graceDeadline(p);
-    return deadline!==null&&p.world.tick>=trip.graceArrivalTick&&p.world.tick<=deadline;
-  }
-  function graceAdvanceWarning(p,type,payload={}){
-    const deadline=graceDeadline(p),elapsed=S.timeRisk?.actionTicks(p,type,payload)||0;
-    if(deadline===null||p.trip.graceClosePending||!elapsed||p.world.tick+elapsed<=deadline)return null;
-    return {title:'返程宽限即将结束',text:graceWarningText,confirmPayload:{confirmGraceEnd:{tripId:p.trip.id,deadlineTick:deadline}}};
-  }
-  function authorizeGraceAdvance(p,command,ctx){
-    delete ctx.graceEndAuthorization;
-    const deadline=graceDeadline(p);if(deadline===null)return;
-    const t=p.trip,payload=command.payload||{},token=payload.confirmGraceEnd;
-    const pending=t.graceClosePending;
-    if(pending){
-      const safeUI=['result.ack','notice.dismiss','tutorial.dismiss','tutorial.visit'].includes(command.type);
-      const continuation=command.type.startsWith('EVENT_')&&payload.eventSessionId===pending.eventSessionId;
-      ensure(safeUI||continuation,'GRACE_END_PENDING','请先处理本次过夜结果，返程宽限已经结束。');
-      if(continuation||command.type==='result.ack')ctx.graceEndAuthorization={tripId:t.id,deadlineTick:deadline};
-      return;
-    }
-    if(token){ensure(token.tripId===t.id&&token.deadlineTick===deadline,'STALE_GRACE_CONFIRMATION','返程宽限状态已更新，请重新确认。');ctx.graceEndAuthorization={tripId:t.id,deadlineTick:deadline};}
-    if(graceAdvanceWarning(p,command.type,payload))ensure(ctx.graceEndAuthorization,'GRACE_END_CONFIRMATION_REQUIRED',graceWarningText);
-  }
-  function afterCommand(p,command,result,ctx){
+  function afterCommand(p,command,result){
     if(p.trip?.phase==='return_tasks'&&command.type==='market.leave'&&p.market.visit?.settled){p.trip.returnTasks||=returnTaskStatus(p);p.trip.returnTasks.market='processed';}
-    const deadline=graceDeadline(p),t=p.trip;
-    if(deadline===null||p.world.tick<=deadline)return result;
-    const authorization=ctx?.graceEndAuthorization;
-    if(!t.graceClosePending){
-      if(!authorization||authorization.tripId!==t.id||authorization.deadlineTick!==deadline)return result;
-      t.graceClosePending={confirmedBy:ctx.sourceId||null,deadlineTick:deadline,crossedTick:p.world.tick,eventSessionId:null};
-    }
-    const session=p.eventSession;
-    if(session&&session.status!=='ACKNOWLEDGED'){
-      ensure(session.node?.nightSnapshot,'GRACE_EVENT_MISMATCH','请先处理本次过夜事件。');
-      t.graceClosePending.eventSessionId=session.id;
-      return result;
-    }
-    // For a staged night event, its actual result is acknowledged before the
-    // single final R1/R2 transaction. No commission is eligible after the bound.
-    const closure=clone(t.graceClosePending);
-    S.commissions.finalizeFailures(p,activeCommissionIds(p),{reason:'tripEnded',sourceId:ctx.sourceId});
-    t.returnTasks||=returnTaskStatus(p);t.returnTasks.commission='processed';t.graceClosed=true;t.graceClosePending=null;
-    t.graceEnd={deadlineTick:deadline,completedTick:p.world.tick,nightEventId:closure.eventSessionId,overnightFeedback:result?.kind==='innFeedback'?clone(result):null};
     return result;
   }
-  function activeCommissionIds(p){return p.commissions.active.filter(c=>!['completed','failed','cancelled','expired','abandoned'].includes(c.status)).map(c=>c.id||c.commissionId);}
   function returnTaskStatus(p){
     const hasCargo=p.inventory.lots.some(l=>l.ownership==='playerOwned'&&!l.nonMarketable&&l.condition!=='destroyed'&&l.quantity>0);
     const merchantCargo=hasCargo&&p.merchant.cabinets.some(c=>!c.goodId||p.inventory.lots.some(l=>l.goodId===c.goodId&&l.ownership==='playerOwned'&&!l.nonMarketable&&l.condition!=='destroyed'&&l.quantity>0));
-    return p.trip.returnTasks||{commission:activeCommissionIds(p).length?'pending':'not_applicable',market:hasCargo?'pending':'not_applicable',merchant:p.merchant.status==='open'&&merchantCargo?'pending':'not_applicable'};
+    // COMMISSION v3.0: commissions are not a return task — they simply keep running on their own deadline.
+    return p.trip.returnTasks||{market:hasCargo?'pending':'not_applicable',merchant:p.merchant.status==='open'&&merchantCargo?'pending':'not_applicable'};
   }
   function resolveReturnTask(p,a){
     ensure(p.trip?.phase==='return_tasks'&&!p.world.route,'RETURN_NOT_READY');
-    ensure(['commission','market','merchant'].includes(a.task)&&['processed','deferred'].includes(a.decision),'INVALID_RETURN_DECISION');
-    if(a.task==='commission'&&a.decision==='processed')ensure(!activeCommissionIds(p).length,'RETURN_COMMISSIONS_PENDING','请先处理委托，或明确选择暂不处理。');
+    ensure(['market','merchant'].includes(a.task)&&['processed','deferred'].includes(a.decision),'INVALID_RETURN_DECISION');
     p.trip.returnTasks={...returnTaskStatus(p),[a.task]:a.decision};
     return {kind:'returnTaskDecision',modal:false,task:a.task,decision:a.decision};
   }
   function returnView(p){
     ensure(p.trip&&p.world.city==='changan'&&p.trip.arrivedChanganTick!==null,'NOT_RETURNED');
-    const pending=activeCommissionIds(p).filter(id=>p.trip.graceIds.includes(id));
-    const deadline=graceDeadline(p);
-    const tasks={...returnTaskStatus(p)};if(!activeCommissionIds(p).length&&tasks.commission==='pending')tasks.commission='processed';
-    return {tasks,ready:Object.values(tasks).every(s=>s!=='pending'),phase:p.trip.phase,returnStatus:p.trip.returnStatus,arrivedTick:p.trip.arrivedChanganTick,pendingGraceIds:pending,requiresWarning:activeCommissionIds(p).length>0,graceDeadlineTick:deadline,graceDeadlineLabel:deadline===null?null:S.time.format(deadline),graceOpen:deadline!==null&&!p.trip.graceClosePending&&p.world.tick<=deadline,graceClosePending:Boolean(p.trip.graceClosePending)};
+    const tasks={...returnTaskStatus(p)};delete tasks.commission;
+    return {tasks,ready:Object.values(tasks).every(s=>s!=='pending'),phase:p.trip.phase,returnStatus:p.trip.returnStatus,arrivedTick:p.trip.arrivedChanganTick,requiresWarning:false};
   }
-  function summary(p,trip,failures){
+  function summary(p,trip){
     const records=p.journal.filter(r=>r.tripId===trip.id);
     const sales=records.filter(r=>r.type==='marketSell');
     const soldRevenue=sales.reduce((n,r)=>n+r.total,0),soldCost=sales.reduce((n,r)=>n+r.cost,0);
+    // COMMISSION v3.0: the summary counts the commissions settled while this trip was running (results carry the trip of the settlement).
     const completed=p.commissions.results.filter(r=>r.tripId===trip.id&&['completed','delivered'].includes(r.status));
-    failures=p.commissions.results.filter(r=>r.tripId===trip.id&&r.status==='failed');
+    const failures=p.commissions.results.filter(r=>r.tripId===trip.id&&r.status==='failed');
     const money=S.finance.snapshot(p);
     const categories={provisions:'补给支出',inn:'住宿费用',innWait:'候时支出',innTalk:'闲谈支出',newspaper:'商报支出',tavern:'营生收入',caravan:'营生收入·驼队装货',event:'随机事件收支',story:'商路奇缘推进／奖励',merchant:'商号办理'};
     const other=Object.entries(categories).flatMap(([type,label])=>{const items=records.filter(r=>r.type===type);return items.length?[{type,label,occurred:true,amount:items.reduce((n,r)=>n+(r.amount??r.cashDelta??0),0),records:clone(items)}]:[];});
@@ -222,7 +149,7 @@
       kind:'tripSummary',title:'本次商旅总结',tripId:trip.id,modal:true,
       journey:{startedTick:trip.startedAt,arrivedTick:trip.arrivedChanganTick,route:clone(trip.routeHistory),elapsedTicks:trip.arrivedChanganTick-trip.startedAt,limitDays:22,status:trip.returnStatus,overdueTick:trip.overdueTick??null,overduePenalty:trip.overdueActualPenalty??0,onTimeReward:trip.onTimeReward??0,lostOnTimeReward:trip.returnStatus==='overdue'?1:0},
       trade:{salesRevenue:soldRevenue,purchaseCost:soldCost,profit:soldRevenue-soldCost},
-      commissions:{completed:completed.length,income:completed.reduce((n,r)=>n+(r.actualCash??r.cashReward??0),0),reputation:completed.reduce((n,r)=>n+(r.actualReputation??r.reputationReward??0),0),failed:failures.length,results:clone([...completed,...failures])},
+      commissions:{completed:completed.length,income:completed.reduce((n,r)=>n+(r.actualCash??r.cashReward??0),0),reputation:completed.reduce((n,r)=>n+(r.actualReputation??r.reputationReward??0),0),failed:failures.length,results:clone([...completed,...failures]),stillActive:p.commissions.active.filter(c=>S.commissions.activeStatuses.has(c.status)).length},
       reputation:{change:p.reputation.value-trip.initialReputation,current:p.reputation.value},other,
       funds:{cash:money.cash,totalFunds:money.totalAssets,totalDebt:money.totalDebt,netFunds:money.netFunds},
       important,firstCompletedTrip:p.tripHistory.length===0,tutorialEnabled:p.presentation.tutorialEnabled,
@@ -230,21 +157,16 @@
     };
   }
   function requestEnd(p){
-    const view=returnView(p);ensure(p.trip.phase==='return_tasks','RETURN_NOT_READY','请先完成返抵事务');
-    if(view.requiresWarning)return {kind:'returnWarning',title:'还有未处理的委托',text:'结束本次商旅后，这些委托将按原失败规则处理。',pendingIds:view.pendingGraceIds,modal:false,confirmLabel:'仍要结束（你还有未处理的委托哦）'};
+    returnView(p);ensure(p.trip.phase==='return_tasks','RETURN_NOT_READY','请先完成返抵事务');
     return {kind:'returnEndReady',modal:false};
   }
-  function finalize(p,a,ctx){
+  function finalize(p){
     const view=returnView(p);ensure(p.trip.phase==='return_tasks','RETURN_NOT_READY');
     ensure(view.ready,'RETURN_TASKS_PENDING','请先处理返程事务，或明确选择暂不处理。');
-    ensure(!view.requiresWarning||a.confirmOutstanding===true,'RETURN_WARNING_REQUIRED','请先确认未处理委托');
-    ensure(S.commissions?.finalizeFailures,'COMMISSION_NOT_CONNECTED');
-    const trip=p.trip,ids=activeCommissionIds(p);
-    // RC3 BUG-14 order: 1) settle outstanding commissions, 2) immutable summary snapshot; archiving happens in finish().
-    const failures=S.commissions.finalizeFailures(p,ids,{reason:'tripEnded',sourceId:ctx.sourceId});
+    const trip=p.trip;
+    // COMMISSION v3.0: no commission is settled here. 1) on-time reward, 2) immutable summary snapshot.
     if(trip.returnStatus==='on_time'&&!trip.onTimeRewardApplied){S.reputation.change(p,1,{type:'onTimeTrip',tripId:trip.id});trip.onTimeReward=1;trip.onTimeRewardApplied=true;}
-    const snapshot=summary(p,trip,failures);trip.summary=clone(snapshot);trip.phase='summary';
-    if(trip.graceEnd){snapshot.graceEnd=clone(trip.graceEnd);trip.summary=clone(snapshot);}
+    const snapshot=summary(p,trip);trip.summary=clone(snapshot);trip.phase='summary';
     return snapshot;
   }
   function finish(p){
@@ -252,9 +174,8 @@
     const trip=p.trip;
     ensure(!p.tripHistory.some(t=>t.id===trip.id),'TRIP_ALREADY_FINALIZED');
     p.tripHistory.push({id:trip.id,status:'completed',onTimeReturn:trip.returnStatus==='on_time',startedAt:trip.startedAt,arrivedAt:trip.arrivedChanganTick,summary:clone(trip.summary)});
-    // RC3 BUG-14 order: 3) terminal records into history, 4) remove them from active, 5) clear the pool, then close the trip.
-    const archived=S.commissions?.archiveTrip?S.commissions.archiveTrip(p,trip.id):null;
-    p.commissions.pool=[];
+    // RC3 BUG-14: terminal records go to history. COMMISSION v3.0: active commissions and the board are left exactly as they are.
+    const archived=S.commissions?.archiveTerminal?S.commissions.archiveTerminal(p):null;
     p.trip=null;
     return {kind:'tripFinished',modal:false,archived};
   }
@@ -267,15 +188,9 @@
     t.overduePenaltyApplied=true;t.overduePenaltyLevel=target;t.overdueTick??=p.world.tick;
     t.overdueActualPenalty=(t.overdueActualPenalty||0)+change.actual;
   }
-  S.trip={plan,departureView,ensureDraft,begin,depart,arrive,advanceRoute,journey,routeStateValid,validate,migrate,graceDeadline,graceEligibility,graceAdvanceWarning,authorizeGraceAdvance,afterCommand,returnTaskStatus,resolveReturnTask,returnView,summary,requestEnd,finalize,finish,settleOverdue};
-  for(const [name,fn]of Object.entries({begin,draftSelect,depart,journey,resolveReturnTask,requestEnd,finalize,finish}))S.commands.register('trip.'+name,fn);
+  S.trip={plan,departureView,begin,depart,arrive,advanceRoute,journey,routeStateValid,validate,migrate,afterCommand,returnTaskStatus,resolveReturnTask,returnView,summary,requestEnd,finalize,finish,settleOverdue};
+  for(const [name,fn]of Object.entries({begin,depart,journey,resolveReturnTask,requestEnd,finalize,finish}))S.commands.register('trip.'+name,fn);
   S.time.register('trip',{
-    beforeTick(p,ctx){
-      const deadline=graceDeadline(p);
-      if(deadline===null||p.world.tick+1<=deadline)return;
-      const authorization=ctx?.graceEndAuthorization;
-      ensure(authorization?.tripId===p.trip.id&&authorization.deadlineTick===deadline,'GRACE_END_CONFIRMATION_REQUIRED',graceWarningText);
-    },
     afterTick(p){
       if(p.world.route){p.world.route.provisionTicks++;if(p.world.route.provisionTicks>=3){p.world.route.provisionTicks-=3;if(p.inventory.provisions>0)p.inventory.provisions--;}}
       settleOverdue(p);

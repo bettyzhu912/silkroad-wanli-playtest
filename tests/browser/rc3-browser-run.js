@@ -17,12 +17,12 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
   const phaseNames = ['晨','午','暮'];
   return { tick: p.world.tick, day: Math.floor(p.world.tick / 3), phase: phaseNames[p.world.tick % 3], city: p.world.city, route: p.world.route ? { to: p.world.route.to, remainingTicks: p.world.route.remainingTicks } : null,
     cash: p.cash, rep: p.reputation.value, turnover: p.reputation.turnover, provisions: p.inventory.provisions,
-    trip: p.trip ? { id: p.trip.id, phase: p.trip.phase, routeIndex: p.trip.routeIndex, graceIds: p.trip.graceIds, returnStatus: p.trip.returnStatus, arrivedChanganTick: p.trip.arrivedChanganTick, startedAt: p.trip.startedAt, deadlineTick: p.trip.deadlineTick, hasSummary: Boolean(p.trip.summary) } : null,
-    draft: p.departureDraft ? { id: p.departureDraft.id, pool: p.departureDraft.pool.length, selected: p.departureDraft.selectedIds } : null,
+    trip: p.trip ? { id: p.trip.id, phase: p.trip.phase, routeIndex: p.trip.routeIndex, returnStatus: p.trip.returnStatus, arrivedChanganTick: p.trip.arrivedChanganTick, startedAt: p.trip.startedAt, deadlineTick: p.trip.deadlineTick, hasSummary: Boolean(p.trip.summary) } : null,
+    draft: p.departureDraft ? { id: p.departureDraft.id } : null,
     lots: p.inventory.lots.map(l => ({ good: l.goodId, qty: l.quantity, from: l.acquisitionCity, left: l.hasLeftAcquisitionCity, pending: Boolean(l.purchaseTurnoverPending) })),
     pendingTurnoverLots: (() => { const t = p.market.purchaseTurnoverLots || {}; const arr = Array.isArray(t) ? t : Object.values(t); return arr.filter(x => x && (x.status === 'pending' || x.status === undefined)).length; })(),
     visitOpen: Boolean(p.market.visit && !p.market.visit.settled), visitId: p.market.visit && !p.market.visit.settled ? p.market.visit.id : null,
-    commissions: { pool: p.commissions.pool.length, active: p.commissions.active.map(x => [x.commissionId, x.status, x.urgent ? 'urgent' : '', x.urgentWindow ? x.urgentWindow.deadlineTick : null]), history: (p.commissions.history || []).length, results: p.commissions.results.length },
+    commissions: { board: (p.commissions.board || []).length, boardTarget: p.commissions.boardTarget, active: p.commissions.active.map(x => [x.commissionId, x.status, x.urgent ? 'urgent' : '', x.urgentWindow ? x.urgentWindow.deadlineTick : null]), history: (p.commissions.history || []).length, results: p.commissions.results.length },
     cityRolls: Object.values((p.events && p.events.cityRollDays) || {}).map(r => r.city + '@' + r.day + ':' + (r.trigger ? r.eventId : 'no') + (r.innNight ? ':inn' : '')), pendingCityRoll: p.events && p.events.pendingCityRoll ? p.events.pendingCityRoll.key : null,
     event: p.eventSession && p.eventSession.status !== 'ACKNOWLEDGED' ? p.eventSession.status + ':' + p.eventSession.eventId : null, eventAcked: Boolean(p.eventSession && p.eventSession.status === 'ACKNOWLEDGED'), activeResult: p.presentation.activeResult ? { id: p.presentation.activeResult.id, kind: p.presentation.activeResult.kind } : null,
     routeGame: p.work && p.work.routeGame ? { id: p.work.routeGame.id, result: p.work.routeGame.result ? p.work.routeGame.result.completionStatus + '/' + (p.work.routeGame.result.settledAs || p.work.routeGame.result.tier) + (p.work.routeGame.result.worldEffectsCommitted ? '/committed' : '') : null } : null,
@@ -110,28 +110,29 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
     // ---------- 3. reload: state identical, no double money ----------
     s = await reload(); check('reload after market: identical cash/tick/lots/revision', s.cash === afterBuy.cash && s.tick === afterBuy.tick && JSON.stringify(s.lots) === JSON.stringify(afterBuy.lots) && s.rev === afterBuy.rev, { before: [afterBuy.cash, afterBuy.tick, afterBuy.rev], after: [s.cash, s.tick, s.rev] });
     async function sleepIfDusk(label) { s = await settle(x => !x.activeResult && !x.event && !x.visitOpen, { label: 'settle ' + label }); if (s.phase !== '暮') return s; await click('客舍', { scope: 'page' }); await sleep(300); await shot('inn-dusk-' + label); const dayBefore = s.day; await click('留宿客舍'); s = await settle(x => x.day > dayBefore && !x.activeResult && !x.event, { label: 'night ' + label }); timeline.push({ label: 'slept:' + label, tick: s.tick }); if (s.phase === '暮') return sleepIfDusk(label + '-again'); return s; }
-    // ---------- 4. departure draft (BUG-08) ----------
-    s = await sleepIfDusk('changan-before-draft'); const beforeDraft = await st();
-    await click('出发', { scope: 'page' }); await sleep(300); await shot('depart-panel'); const dr0 = await click('敦煌'); timeline.push({ label: 'click 敦煌', dr0 }); await waitFor(x => x.draft, 20000, 'draft'); await sleep(300);
-    s = await note('draft-created'); const draftText = await panelText('primary-panel');
-    check('确认出发 only creates a draft: trip null, tick unchanged, draft panel shown', s.trip === null && s.draft && s.tick === beforeDraft.tick && /出发前委托/.test(draftText || ''), { draft: s.draft, tick: s.tick });
-    await shot('departure-draft-panel');
+    // ---------- 4. departure preparation (BUG-08; COMMISSION v3.0: no commission draft — at most one hint line) ----------
+    s = await sleepIfDusk('changan-before-prepare'); const beforePrepare = await st();
+    await click('出发', { scope: 'page' }); await sleep(300); await shot('depart-panel'); const dr0 = await click('敦煌'); timeline.push({ label: 'click 敦煌', dr0 }); await sleep(600); await waitIdle();
+    s = await note('prepare-opened'); const prepText = await panelText('primary-panel');
+    check('确认出发 only opens the 开始行程 preparation: trip null, tick unchanged, no commission list / 选定 button', s.trip === null && s.tick === beforePrepare.tick && /开始行程/.test(prepText || '') && !/出发前委托|选定|承接/.test(prepText || ''), { tick: s.tick, text: (prepText || '').slice(0, 120) });
+    check('preparation page: one commission hint line exactly when something is acceptable', ((prepText || '').match(/有委托可接/g) || []).length === (s.rep >= 5 && s.commissions.board > 0 ? 1 : 0), { rep: s.rep, board: s.commissions.board });
+    await shot('departure-prepare-panel');
     await closePrimary(); await sleep(200);
-    // spend time in the city with a draft: the trip clock must not run (BUG-08)
+    // spend time in the city after preparing: the trip clock must not run (BUG-08)
     await click('客舍', { scope: 'page' }); await sleep(300); await click('候时1个时段'); s = await settle(x => !x.activeResult && !x.event, { label: 'wait in inn' }); await click('离开客舍').catch(() => { });
-    s = await note('after-wait-with-draft'); const hud = await pageText();
-    check('after waiting with a draft: still 未启程, trip null, draft kept', s.trip === null && s.draft && s.tick >= beforeDraft.tick + 1 && /未启程/.test(hud), { tick: [beforeDraft.tick, s.tick], trip: s.trip, draft: s.draft });
-    if (s.phase === '暮') { await click('客舍', { scope: 'page' }); await sleep(300); await shot('inn-dusk-changan-with-draft'); const dayBeforeDraftNight = s.day; await click('留宿客舍'); s = await settle(x => x.day > dayBeforeDraftNight && !x.activeResult && !x.event, { label: 'night in changan with draft' }); s = await note('morning-with-draft');
-      check('a night in 长安 with a draft: still 未启程, draft kept, no trip clock', s.trip === null && Boolean(s.draft) && /未启程/.test(await pageText()), { tick: s.tick, draft: s.draft, rolls: s.cityRolls }); }
-    s = await reload(); check('reload keeps the draft, trip still null', s.trip === null && Boolean(s.draft), s.draft);
-    // ---------- 5. start the trip from the draft ----------
+    s = await note('after-wait'); const hud = await pageText();
+    check('after waiting: still 未启程, trip null', s.trip === null && s.tick >= beforePrepare.tick + 1 && /未启程/.test(hud), { tick: [beforePrepare.tick, s.tick], trip: s.trip });
+    if (s.phase === '暮') { await click('客舍', { scope: 'page' }); await sleep(300); await shot('inn-dusk-changan-before-start'); const dayBeforeNight = s.day; await click('留宿客舍'); s = await settle(x => x.day > dayBeforeNight && !x.activeResult && !x.event, { label: 'night in changan before start' }); s = await note('morning-before-start');
+      check('a night in 长安 before starting: still 未启程, no trip clock', s.trip === null && /未启程/.test(await pageText()), { tick: s.tick, rolls: s.cityRolls }); }
+    s = await reload(); check('reload: trip still null, no draft state', s.trip === null && s.draft === null, { trip: s.trip, draft: s.draft });
+    // ---------- 5. start the trip from the preparation page ----------
     s = await sleepIfDusk('changan-before-start');
-    await click('出发', { scope: 'page' }); await sleep(300); await click('出发前委托'); await sleep(300); await shot('draft-panel-before-start');
+    await click('出发', { scope: 'page' }); await sleep(300); await click('敦煌'); await sleep(500); await waitIdle(); await shot('prepare-panel-before-start');
     await click('开始行程'); await sleep(300); await shot('start-trip-confirm-modal'); const modalText = await panelText('modal-panel');
     check('start modal mentions 22-day period starting on 开始行程', /22日商期/.test(modalText || ''), modalText);
     const before = await st(); await click('开始行程', { scope: 'modal-panel' }); s = await waitFor(x => x.trip && x.route);
     s = await note('trip-started');
-    check('开始行程 starts trip + route at the same tick, draft cleared', s.trip && s.route && s.trip.startedAt === before.tick && s.draft === null && s.trip.deadlineTick === before.tick + 66, { startedAt: s.trip && s.trip.startedAt, tick: before.tick, deadline: s.trip && s.trip.deadlineTick, draft: s.draft });
+    check('开始行程 starts trip + route at the same tick, board / active untouched', s.trip && s.route && s.trip.startedAt === before.tick && s.draft === null && s.trip.deadlineTick === before.tick + 66 && s.commissions.board === before.commissions.board && JSON.stringify(s.commissions.active) === JSON.stringify(before.commissions.active), { startedAt: s.trip && s.trip.startedAt, tick: before.tick, deadline: s.trip && s.trip.deadlineTick, board: [before.commissions.board, s.commissions.board] });
     check('cargo leaving 长安 confirms purchase turnover (BUG-07)', s.lots.every(l => l.left === true && !l.pending) && s.turnover > 0, { lots: s.lots, turnover: s.turnover, rep: s.rep });
     await shot('journey-start');
     // ---------- 6. journey to 敦煌 (auto timer, events answered by UI) ----------
@@ -159,7 +160,7 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
       return s;
     }
     async function cityStop(label, extra) { if ((await st()).phase === '暮') { s = await toDuskAndStay(label); if (extra) await extra(); s = await trade(label); } else { s = await trade(label); if (extra) await extra(); s = await toDuskAndStay(label); } return s; }
-    s = await cityStop('dunhuang-outbound', async () => { await click('委托', { scope: 'page' }); await sleep(300); await shot('commissions-dunhuang'); const commText = await panelText('primary-panel'); await closePrimary(); check('commission panel renders (no 二选一 wording)', commText && !/二选一/.test(commText), (commText || '').slice(0, 160)); });
+    s = await cityStop('dunhuang-outbound', async () => { await click('委托', { scope: 'page' }); await sleep(300); await shot('commissions-dunhuang'); const commText = await panelText('primary-panel'); await closePrimary(); check('commission panel renders v3.0 groups (进行中 / 可接委托; no 本商期委托 / 出发前 / 二选一 wording)', commText && /可接委托/.test(commText) && !/二选一|本商期委托|出发前|选定/.test(commText), (commText || '').slice(0, 160)); });
     // ---------- 7. 敦煌 → 于阗 ----------
     async function departTo(cityName, label) { s = await sleepIfDusk('before-' + label); const o = await click('出发', { scope: 'page' }); await sleep(300); let dr = await click(cityName); if (!dr.startsWith('ok')) { const diag = await c.eval(`(()=>{const secs=[...document.querySelectorAll('section.paper-panel')].filter(x=>!x.hidden&&x.offsetParent!==null).map(x=>x.className+': '+x.innerText.slice(0,160).split(String.fromCharCode(10)).join(' / '));const btns=[...document.querySelectorAll('button')].filter(b=>b.offsetParent!==null).map(b=>(b.disabled?'[x]':'')+b.textContent.trim()).slice(0,40);return {secs,btns}})()`); timeline.push({ label: 'depart-diag', o, dr, diag }); await shot('depart-diag-' + label); }
       check('depart button ' + cityName + ' available', dr.startsWith('ok'), { o, dr }); await sleep(300); await shot('depart-confirm-' + label); await clickLastIn('modal-panel'); s = await waitFor(x => x.route, 20000, 'route-' + label); }
@@ -176,10 +177,10 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
     if (s.trip.phase === 'returned_at_dusk_pending_rest') { await click('出发', { scope: 'page' }); await sleep(300); await shot('changan-dusk-arrival-panel'); await click('安排歇息'); await sleep(300); await click('留宿客舍'); s = await settle(x => x.trip && x.trip.phase === 'return_tasks' && !x.activeResult && !x.event, { label: 'dusk rest' }); s = await sleepIfDusk('changan-return-tasks'); check('dusk arrival: rest first, then return tasks next morning', s.trip.phase === 'return_tasks', s.trip); }
     // ---------- 10. first-trip return tasks ----------
     s = await settle(x => !x.activeResult && !x.event && !x.visitOpen, { label: 'before return tasks' }); await click('出发', { scope: 'page' }); await sleep(300); await shot('trip-panel-returned'); await click('处理返程事务'); await sleep(300); await shot('return-tasks');
-    const rtText = await panelText('secondary-panel'); check('return tasks panel lists 市场/委托 tasks', /返程事务|市场|委托/.test(rtText || ''), (rtText || '').slice(0, 200));
+    const rtText = await panelText('secondary-panel'); check('return tasks panel lists 市场/商号 tasks only (commissions are not a return task any more)', /返程事务|市场|商号/.test(rtText || '') && !/返程委托|暂不处理委托/.test(rtText || ''), (rtText || '').slice(0, 200));
     const view = await c.eval(`Silk.trip.returnView(Silk.app.state.progress)`); timeline.push({ label: 'returnView', view });
     if (view.tasks.market === 'pending') { await click('前往市场'); s = await waitFor(x => x.visitOpen); if (s.lots.length) { r = await dispatch('market.sellAll', { visitId: await vid() }); s = await settle(x => !x.activeResult); } await leaveMarket(); s = await settle(x => !x.visitOpen && !x.activeResult && !x.event, { label: 'return market' }); await click('出发', { scope: 'page' }); await sleep(200); await click('处理返程事务'); await sleep(200); }
-    for (const task of ['commission', 'merchant']) { const v2 = await c.eval(`Silk.trip.returnView(Silk.app.state.progress)`); if (v2.tasks[task] === 'pending') { const lbl = task === 'commission' ? '暂不处理委托' : '暂不处理商号'; const cr = await click(lbl); s = await settle(x => !x.activeResult && !x.event); timeline.push({ label: 'resolve:' + task, cr }); } }
+    for (const task of ['merchant']) { const v2 = await c.eval(`Silk.trip.returnView(Silk.app.state.progress)`); if (v2.tasks[task] === 'pending') { const lbl = '暂不处理商号'; const cr = await click(lbl); s = await settle(x => !x.activeResult && !x.event); timeline.push({ label: 'resolve:' + task, cr }); } }
     const v3 = await c.eval(`Silk.trip.returnView(Silk.app.state.progress)`); check('return tasks ready after processing', v3.ready === true, v3); await shot('return-tasks-ready');
     // ---------- 11. finalize → summary → reload → ack ----------
     s = await settle(x => !x.activeResult && !x.event && !x.visitOpen, { label: 'before finalize' }); await click('出发', { scope: 'page' }); await sleep(200); await click('处理返程事务'); await sleep(200); await click('结束本次商旅'); await sleep(300); const mt = await panelText('modal-panel'); if (mt && /未处理的委托/.test(mt)) await click('仍要结束', { scope: 'modal-panel' });
@@ -188,7 +189,7 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
     const pre = s; s = await reload(); await shot('trip-summary-after-reload'); const summaryText2 = await panelText('result-panel');
     check('reload keeps the same summary (no double reward)', s.activeResult && s.activeResult.kind === 'tripSummary' && s.cash === pre.cash && s.rep === pre.rep && s.rev === pre.rev && summaryText2 === summaryText, { cash: [pre.cash, s.cash], rep: [pre.rep, s.rep], rev: [pre.rev, s.rev], sameText: summaryText2 === summaryText });
     const ackBtn = await clickLastIn('result-panel'); s = await settle(x => !x.activeResult && !x.trip, { label: 'ack summary' }); s = await note('after-summary-ack', { ackBtn });
-    check('summary ack closes the trip: trip null, tripHistory 1, terminal commissions archived (BUG-14), pool cleared', s.trip === null && s.tripHistory === 1 && s.commissions.active.every(a => !['completed', 'failed', 'cancelled', 'expired', 'abandoned'].includes(a[1])) && s.commissions.pool === 0, { ackBtn, tripHistory: s.tripHistory, active: s.commissions.active, history: s.commissions.history, pool: s.commissions.pool });
+    check('summary ack closes the trip: trip null, tripHistory 1, no terminal row in active (BUG-14), board kept (COMMISSION v3.0)', s.trip === null && s.tripHistory === 1 && s.commissions.active.every(a => !['completed', 'failed', 'cancelled', 'expired', 'abandoned'].includes(a[1])) && s.commissions.board === pre.commissions.board, { ackBtn, tripHistory: s.tripHistory, active: s.commissions.active, history: s.commissions.history, board: [pre.commissions.board, s.commissions.board] });
     await shot('changan-after-trip');
     const post = s; s = await reload(); check('reload after trip end: no double money/reputation/trip', s.cash === post.cash && s.rep === post.rep && s.tripHistory === 1 && s.trip === null && s.rev === post.rev, { cash: [post.cash, s.cash], rep: [post.rep, s.rep], rev: [post.rev, s.rev] });
     // ---------- 12. idempotency: same sourceId twice, and concurrent double dispatch ----------

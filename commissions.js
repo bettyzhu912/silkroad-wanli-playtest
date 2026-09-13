@@ -1,25 +1,36 @@
 (function (S) {
   'use strict';
+  // ---- COMMISSION_SYSTEM_MASTER_PATCH v3.0 (2026-09-13): the single commission domain. ----
+  // Ordinary commissions no longer belong to a trip: one global candidate board (p.commissions.board) is the only source of
+  // candidates, acceptance is possible anywhere at any time within the capacity, every accepted commission runs on its own
+  // 30-world-day deadline (acceptedAtWorldTick + 90), and delivery eligibility is one typed domain result that the card text,
+  // the button and the submit all read. Trips never generate, freeze, fail, reset or clear commissions.
   const E = S.util.ensure, clone = S.util.clone, data = () => globalThis.SilkData.commissions;
-  const cities = { 长安: 'changan', 敦煌: 'dunhuang', 于阗: 'khotan' }, route = ['changan', 'dunhuang', 'khotan', 'dunhuang', 'changan'], ticks = [9, 12, 12, 9];
+  const cities = { 长安: 'changan', 敦煌: 'dunhuang', 于阗: 'khotan' }, cityOrder = ['changan', 'dunhuang', 'khotan'], labels = { changan: '长安', dunhuang: '敦煌', khotan: '于阗' };
   const activeStatuses = new Set(['accepted', 'pending_pickup', 'in_transit', 'ready_to_turn_in']);
   const terminalStatuses = new Set(['completed', 'failed', 'cancelled', 'expired', 'abandoned']);
-  // RC3 BUG-09: fixed posting stops. 长安出发 0 / 敦煌去程 1 / 于阗 2 / 敦煌返程 3 / 长安返程 4.
-  const stageLabels = ['长安（出发）', '敦煌（去程）', '于阗', '敦煌（返程）', '长安（返程）'];
+  const DEADLINE_TICKS = 90;   // 30 world days × 3 phases (晨 / 午 / 暮)
   const scales = { basic: { rep: [1, 2], margin: [15, 20], premium: [10, 15], minimum: 6 }, good: { rep: [2, 3], margin: [20, 25], premium: [15, 20], minimum: 10 }, entrusted: { rep: [3, 4], margin: [25, 30], premium: [20, 25], minimum: 15 } };
-  function initial() { return { pool: [], active: [], results: [], history: [], starterGenerated: false, poolTripId: null, generatedReputation: null, templateHistory: [] }; }
+  const PRICE_CODES = new Set(['MISSING_PRICE_AUTHORITY', 'INVALID_REFERENCE_PRICE', 'PRICE_SNAPSHOT_UNAVAILABLE', 'NONCURRENT_PRICE_READ']);
+  function initial() { return { board: [], active: [], results: [], history: [], boardTarget: 0, lastRefillDay: null, templateHistory: [], boardVersion: 3 }; }
   const rollInt = (p, lo, hi) => lo + Math.floor(S.random.next(p) * (hi - lo + 1));
+  const cityLabel = id => labels[id] || id;
+  // ---- reputation → capacity / board target (5–9: 1 / 3, 10–19: 2 / 5, 20–39: 3 / 7, 40+: 4 / 9) ----
   function capacity(p) { return p.reputation.value < 5 ? 0 : p.reputation.value < 10 ? 1 : p.reputation.value < 20 ? 2 : p.reputation.value < 40 ? 3 : 4; }
-  function config(p, starter) {
-    if (starter || p.reputation.value < 10) return { counts: [3, 0, 0], stage: [1, 1, 1, 0], typeMin: 1 };
-    if (p.reputation.value < 20) return { counts: [3, 2, 0], stage: [2, 1, 1, 1], typeMin: 1 };
-    if (p.reputation.value < 40) return { counts: S.random.pick(p, [[3, 3, 1], [2, 4, 1]]), stage: [2, 2, 2, 1], typeMin: 2 };
-    return { counts: S.random.pick(p, [[2, 5, 2], [1, 5, 3], [2, 4, 3]]), stage: [2, 3, 2, 2], typeMin: 2 };
+  function boardTarget(p) { return p.reputation.value < 5 ? 0 : p.reputation.value < 10 ? 3 : p.reputation.value < 20 ? 5 : p.reputation.value < 40 ? 7 : 9; }
+  function activeRows(p) { return p.commissions.active.filter(c => activeStatuses.has(c.status)); }
+  function activeCount(p) { return activeRows(p).length; }
+  function hasAcceptable(p) { return (p.commissions.board || []).length > 0 && activeCount(p) < capacity(p); }
+  // Board composition per reputation tier (unchanged scale / type mix; the sums are the 3 / 5 / 7 / 9 board targets). The former
+  // posting-stop distribution becomes a source-city mix, since candidates are no longer tied to a route position.
+  function config(p) {
+    const v = p.reputation.value;
+    if (v < 10) return { counts: [3, 0, 0], cityMix: [1, 1, 1], typeMin: 1 };
+    if (v < 20) return { counts: [3, 2, 0], cityMix: [2, 2, 1], typeMin: 1 };
+    if (v < 40) return { counts: S.random.pick(p, [[3, 3, 1], [2, 4, 1]]), cityMix: [2, 3, 2], typeMin: 2 };
+    return { counts: S.random.pick(p, [[2, 5, 2], [1, 5, 3], [2, 4, 3]]), cityMix: [2, 5, 2], typeMin: 2 };
   }
-  function paths(from, to, type) {
-    if (type === 'wanted') return route.flatMap((c, j) => c === to ? [{ pickupIndex: null, deliveryIndex: j, segmentCount: 0 }] : []);
-    const rows = []; for (let i = 0; i < 4; i++) for (let j = i + 1; j <= 4; j++) if (route[i] === from && route[j] === to && j - i <= 2) rows.push({ pickupIndex: i, deliveryIndex: j, segmentCount: j - i }); return rows;
-  }
+  const legs = (from, to) => Math.abs(cityOrder.indexOf(from) - cityOrder.indexOf(to));
   function templateFields(template) {
     const type = { 捎货: 'delivery', 采买: 'procurement', 求货: 'wanted' }[template.typeLabel], scale = { 常契: 'basic', 良契: 'good', 重托: 'entrusted' }[template.scaleLabel];
     const [goodId, countText] = template.goodsText.split('×'), range = countText.split(/[–～—-]/).map(Number), parts = template.routeText.split('→');
@@ -28,29 +39,29 @@
   }
   // RC3 BUG-13: only the attributes an instance really carries are ever shown.
   function attributeLabels(c) {
-    const labels = [];
-    if (c.urgent) labels.push('加急');
-    if (c.fragile) labels.push('易损');
-    if (c.valuable) labels.push('贵重');
-    if (c.rare) labels.push('稀有');
-    if (c.longHaul) labels.push('远途');
-    if (c.handoffPhase !== null && c.handoffPhase !== undefined) labels.push(['晨交', '午交'][c.handoffPhase]);
-    return labels.length ? labels : ['普通'];
+    const rows = [];
+    if (c.urgent) rows.push('加急');
+    if (c.fragile) rows.push('易损');
+    if (c.valuable) rows.push('贵重');
+    if (c.rare) rows.push('稀有');
+    if (c.longHaul) rows.push('远途');
+    if (c.handoffPhase !== null && c.handoffPhase !== undefined) rows.push(['晨交', '午交'][c.handoffPhase]);
+    return rows.length ? rows : ['普通'];
   }
   function instantiate(p, template, ctx) {
     const f = templateFields(template), item = S.inventory.good(f.goodId), quantity = rollInt(p, f.min, f.max), slots = quantity * item.slotCost;
     if (f.type !== 'delivery' && !S.inventory.unlocked(p, f.goodId)) return null;
-    const possible = paths(f.from, f.to, f.type).filter(r => f.scale !== 'basic' || r.segmentCount <= 1);
-    if (!possible.length || f.scale === 'basic' && slots > 2 || f.scale === 'good' && (slots < 2 || slots > 3) || slots > 4) return null;
-    const path = S.random.pick(p, possible), text = template.attributesText;
+    const segmentCount = f.type === 'wanted' ? 0 : legs(f.from, f.to);
+    if (f.scale === 'basic' && (segmentCount > 1 || slots > 2) || f.scale === 'good' && (slots < 2 || slots > 3) || slots > 4) return null;
+    const text = template.attributesText;
     const urgent = text.includes('加急') && (!text.includes('二选一') || S.random.next(p) < .5);
     const handoffPhase = text.includes('晨交或昼交') ? rollInt(p, 0, 1) : text.includes('晨交') ? 0 : text.includes('昼交') ? 1 : null;
     E(!(urgent && handoffPhase !== null), 'IMPOSSIBLE_COMMISSION');
-    const attributes = { urgent, handoffPhase, valuable: text.includes('贵重'), fragile: item.fragile, rare: text.includes('稀有'), longHaul: path.segmentCount === 2 };
+    const attributes = { urgent, handoffPhase, valuable: text.includes('贵重'), fragile: item.fragile, rare: text.includes('稀有'), longHaul: segmentCount === 2 };
     const cfg = scales[f.scale]; let rewardCash, referencePrice = null, rate = null;
     if (f.type === 'delivery') {
       const bonus = Math.min(.60, (urgent ? .25 : 0) + (handoffPhase !== null ? .10 : 0) + (attributes.valuable ? .20 : 0) + (attributes.fragile ? .15 : 0) + (attributes.rare ? .15 : 0));
-      rewardCash = Math.ceil((6 + 4 * slots + 6 * (path.segmentCount - 1)) * (1 + bonus));
+      rewardCash = Math.ceil((6 + 4 * slots + 6 * (segmentCount - 1)) * (1 + bonus));
     } else {
       E(typeof ctx?.marketPrice === 'function', 'MISSING_PRICE_AUTHORITY', '正式市场价格规则尚未补齐。');
       referencePrice = ctx.marketPrice(p, f.type === 'procurement' ? f.from : f.to, f.goodId, S.time.day(p)); E(S.util.integer(referencePrice, 1), 'INVALID_REFERENCE_PRICE');
@@ -58,183 +69,158 @@
       if (f.type === 'procurement') { rate = Math.min(35, rollInt(p, ...cfg.margin) + extra) / 100; const referenceCost = referencePrice * quantity; rewardCash = Math.ceil(referenceCost + Math.max(referenceCost * rate, cfg.minimum)); }
       else { rate = Math.min(30, rollInt(p, ...cfg.premium) + extra) / 100; rewardCash = Math.ceil(referencePrice * (1 + rate)) * quantity; }
     }
-    return { templateId: template.templateId, title: template.typeLabel + ' · ' + f.goodId, text: template.text, originalAttributesText: template.attributesText, type: f.type, scale: f.scale, goodId: f.goodId, quantity, requiredSlots: slots, sourceCity: f.sourceCity, pickupCity: f.type === 'delivery' ? f.from : null, procurementCity: f.type === 'procurement' ? f.from : null, deliveryCity: f.to, ...path, ...attributes, replaceable: true, rewardCash, referencePrice, rewardRate: rate, reputationReward: rollInt(p, ...cfg.rep), status: 'available', urgentArrivalTick: null, urgentWindow: null };
+    return { templateId: template.templateId, title: template.typeLabel + ' · ' + f.goodId, text: template.text, originalAttributesText: template.attributesText, type: f.type, scale: f.scale, goodId: f.goodId, quantity, requiredSlots: slots, sourceCity: f.sourceCity, pickupCity: f.type === 'delivery' ? f.from : null, procurementCity: f.type === 'procurement' ? f.from : null, deliveryCity: f.to, segmentCount, ...attributes, replaceable: true, rewardCash, referencePrice, rewardRate: rate, reputationReward: rollInt(p, ...cfg.rep), status: 'available', urgentArrivalTick: null, urgentWindow: null };
   }
-  // trip may be a real trip or a departure-draft stand-in ({ id, routeIndex: 0, deadlineTick }).
-  function remainingFeasible(p, c, trip = p.trip) {
-    if (!trip || c.tripId !== trip.id || p.world.tick > c.deadlineTick) return false;
-    const index = trip.routeIndex;
-    if (c.deliveryIndex < index) return false;
-    if (p.world.route && c.type === 'delivery' && !['in_transit', 'ready_to_turn_in'].includes(c.status) && c.pickupIndex <= index) return false;
-    if (c.type === 'delivery' && !['in_transit', 'ready_to_turn_in'].includes(c.status) && c.pickupIndex < index) return false;
-    if (c.type === 'procurement' && !cargoPlan(p, c).complete) {
-      // Existing intact owned lots may satisfy an order even after its source city
-      // has been passed. Otherwise the remaining route must still reach that city
-      // before delivery; an already-departed origin is no longer a buying stop.
-      const firstBuyingStop = index + (p.world.route ? 1 : 0);
-      if (!route.slice(firstBuyingStop, c.deliveryIndex + 1).includes(c.procurementCity)) return false;
-    }
-    const travel = ticks.slice(index, c.deliveryIndex).reduce((n, t) => n + t, 0);
-    const remaining = p.world.route ? travel - ticks[index] + p.world.route.remainingTicks : travel;
-    return p.world.tick + remaining <= c.deadlineTick;
-  }
-  // Builds the candidate rows for one trip (real trip or departure draft). Template cooling uses the last two trips.
-  function buildPool(p, ctx, target, options = {}) {
-    const s = p.commissions;
-    if (p.reputation.value < 5) return [];
-    const cfg = config(p, options.starter), n = cfg.stage.reduce((a, b) => a + b, 0), kinds = ['delivery', 'procurement', 'wanted'], scaleNames = ['basic', 'good', 'entrusted'];
-    const sourceStageCities = ['changan', 'dunhuang', 'khotan', 'dunhuang'];
-    const candidates = data().templates.map(t => instantiate(p, t, ctx)).filter(Boolean);
+  function tryInstantiate(p, template, ctx) { try { return instantiate(p, template, ctx); } catch (e) { if (e instanceof S.util.DomainError && PRICE_CODES.has(e.code)) return null; throw e; } }
+  // ---- the board: fill only the difference, never re-roll what is already posted; best effort, never throws ----
+  function fillBoard(p, ctx, needed) {
+    const s = p.commissions; s.board ||= []; if (!(needed > 0)) return [];
+    const cfg = config(p), kinds = ['delivery', 'procurement', 'wanted'], scaleNames = ['basic', 'good', 'entrusted'];
+    const priceCtx = typeof ctx?.marketPrice === 'function' ? ctx : S.core.context('commission-board');
+    const candidates = []; for (const t of data().templates) { const c = tryInstantiate(p, t, priceCtx); if (c) candidates.push(c); }
     const shuffled = []; while (candidates.length) { const i = rollInt(p, 0, candidates.length - 1); shuffled.push(candidates.splice(i, 1)[0]); }
-    const stages = cfg.stage.flatMap((count, stage) => Array(count).fill(stage)); let selected = null, attempts = 0; const cooling = new Set((s.templateHistory || []).slice(-2).flatMap(h => h.templateIds));
-    function solve(at, rows, remaining, counts, usedGoods, diverse, cooldown) {
-      if (++attempts > 100000) return false;
-      if (at === n) { if (kinds.every(k => counts[k] >= cfg.typeMin) && (!diverse || new Set(rows.map(c => c.goodId)).size >= Math.min(n, 3))) { selected = rows; return true; } return false; }
-      for (const candidate of shuffled) {
-        const si = scaleNames.indexOf(candidate.scale);
-        if (cooldown && cooling.has(candidate.templateId) || !remaining[si] || candidate.sourceCity !== sourceStageCities[stages[at]] || rows.some(c => c.templateId === candidate.templateId) || diverse && (usedGoods[candidate.goodId] || 0) >= 2) continue;
-        const nextCounts = { ...counts, [candidate.type]: (counts[candidate.type] || 0) + 1 };
-        if (kinds.reduce((sum, k) => sum + Math.max(0, cfg.typeMin - (nextCounts[k] || 0)), 0) > n - at - 1) continue;
-        const remain = remaining.slice(); remain[si]--;
-        if (solve(at + 1, [...rows, { ...candidate, sourceStage: stages[at], deliveryIndex: candidate.type === 'wanted' ? (stages[at] === 0 ? 4 : stages[at]) : candidate.deliveryIndex }], remain, nextCounts, { ...usedGoods, [candidate.goodId]: (usedGoods[candidate.goodId] || 0) + 1 }, diverse, cooldown)) return true;
+    const onBoard = new Set(s.board.map(c => c.templateId)), cooling = new Set((s.templateHistory || []).slice(-2).flatMap(h => h.templateIds));
+    const count = (rows, key, value) => rows.filter(c => c[key] === value).length, sum = a => a.reduce((n, x) => n + x, 0);
+    const scaleRemain = scaleNames.map((name, i) => Math.max(0, cfg.counts[i] - count(s.board, 'scale', name)));
+    const cityRemain = cityOrder.map((name, i) => Math.max(0, cfg.cityMix[i] - count(s.board, 'sourceCity', name)));
+    const typeRemain = kinds.map(name => Math.max(0, cfg.typeMin - count(s.board, 'type', name)));
+    let selected = null, attempts = 0;
+    // level 0 all constraints → 1 no template cooling → 2 no goods diversity → 3 no source-city mix → 4 no scale / type quotas
+    function solve(level, at, rows, sr, cr, tr, goods) {
+      if (++attempts > 20000) return false;
+      if (at === needed) { if (level < 2 && new Set([...s.board, ...rows].map(c => c.goodId)).size < Math.min(s.board.length + needed, 3)) return false; selected = rows; return true; }
+      const left = needed - at;
+      for (const c of shuffled) {
+        if (onBoard.has(c.templateId) || rows.some(r => r.templateId === c.templateId)) continue;
+        if (level < 1 && cooling.has(c.templateId)) continue;
+        const si = scaleNames.indexOf(c.scale), ci = cityOrder.indexOf(c.sourceCity), ki = kinds.indexOf(c.type);
+        if (level < 4 && !(sr[si] > 0 || sum(sr) < left)) continue;
+        if (level < 3 && !(cr[ci] > 0 || sum(cr) < left)) continue;
+        if (level < 4 && sum(tr) - (tr[ki] > 0 ? 1 : 0) > left - 1) continue;
+        if (level < 2 && (goods[c.goodId] || 0) + count(s.board, 'goodId', c.goodId) >= 2) continue;
+        const sr2 = sr.slice(), cr2 = cr.slice(), tr2 = tr.slice(); if (sr2[si] > 0) sr2[si]--; if (cr2[ci] > 0) cr2[ci]--; if (tr2[ki] > 0) tr2[ki]--;
+        if (solve(level, at + 1, [...rows, c], sr2, cr2, tr2, { ...goods, [c.goodId]: (goods[c.goodId] || 0) + 1 })) return true;
       }
       return false;
     }
-    solve(0, [], cfg.counts, { delivery: 0, procurement: 0, wanted: 0 }, {}, true, true);
-    if (!selected) { attempts = 0; solve(0, [], cfg.counts, { delivery: 0, procurement: 0, wanted: 0 }, {}, true, false); }
-    if (!selected) { attempts = 0; solve(0, [], cfg.counts, { delivery: 0, procurement: 0, wanted: 0 }, {}, false, false); }
-    E(selected && selected.length === n, 'COMMISSION_POOL_UNSATISFIABLE', '现有模板无法满足本商期全部约束。');
-    return selected.map(c => { const row = { ...c, commissionId: S.util.id(p, 'commission'), tripId: target.id, deadlineTick: target.deadlineTick, generatedTick: p.world.tick }; if (!remainingFeasible(p, row, target)) row.status = 'unavailable'; return row; });
+    for (let level = 0; level <= 4 && !selected; level++) { attempts = 0; solve(level, 0, [], scaleRemain, cityRemain, typeRemain, {}); }
+    if (!selected) selected = shuffled.filter(c => !onBoard.has(c.templateId)).slice(0, needed);
+    const rows = selected.map(c => ({ ...c, commissionId: S.util.id(p, 'commission'), postedTick: p.world.tick, status: 'available' }));
+    s.board.push(...rows);
+    if (rows.length) { s.templateHistory ||= []; s.templateHistory.push({ tick: p.world.tick, templateIds: rows.map(c => c.templateId) }); if (s.templateHistory.length > 6) s.templateHistory.splice(0, s.templateHistory.length - 6); }
+    return rows;
   }
-  function generatePool(p, ctx, options = {}) {
-    E(p.trip, 'NO_TRIP'); const s = p.commissions;
-    if (s.poolTripId === p.trip.id) return clone(s.pool);
-    if (p.reputation.value < 5) return [];
-    s.pool = buildPool(p, ctx, p.trip, options);
-    s.poolTripId = p.trip.id; s.generatedReputation = p.reputation.value; s.templateHistory ||= []; s.templateHistory.push({ tripId: p.trip.id, templateIds: s.pool.map(c => c.templateId) });
-    if (options.starter) s.starterGenerated = true;
-    return clone(s.pool);
+  // Runs after every command and at every world-day start. A rising board target (first unlock 4→5, 4→21, or any tier up) is
+  // topped up immediately; a board reduced by acceptances is topped up once at the next world-day boundary only. Nothing here
+  // ever removes or re-rolls a posted candidate; UI reads, reloads, page or city changes never reach this code.
+  function syncBoard(p, ctx, trigger = 'command') {
+    const s = p.commissions; s.board ||= [];
+    const target = boardTarget(p), day = S.time.day(p), previous = s.boardTarget || 0, added = [];
+    if (target > previous) { added.push(...fillBoard(p, ctx, target - s.board.length)); s.boardTarget = target; s.lastRefillDay = day; }
+    else if (trigger === 'day' && s.board.length < target && s.lastRefillDay !== day) { added.push(...fillBoard(p, ctx, target - s.board.length)); s.lastRefillDay = day; }
+    if (target < previous) s.boardTarget = target;
+    return added;
   }
-  function generateStarterIfNeeded(p, ctx) { if (p.trip && p.trip.initialReputation < 5 && p.reputation.value >= 5 && !p.commissions.starterGenerated && p.commissions.poolTripId !== p.trip.id) return generatePool(p, ctx, { starter: true }); return null; }
-  // ---- RC3 BUG-08: departure draft. Candidates are generated once and kept until the trip really starts.
-  function draftPool(p, ctx, draft) { return buildPool(p, ctx, { id: draft.id, routeIndex: 0, deadlineTick: draft.createdTick + 66 }); }
-  function draftView(p) {
-    const draft = p.departureDraft; if (!draft) return null;
-    const stand = { id: draft.id, routeIndex: 0, deadlineTick: p.world.tick + 66 };
-    let free = S.inventory.available(p);
-    const rows = draft.pool.map(c => {
-      const selected = draft.selectedIds.includes(c.commissionId), feasible = c.status !== 'unavailable' && remainingFeasible(p, { ...c, deadlineTick: stand.deadlineTick }, stand);
-      let willPickup = null;
-      if (selected && c.type === 'delivery') { willPickup = free >= c.requiredSlots; if (willPickup) free -= c.requiredSlots; }
-      return { ...clone(c), attributeLabels: attributeLabels(c), selected, selectable: feasible && c.sourceStage === 0, acceptAt: c.sourceStage === 0 ? null : stageLabels[c.sourceStage], willPickup };
-    });
-    const selectedRows = rows.filter(r => r.selected);
-    return { id: draft.id, createdTick: draft.createdTick, rows, selectedIds: [...draft.selectedIds], capacity: capacity(p), selectedCount: selectedRows.length, blockedPickups: selectedRows.filter(r => r.willPickup === false).map(r => r.commissionId) };
+  // ---- arrivals: a global monotonic sequence and the goods really brought in by the current arrival ----
+  function arrivalSequence(p) { return S.util.integer(p.world.arrivalSequence) ? p.world.arrivalSequence : 0; }
+  function eligibleLot(l) { return l.ownership === 'playerOwned' && !l.nonMarketable && l.condition === 'intact' && l.quantity > 0; }
+  function eligibleCounts(p) { const counts = {}; for (const l of p.inventory.lots) if (eligibleLot(l)) counts[l.goodId] = (counts[l.goodId] || 0) + l.quantity; return counts; }
+  function recordArrival(p) {
+    p.world.arrivalSequence = arrivalSequence(p) + 1;
+    p.world.currentArrival = { arrivalSequence: p.world.arrivalSequence, city: p.world.city, tick: p.world.tick, eligibleCargoCounts: eligibleCounts(p) };
+    return p.world.currentArrival;
   }
-  function draftToggle(p, x) {
-    const draft = p.departureDraft; E(draft && !p.trip, 'NO_DEPARTURE_DRAFT', '当前没有出发草稿。');
-    const c = draft.pool.find(r => r.commissionId === x.commissionId); E(c, 'COMMISSION_UNKNOWN', '委托不存在。');
-    const selected = x.selected !== false;
-    if (selected) {
-      E(c.sourceStage === 0, 'COMMISSION_WRONG_STOP', '到达' + stageLabels[c.sourceStage] + '后可承接。');
-      E(c.status !== 'unavailable' && remainingFeasible(p, { ...c, deadlineTick: p.world.tick + 66 }, { id: draft.id, routeIndex: 0, deadlineTick: p.world.tick + 66 }), 'COMMISSION_UNAVAILABLE', '本期已无法承接。');
-      if (!draft.selectedIds.includes(c.commissionId)) { E(draft.selectedIds.length < capacity(p), 'COMMISSION_CAPACITY', '同时进行的委托已满。'); draft.selectedIds.push(c.commissionId); }
-    } else draft.selectedIds = draft.selectedIds.filter(id => id !== c.commissionId);
-    return { kind: 'draftSelectionChanged', modal: false, commissionId: c.commissionId, selected, selectedIds: [...draft.selectedIds] };
+  // Called by S.inventory.take (and the 商号 stocking move) before an intact, marketable, player-owned unit leaves the caravan:
+  // sale, delivery to any commission, damage, loss, story consumption, cabinet stocking. Local purchases never add anything back.
+  function cargoRemoved(p, lot, quantity) {
+    const a = p.world.currentArrival; if (!a || !eligibleLot({ ...lot, quantity: 1 }) || !a.eligibleCargoCounts) return;
+    a.eligibleCargoCounts[lot.goodId] = Math.max(0, (a.eligibleCargoCounts[lot.goodId] || 0) - quantity);
   }
-  // Called inside the atomic trip start: the draft becomes the trip pool and selected rows are accepted for real.
-  function activateDraft(p, ctx, trip) {
-    const s = p.commissions, draft = p.departureDraft;
-    E(trip && s.poolTripId !== trip.id, 'DRAFT_ALREADY_ACTIVATED');
-    const rows = draft ? draft.pool : buildPool(p, ctx, trip);
-    s.pool = rows.map(c => { const row = { ...c, tripId: trip.id, deadlineTick: trip.deadlineTick, generatedTick: p.world.tick, status: 'available' }; if (!remainingFeasible(p, row, trip)) row.status = 'unavailable'; return row; });
-    s.poolTripId = trip.id; s.generatedReputation = p.reputation.value; s.templateHistory ||= []; s.templateHistory.push({ tripId: trip.id, templateIds: s.pool.map(c => c.templateId) });
-    const accepted = [];
-    for (const id of draft ? draft.selectedIds : []) accepted.push(accept(p, { commissionId: id }));
-    const blocked = p.commissions.active.filter(c => c.tripId === trip.id && c.status === 'pending_pickup');
-    E(!blocked.length, 'DRAFT_PICKUP_SLOTS', '货位不足以领取已选委托的货物，请先腾出货位或取消选定。');
-    p.departureDraft = null;
-    return accepted;
+  function getActive(p, id) { const c = p.commissions.active.find(c => c.commissionId === id); E(c, 'COMMISSION_UNKNOWN', '委托不存在。'); return c; }
+  function get(p, id) { const c = p.commissions.active.find(c => c.commissionId === id) || p.commissions.board.find(c => c.commissionId === id) || (p.commissions.history || []).find(c => c.commissionId === id); E(c, 'COMMISSION_UNKNOWN', '委托不存在。'); return c; }
+  // ---- accept / pickup ----
+  function accept(p, x) {
+    const s = p.commissions, c = s.board.find(r => r.commissionId === x.commissionId); E(c, 'COMMISSION_UNKNOWN', '委托不存在。');
+    E(activeCount(p) < capacity(p), 'COMMISSION_CAPACITY', capacity(p) ? '同时进行的委托已满。' : '商誉达到5后开放普通委托。');
+    const accepted = { ...clone(c), status: c.type === 'delivery' ? 'pending_pickup' : 'accepted', acceptedAtWorldTick: p.world.tick, deadlineWorldTick: p.world.tick + DEADLINE_TICKS, acceptedAtArrivalSequence: arrivalSequence(p), acceptedCity: p.world.city, acceptedOnRoute: Boolean(p.world.route), acceptedTripId: p.trip?.id || null, urgentWindow: null };
+    s.board = s.board.filter(r => r.commissionId !== c.commissionId); s.active.push(accepted);
+    if (accepted.type === 'delivery' && !p.world.route && p.world.city === accepted.pickupCity && S.inventory.available(p) >= accepted.requiredSlots) return pickup(p, { commissionId: accepted.commissionId });
+    return { kind: 'commissionAccepted', commissionId: accepted.commissionId, status: accepted.status, deadlineWorldTick: accepted.deadlineWorldTick, missingSlots: Math.max(0, accepted.requiredSlots - S.inventory.available(p)), elapsed: 0 };
   }
-  function get(p, id) { const c = p.commissions.active.find(c => c.commissionId === id) || p.commissions.pool.find(c => c.commissionId === id) || (p.commissions.history || []).find(c => c.commissionId === id); E(c, 'COMMISSION_UNKNOWN', '委托不存在。'); return c; }
-  function setStatus(p, c, status) { c.status = status; const row = p.commissions.pool.find(r => r.commissionId === c.commissionId); if (row) row.status = status; }
   function pickup(p, x) {
-    const c = get(p, x.commissionId); E(c.status === 'pending_pickup', 'PICKUP_UNAVAILABLE', '此委托无需领取货物。'); E(!p.world.route && p.world.city === c.pickupCity, 'WRONG_CITY', '请前往取货城市。');
-    E(remainingFeasible(p, c), 'COMMISSION_UNAVAILABLE', '本期已无法承接或完成。'); E(S.inventory.available(p) >= c.requiredSlots, 'CARGO_FULL', '请先腾出所需货位。');
+    const c = getActive(p, x.commissionId); E(c.status === 'pending_pickup', 'PICKUP_UNAVAILABLE', '此委托无需领取货物。'); E(!p.world.route && p.world.city === c.pickupCity, 'WRONG_CITY', '请前往取货城市。');
+    E(p.world.tick <= c.deadlineWorldTick, 'COMMISSION_EXPIRED', '此委托已过期。'); E(S.inventory.available(p) >= c.requiredSlots, 'CARGO_FULL', '请先腾出所需货位。');
     const cargo = S.inventory.add(p, { goodId: c.goodId, quantity: c.quantity, acquisitionPrice: 0, ownership: 'commissionOwned', commissionId: c.commissionId, condition: 'intact', nonMarketable: true, slotCost: S.inventory.good(c.goodId).slotCost, fragile: c.fragile });
-    setStatus(p, c, 'in_transit'); c.pickupTick = p.world.tick; return { kind: 'commissionPickup', commissionId: c.commissionId, lot: clone(cargo), elapsed: 0 };
+    c.status = 'in_transit'; c.pickupTick = p.world.tick; c.pickupArrivalSequence = arrivalSequence(p);
+    return { kind: 'commissionPickup', commissionId: c.commissionId, lot: clone(cargo), elapsed: 0 };
   }
-  // RC3 BUG-02: every urgent decision uses the same stop test — correct city AND correct route index.
-  function stopMatches(p, c) { return Boolean(p.trip) && !p.world.route && p.world.city === c.deliveryCity && p.trip.routeIndex === c.deliveryIndex; }
+  // ---- urgent window: opens at the first arrival in the delivery city after acceptance (捎货: after pickup) ----
   function openUrgentWindow(p, c) {
     if (!c.urgent || c.urgentWindow) return;
     const tick = p.world.tick, phase = tick % 3, day = Math.floor(tick / 3);
     // 晨 → same day 晨/午/暮; 午 → same day 午/暮; 暮 → this 暮 or the following 晨 only (single carry-over).
-    c.urgentWindow = { arrivalTick: tick, arrivalPhase: phase, city: p.world.city, routeIndex: p.trip.routeIndex, deadlineTick: phase === 2 ? (day + 1) * 3 : day * 3 + 2, duskCarryUsed: phase === 2 };
+    c.urgentWindow = { arrivalTick: tick, arrivalPhase: phase, city: p.world.city, arrivalSequence: arrivalSequence(p), deadlineTick: phase === 2 ? (day + 1) * 3 : day * 3 + 2, duskCarryUsed: phase === 2 };
     c.urgentArrivalTick = tick;
   }
-  function urgentOpen(p, c) { const w = c.urgentWindow; return Boolean(w && p.trip && w.routeIndex === p.trip.routeIndex && w.city === p.world.city && p.world.tick >= w.arrivalTick && p.world.tick <= w.deadlineTick); }
-  function accept(p, x) {
-    if (!p.trip && p.departureDraft) return draftToggle(p, { commissionId: x.commissionId, selected: x.selected });
-    E(p.trip, 'NO_TRIP'); E(!p.world.route, 'CITY_REQUIRED', '请抵达城市后承接。'); const c = get(p, x.commissionId); E(c.status === 'available' && remainingFeasible(p, c), 'COMMISSION_UNAVAILABLE', '本期已无法承接。');
-    // RC3 BUG-09: only at the posting city and posting stop.
-    E(c.sourceCity === p.world.city && (!Number.isSafeInteger(c.sourceStage) || c.sourceStage === p.trip.routeIndex), 'COMMISSION_WRONG_STOP', '到达' + (Number.isSafeInteger(c.sourceStage) ? stageLabels[c.sourceStage] : ({ changan: '长安', dunhuang: '敦煌', khotan: '于阗' })[c.sourceCity]) + '后可承接。');
-    E(p.commissions.active.filter(c => activeStatuses.has(c.status)).length < capacity(p), 'COMMISSION_CAPACITY', '同时进行的委托已满。');
-    const accepted = clone(c); accepted.acceptedTick = p.world.tick; accepted.status = c.type === 'delivery' ? 'pending_pickup' : 'accepted'; accepted.urgentWindow = accepted.urgentWindow || null; p.commissions.active.push(accepted); c.status = accepted.status;
-    if (accepted.urgent && stopMatches(p, accepted)) openUrgentWindow(p, accepted);
-    if (accepted.type === 'delivery' && p.world.city === accepted.pickupCity && !p.world.route && S.inventory.available(p) >= accepted.requiredSlots) return pickup(p, { commissionId: accepted.commissionId });
-    return { kind: 'commissionAccepted', commissionId: accepted.commissionId, status: accepted.status, missingSlots: Math.max(0, accepted.requiredSlots - S.inventory.available(p)), elapsed: 0 };
+  function urgentOpen(p, c) { const w = c.urgentWindow; return Boolean(w && !p.world.route && w.city === p.world.city && w.arrivalSequence === arrivalSequence(p) && p.world.tick >= w.arrivalTick && p.world.tick <= w.deadlineTick); }
+  function arrived(p) {
+    recordArrival(p);
+    for (const c of activeRows(p)) if (c.status !== 'pending_pickup' && c.urgent && !c.urgentWindow && p.world.city === c.deliveryCity && arrivalSequence(p) > c.acceptedAtArrivalSequence) openUrgentWindow(p, c);
   }
+  // ---- typed cargo rule (part of the single delivery eligibility) ----
+  // 捎货: the bound commissionOwned lots (own intact goods may fill in for lost commission cargo, as before) — never the arrival rule.
+  // 采买 / 求货: player-owned intact goods that this arrival really brought in — the arrival must be later than the acceptance and
+  // the usable units are capped by currentArrival.eligibleCargoCounts[goodId]; 采买 keeps its purchase-city condition.
   function cargoPlan(p, c) {
-    const rows = p.inventory.lots.filter(l => l.goodId === c.goodId && l.quantity > 0 && l.condition !== 'destroyed');
-    const bound = rows.filter(l => l.ownership === 'commissionOwned' && l.commissionId === c.commissionId);
-    // RC3 BUG-06: a wanted order only accepts cargo with real transport provenance (bought elsewhere, or having left its purchase city).
-    const owned = rows.filter(l => l.ownership === 'playerOwned' && !l.nonMarketable && l.condition === 'intact' && (c.type !== 'procurement' || l.acquisitionCity === c.procurementCity) && (c.type !== 'wanted' || S.inventory.transportQualified(l, c.deliveryCity)));
-    const selected = c.type === 'delivery' ? [...bound, ...(c.replaceable ? owned : [])] : owned;
-    let needed = c.quantity; const plan = [];
-    for (const lot of selected) { const quantity = Math.min(needed, lot.quantity); if (!quantity) break; plan.push({ lotId: lot.id, quantity, condition: lot.condition, ownership: lot.ownership }); needed -= quantity; }
-    return { rows: plan, complete: needed === 0, missing: needed, damaged: plan.some(l => l.condition === 'damaged') };
-  }
-  // options.ignoreTiming: RC3 BUG-01 grace freeze evaluates delivery without the handoff phase or the urgent window.
-  function ownConditions(p, c, options = {}) {
-    if (!(activeStatuses.has(c.status) && c.status !== 'pending_pickup' && stopMatches(p, c) && cargoPlan(p, c).complete)) return false;
-    if (options.ignoreTiming) return true;
-    if (c.handoffPhase !== null && c.handoffPhase !== undefined && S.time.phase(p) !== c.handoffPhase) return false;
-    if (c.urgent && !urgentOpen(p, c)) return false;
-    return true;
-  }
-  function eligibleDelivery(p, c, ctx, freeze = false) {
-    if (!p.trip || c.tripId !== p.trip.id || !activeStatuses.has(c.status) || c.status === 'pending_pickup' || p.world.route || !stopMatches(p, c) || !cargoPlan(p, c).complete) return false;
-    if (freeze) return p.world.tick <= c.deadlineTick && ownConditions(p, c, { ignoreTiming: true });
-    if (p.trip.phase === 'returned_at_dusk_pending_rest') return false;
-    if (Number.isSafeInteger(p.trip.graceArrivalTick) && p.world.tick > p.trip.graceArrivalTick) {
-      // G03 return grace has priority over the ordinary urgent window and the handoff phase.
-      if (!p.trip.graceIds?.includes(c.commissionId)) return false;
-      const eligible=ctx?.graceEligibility||S.trip?.graceEligibility;
-      E(typeof eligible === 'function', 'GRACE_NOT_CONNECTED', '返程宽限尚未接入。');
-      return eligible(p, c);
+    const lots = p.inventory.lots.filter(l => l.goodId === c.goodId && l.quantity > 0 && l.condition !== 'destroyed');
+    const plan = []; let needed = c.quantity, have = 0;
+    const push = (lot, max) => { const q = Math.min(needed, lot.quantity, max === undefined ? lot.quantity : max); if (q <= 0) return 0; plan.push({ lotId: lot.id, quantity: q, condition: lot.condition, ownership: lot.ownership }); needed -= q; have += q; return q; };
+    if (c.type === 'delivery') {
+      for (const lot of lots.filter(l => l.ownership === 'commissionOwned' && l.commissionId === c.commissionId)) push(lot);
+      if (needed > 0 && c.replaceable) for (const lot of lots.filter(eligibleLot)) push(lot);
+      return { rows: plan, have, need: c.quantity, complete: needed === 0, missing: needed, damaged: plan.some(r => r.condition === 'damaged'), code: needed ? 'CARGO_MISSING' : 'OK', reason: needed ? '还缺' + needed + '件委托货物。' : '', arrived: null, budget: null };
     }
-    return p.world.tick <= c.deadlineTick && ownConditions(p, c);
+    const a = p.world.currentArrival, here = Boolean(a) && !p.world.route && a.city === p.world.city, arrived = here && a.arrivalSequence > c.acceptedAtArrivalSequence;
+    const budget = arrived ? (a.eligibleCargoCounts?.[c.goodId] || 0) : 0;
+    const owned = lots.filter(l => eligibleLot(l) && (c.type !== 'procurement' || l.acquisitionCity === c.procurementCity));
+    let remaining = budget; for (const lot of owned) { if (!remaining) break; remaining -= push(lot, remaining); }
+    const held = owned.reduce((n, l) => n + l.quantity, 0);
+    let code = 'OK', reason = '';
+    if (needed) {
+      if (!arrived) { code = 'ARRIVAL_REQUIRED'; reason = here ? '须在接取后重新入城，把货物实际带进' + cityLabel(c.deliveryCity) + '。' : '请把货物带到' + cityLabel(c.deliveryCity) + '。'; }
+      else if (held >= c.quantity) { code = 'LOCAL_GOODS'; reason = '本地现买或未随本次入城带入的货物不能用于交付，仍缺' + needed + '件带入货物。'; }
+      else { code = 'CARGO_MISSING'; reason = '还缺' + needed + '件' + (c.type === 'procurement' ? '在' + cityLabel(c.procurementCity) + '购入的' : '') + '完好自有货物。'; }
+    }
+    return { rows: plan, have, need: c.quantity, complete: needed === 0, missing: needed, damaged: false, code, reason, arrived, budget };
   }
-  function freezeGrace(p) {
-    E(p.trip && p.world.city === 'changan' && S.time.phase(p) === 2 && !p.world.route, 'GRACE_ARRIVAL_REQUIRED');
-    if (p.trip.graceFrozenTick !== undefined) return [...p.trip.graceIds];
-    const ids = p.commissions.active.filter(c => eligibleDelivery(p, c, null, true)).map(c => c.commissionId);
-    p.trip.graceFrozenTick = p.world.tick; p.trip.graceArrivalTick = p.world.tick; p.trip.graceDeadlineTick = p.world.tick + 3; p.trip.graceIds = ids; return [...ids];
+  // The one delivery eligibility. 货物准备 x / x, the 交付委托 button and commission.deliver all read this result and nothing else.
+  function deliveryEligibility(p, c) {
+    const cargo = cargoPlan(p, c);
+    const result = (ok, code, reason) => ({ ok, code, reason, have: cargo.have, need: cargo.need, prepared: cargo.complete, damaged: cargo.damaged, plan: cargo.rows, cargoCode: cargo.code, deliveryCity: c.deliveryCity });
+    if (!activeStatuses.has(c.status)) return result(false, 'NOT_ACTIVE', '此委托已结束。');
+    if (c.status === 'pending_pickup') return result(false, 'PICKUP_REQUIRED', '请先到' + cityLabel(c.pickupCity) + '领取委托货物。');
+    if (p.world.route) return result(false, 'ON_ROUTE', '请抵达' + cityLabel(c.deliveryCity) + '后交付。');
+    if (p.world.city !== c.deliveryCity) return result(false, 'WRONG_CITY', '请前往' + cityLabel(c.deliveryCity) + '交付。');
+    if (p.world.tick > c.deadlineWorldTick) return result(false, 'EXPIRED', '此委托已过期。');
+    if (!cargo.complete) return result(false, cargo.code, cargo.reason);
+    if (c.handoffPhase !== null && c.handoffPhase !== undefined && S.time.phase(p) !== c.handoffPhase) return result(false, 'HANDOFF_PHASE', '约定' + ['晨', '午'][c.handoffPhase] + '时交付，请候至该时辰。');
+    if (c.urgent && !urgentOpen(p, c)) return result(false, 'URGENT_WINDOW', c.urgentWindow ? '加急交付窗口已关闭。' : '加急委托须在抵达交付城市后的交付窗口内交付。');
+    return result(true, 'OK', '');
   }
-  function deliver(p, x, ctx) {
-    const c = get(p, x.commissionId); E(eligibleDelivery(p, c, ctx), 'CANNOT_DELIVER', '当前城市、站点、时辰、货物或期限尚不符合交付条件。');
-    const goods = cargoPlan(p, c), ratio = goods.damaged ? c.valuable ? .5 : .7 : 1, actualCash = Math.ceil(c.rewardCash * ratio), previous = p.reputation.value;
-    const deliveredLots = goods.rows.map(row => S.inventory.take(p, row.lotId, row.quantity)); p.cash += actualCash;
-    S.reputation.change(p, c.reputationReward, { type: 'commission', commissionId: c.commissionId, tripId: c.tripId }); setStatus(p, c, 'completed');
-    const result = { kind: 'commissionDelivered', status: 'completed', commissionId: c.commissionId, tripId: c.tripId, title: c.title, type: c.type, goodId: c.goodId, quantity: c.quantity, attributeLabels: attributeLabels(c), originalReward: c.rewardCash, rewardRatio: ratio, actualCash, actualReputation: p.reputation.value - previous, deliveredLots: clone(deliveredLots), tick: p.world.tick, text: '货物已经验收，钱款照约结清。', elapsed: 0 };
-    p.commissions.results.push(clone(result)); p.journal.push({ type: 'commission', tripId: c.tripId, commissionId: c.commissionId, amount: actualCash, reputation: result.actualReputation, tick: p.world.tick }); return result;
+  function deliver(p, x) {
+    const c = getActive(p, x.commissionId), el = deliveryEligibility(p, c); E(el.ok, 'CANNOT_DELIVER', el.reason || '当前城市、时辰、货物或期限尚不符合交付条件。');
+    const ratio = el.damaged ? c.valuable ? .5 : .7 : 1, actualCash = Math.ceil(c.rewardCash * ratio), previous = p.reputation.value, tripId = p.trip?.id || null;
+    const deliveredLots = el.plan.map(row => S.inventory.take(p, row.lotId, row.quantity)); p.cash += actualCash;
+    S.reputation.change(p, c.reputationReward, { type: 'commission', commissionId: c.commissionId, tripId }); c.status = 'completed'; c.completedTick = p.world.tick; c.completedTripId = tripId;
+    const result = { kind: 'commissionDelivered', status: 'completed', commissionId: c.commissionId, tripId, title: c.title, type: c.type, goodId: c.goodId, quantity: c.quantity, attributeLabels: attributeLabels(c), originalReward: c.rewardCash, rewardRatio: ratio, actualCash, actualReputation: p.reputation.value - previous, deliveredLots: clone(deliveredLots), tick: p.world.tick, text: '货物已经验收，钱款照约结清。', elapsed: 0 };
+    p.commissions.results.push(clone(result)); p.journal.push({ type: 'commission', tripId, commissionId: c.commissionId, amount: actualCash, reputation: result.actualReputation, tick: p.world.tick });
+    archiveTerminal(p); return result;
   }
   function failure(p, c, reason) {
     const previous = p.commissions.results.find(r => r.commissionId === c.commissionId && r.status === 'failed'); if (previous) return clone(previous);
-    E(activeStatuses.has(c.status), 'COMMISSION_NOT_ACTIVE'); const cargo = p.inventory.lots.filter(l => l.ownership === 'commissionOwned' && l.commissionId === c.commissionId);
-    const result = { kind: 'commissionFailed', status: 'failed', commissionId: c.commissionId, tripId: c.tripId, title: c.title, type: c.type, attributeLabels: attributeLabels(c), reason, originalReward: c.rewardCash, actualCash: 0, actualReputation: 0, removedCargo: clone(cargo), pendingRemoval: cargo.length > 0, tick: p.world.tick, text: '这份委托未能照约完成，尚未领取的报酬已取消。' };
-    setStatus(p, c, 'failed'); c.failureReason = reason; p.commissions.results.push(clone(result)); return result;
+    E(activeStatuses.has(c.status), 'COMMISSION_NOT_ACTIVE'); const cargo = p.inventory.lots.filter(l => l.ownership === 'commissionOwned' && l.commissionId === c.commissionId), tripId = p.trip?.id || null;
+    const result = { kind: 'commissionFailed', status: 'failed', commissionId: c.commissionId, tripId, title: c.title, type: c.type, attributeLabels: attributeLabels(c), reason, originalReward: c.rewardCash, actualCash: 0, actualReputation: 0, removedCargo: clone(cargo), pendingRemoval: cargo.length > 0, tick: p.world.tick, text: reason === 'expired' ? '这份委托已超过三十日期限，尚未领取的报酬已取消。' : '这份委托未能照约完成，尚未领取的报酬已取消。' };
+    c.status = 'failed'; c.failureReason = reason; c.failedTick = p.world.tick; p.commissions.results.push(clone(result)); archiveTerminal(p); return result;
   }
   function cleanup(p, ids) {
     const eligible = new Set(ids.filter(id => p.commissions.results.some(r => r.commissionId === id && r.status === 'failed')));
@@ -243,64 +229,106 @@
     return { removedForIds: [...eligible] };
   }
   function expire(p, options = {}) {
-    const ids = options.ids || p.commissions.active.filter(c => activeStatuses.has(c.status) && p.world.tick > c.deadlineTick && !p.trip?.graceIds?.includes(c.commissionId)).map(c => c.commissionId), results = [];
-    for (const id of ids) { const c = get(p, id); if (activeStatuses.has(c.status)) results.push(failure(p, c, options.reason || 'trip_expired')); }
+    const ids = options.ids || activeRows(p).filter(c => p.world.tick > c.deadlineWorldTick).map(c => c.commissionId), results = [];
+    for (const id of ids) { const c = get(p, id); if (activeStatuses.has(c.status)) results.push(failure(p, c, options.reason || 'expired')); }
     if (results.length && options.notify !== false) p.presentation.notices.push({ id: S.util.id(p, 'commission-failed'), kind: 'commissionFailure', title: '委托已失效', text: results.map(r => r.title).join('、'), commissionIds: results.map(r => r.commissionId), results: clone(results) });
     return results;
   }
-  function finalizeFailures(p, ids, options = {}) { const results = ids.map(id => failure(p, get(p, id), options.reason || 'trip_ended')); cleanup(p, ids); return results.map(r => ({ ...r, pendingRemoval: false })); }
-  function abandon(p, x) { const c = get(p, x.commissionId); const result = failure(p, c, 'abandoned'); return { ...result, cleanupAfterAcknowledgement: true }; }
-  function arrived(p) {
-    // RC3 BUG-02: the urgent window opens only at the commission's own delivery stop (city + route index).
-    for (const c of p.commissions.active) if (activeStatuses.has(c.status) && c.urgent && !c.urgentWindow && stopMatches(p, c)) openUrgentWindow(p, c);
-    refreshAvailability(p);
-  }
-  function refreshAvailability(p) { for (const c of p.commissions.pool) if (c.status === 'available' && !remainingFeasible(p, c)) c.status = 'unavailable'; }
-  function afterTick(p, ctx) {
-    if (!p.trip) return;
+  function abandon(p, x) { const c = getActive(p, x.commissionId); const result = failure(p, c, 'abandoned'); return { ...result, cleanupAfterAcknowledgement: true }; }
+  // Runs on every tick, with or without a trip: the 30-day deadline and an open urgent window are the only clocks.
+  function afterTick(p) {
     const overdue = [], urgent = [];
-    for (const c of p.commissions.active) {
-      if (!activeStatuses.has(c.status)) continue;
-      if (p.trip.graceIds?.includes(c.commissionId)) continue;
-      if (p.world.tick > c.deadlineTick) overdue.push(c.commissionId);
-      else if (c.urgent && c.urgentWindow && p.world.tick > c.urgentWindow.deadlineTick) urgent.push(c.commissionId);
-    }
-    expire(p, { ids: overdue, reason: 'trip_expired' }); expire(p, { ids: urgent, reason: 'urgent_window_missed' }); refreshAvailability(p);
+    for (const c of activeRows(p)) { if (p.world.tick > c.deadlineWorldTick) overdue.push(c.commissionId); else if (c.urgent && c.urgentWindow && p.world.tick > c.urgentWindow.deadlineTick) urgent.push(c.commissionId); }
+    expire(p, { ids: overdue, reason: 'expired' }); expire(p, { ids: urgent, reason: 'urgent_window_missed' });
   }
-  function departureWarnings(p) { if (!p.trip) return []; return p.commissions.active.filter(c => c.status === 'pending_pickup' && c.pickupCity === p.world.city && !route.slice(p.trip.routeIndex + 1).includes(c.pickupCity)).map(c => c.commissionId); }
-  function waitTarget(p, id) { const c = get(p, id); E(activeStatuses.has(c.status) && c.deliveryCity === p.world.city && c.handoffPhase !== null && !c.urgent, 'NO_FIXED_HANDOFF'); let target = Math.floor(p.world.tick / 3) * 3 + c.handoffPhase; if (target < p.world.tick) target += 3; E(target <= c.deadlineTick, 'COMMISSION_EXPIRED'); return target; }
+  function waitTarget(p, id) { const c = getActive(p, id); E(activeStatuses.has(c.status) && c.deliveryCity === p.world.city && c.handoffPhase !== null && !c.urgent, 'NO_FIXED_HANDOFF'); let target = Math.floor(p.world.tick / 3) * 3 + c.handoffPhase; if (target < p.world.tick) target += 3; E(target <= c.deadlineWorldTick, 'COMMISSION_EXPIRED'); return target; }
   function acknowledgeNotices(p, notices) { return cleanup(p, notices.filter(n => n.kind === 'commissionFailure').flatMap(n => n.commissionIds || [])); }
   function ackResult(p, result) { if (result.kind === 'commissionFailed' && result.cleanupAfterAcknowledgement) cleanup(p, [result.commissionId]); }
-  // RC3 BUG-14: terminal records leave `active` at trip end (results/summary keep their own copies). Idempotent.
-  function archiveTrip(p, tripId) {
+  // Terminal records leave `active` for `history` as soon as they are settled (results keep their own copies). Idempotent; never touches the board.
+  function archiveTerminal(p) {
     const s = p.commissions; s.history ||= [];
     const terminal = s.active.filter(c => terminalStatuses.has(c.status));
-    for (const c of terminal) if (!s.history.some(h => h.commissionId === c.commissionId)) s.history.push({ ...clone(c), archivedTripId: tripId || c.tripId || null, archivedTick: p.world.tick });
+    for (const c of terminal) if (!s.history.some(h => h.commissionId === c.commissionId)) s.history.push({ ...clone(c), archivedTick: p.world.tick });
     s.active = s.active.filter(c => !terminalStatuses.has(c.status));
-    if (tripId === undefined || s.poolTripId === tripId) { s.pool = []; }
     return { archived: terminal.length, remaining: s.active.length };
   }
+  // ---- save migration to v3.0 (every pre-v3 save; idempotent) ----
   function migrate(p) {
-    const s = p.commissions; s.history ||= [];
-    for (const c of [...s.active, ...s.pool]) {
-      if (c.urgentWindow === undefined) c.urgentWindow = null;
-      if (c.urgent && !c.urgentWindow && Number.isSafeInteger(c.urgentArrivalTick) && activeStatuses.has(c.status)) {
-        const tick = c.urgentArrivalTick, phase = tick % 3, day = Math.floor(tick / 3);
-        c.urgentWindow = { arrivalTick: tick, arrivalPhase: phase, city: c.deliveryCity, routeIndex: c.deliveryIndex, deadlineTick: phase === 2 ? (day + 1) * 3 : day * 3 + 2, duskCarryUsed: phase === 2, migrated: true };
-      }
+    const s = p.commissions = p.commissions || initial(); s.history ||= []; s.results ||= []; s.active ||= []; s.templateHistory ||= [];
+    if (s.boardVersion === 3 && Array.isArray(s.board)) return;
+    // 1. global arrival sequence: four arrivals per finished trip plus the stops already reached on the current one; never reset later.
+    if (!S.util.integer(p.world.arrivalSequence)) p.world.arrivalSequence = 4 * (p.tripHistory || []).length + Math.max(0, ((p.trip?.routeHistory || []).length || 1) - 1);
+    const seq = p.world.arrivalSequence;
+    // 2. the board: legal candidates of the old trip pool and the old departure draft move over unchanged — no second roll.
+    const seen = new Set(), rows = [];
+    for (const c of [...(s.pool || []), ...(p.departureDraft?.pool || [])]) {
+      if (!c || seen.has(c.commissionId) || !['available', 'unavailable'].includes(c.status) || s.active.some(a => a.commissionId === c.commissionId)) continue;
+      seen.add(c.commissionId); const row = { ...clone(c), status: 'available', postedTick: S.util.integer(c.generatedTick) ? c.generatedTick : p.world.tick, migratedFromTrip: c.tripId || null };
+      for (const k of ['tripId', 'deadlineTick', 'generatedTick', 'sourceStage', 'pickupIndex', 'deliveryIndex']) delete row[k];
+      if (!S.util.integer(row.segmentCount)) row.segmentCount = row.type === 'wanted' ? 0 : legs(row.pickupCity || row.procurementCity || row.sourceCity, row.deliveryCity);
+      rows.push(row);
     }
-    if (!p.trip) archiveTrip(p);
+    s.board = rows; const migratedCount = rows.length; delete s.pool; delete s.poolTripId; delete s.starterGenerated; delete s.generatedReputation; delete p.departureDraft;
+    // 3. active commissions: independent 30-day deadline and arrival provenance recovered from the old stop data where possible.
+    for (const c of s.active) {
+      if (!S.util.integer(c.acceptedAtWorldTick)) {
+        if (S.util.integer(c.acceptedTick, 0, p.world.tick)) { c.acceptedAtWorldTick = c.acceptedTick; c.deadlineWorldTick = c.acceptedTick + DEADLINE_TICKS; }
+        else { c.acceptedAtWorldTick = p.world.tick; c.deadlineWorldTick = p.world.tick + DEADLINE_TICKS; c.deadlineMigrated = true; }
+      }
+      if (!S.util.integer(c.acceptedAtArrivalSequence)) {
+        // accepted at an earlier stop of the current trip → that many arrivals have happened since; otherwise a new arrival is still required.
+        const stopsSince = p.trip && S.util.integer(c.sourceStage) && S.util.integer(p.trip.routeIndex) ? Math.max(0, p.trip.routeIndex - c.sourceStage) : 0;
+        c.acceptedAtArrivalSequence = Math.max(0, seq - stopsSince); c.arrivalSequenceMigrated = true;
+      }
+      if (c.urgentWindow === undefined) c.urgentWindow = null;
+      if (c.urgent && !c.urgentWindow && S.util.integer(c.urgentArrivalTick) && activeStatuses.has(c.status)) {
+        const tick = c.urgentArrivalTick, phase = tick % 3, day = Math.floor(tick / 3);
+        c.urgentWindow = { arrivalTick: tick, arrivalPhase: phase, city: c.deliveryCity, arrivalSequence: seq, deadlineTick: phase === 2 ? (day + 1) * 3 : day * 3 + 2, duskCarryUsed: phase === 2, migrated: true };
+      }
+      if (c.urgentWindow && !S.util.integer(c.urgentWindow.arrivalSequence)) { const stops = p.trip && S.util.integer(c.urgentWindow.routeIndex) && S.util.integer(p.trip.routeIndex) ? Math.max(0, p.trip.routeIndex - c.urgentWindow.routeIndex) : 0; c.urgentWindow.arrivalSequence = Math.max(0, seq - stops); delete c.urgentWindow.routeIndex; }
+      if (c.tripId !== undefined) { c.acceptedTripId = c.acceptedTripId ?? c.tripId ?? null; delete c.tripId; }
+      for (const k of ['deadlineTick', 'sourceStage', 'pickupIndex', 'deliveryIndex']) delete c[k];
+    }
+    // 4. current arrival: only goods whose old provenance flags prove they were carried in count; everything else waits for the next real arrival.
+    if (!p.world.currentArrival) {
+      if (seq > 0 && !p.world.route) {
+        const counts = {}; for (const l of p.inventory.lots) if (eligibleLot(l) && (l.acquisitionCity !== p.world.city || l.hasLeftAcquisitionCity === true)) counts[l.goodId] = (counts[l.goodId] || 0) + l.quantity;
+        p.world.currentArrival = { arrivalSequence: seq, city: p.world.city, tick: null, eligibleCargoCounts: counts, migrated: true };
+      } else p.world.currentArrival = null;
+    }
+    // 5. trip-side leftovers of the old coupling; terminal rows out of `active`.
+    if (p.trip) { for (const k of ['graceIds', 'graceArrivalTick', 'graceDeadlineTick', 'graceFrozenTick', 'graceClosePending', 'graceClosed', 'graceEnd', 'draftId']) delete p.trip[k]; if (p.trip.returnTasks) delete p.trip.returnTasks.commission; }
+    archiveTerminal(p);
+    // 6. one-time top-up to the reputation tier's target (CASE 02: 商誉21 with an empty board → 7 candidates), flagged so it never repeats.
+    s.boardTarget = 0; s.lastRefillDay = null; s.boardVersion = 3;
+    const added = syncBoard(p, S.core.context('commission-migration'));
+    s.boardMigrated = { tick: p.world.tick, migratedCandidates: migratedCount, added: added.length };
   }
-  function snapshot(p, ctx) {
-    const here = c => Boolean(p.trip) && !p.world.route && c.status === 'available' && c.sourceCity === p.world.city && (!Number.isSafeInteger(c.sourceStage) || c.sourceStage === p.trip.routeIndex);
+  function validate(p) {
+    const s = p.commissions; E(s && Array.isArray(s.board) && Array.isArray(s.active) && Array.isArray(s.results), 'INVALID_COMMISSIONS', '委托记录无效');
+    E(S.util.integer(p.world.arrivalSequence), 'INVALID_ARRIVAL_SEQUENCE');
+    const a = p.world.currentArrival; if (a !== null && a !== undefined) E(a.arrivalSequence === p.world.arrivalSequence && ['changan', 'dunhuang', 'khotan'].includes(a.city) && a.eligibleCargoCounts && Object.values(a.eligibleCargoCounts).every(n => S.util.integer(n)), 'INVALID_ARRIVAL');
+    const ids = new Set();
+    for (const c of [...s.board, ...s.active]) { E(typeof c.commissionId === 'string' && !ids.has(c.commissionId), 'DUPLICATE_COMMISSION'); ids.add(c.commissionId); E(['delivery', 'procurement', 'wanted'].includes(c.type) && ['changan', 'dunhuang', 'khotan'].includes(c.deliveryCity) && S.util.integer(c.quantity, 1), 'INVALID_COMMISSION'); }
+    for (const c of s.board) E(c.status === 'available', 'INVALID_BOARD_ROW');
+    for (const c of s.active) {
+      E(activeStatuses.has(c.status), 'INVALID_ACTIVE_ROW');
+      E(S.util.integer(c.acceptedAtWorldTick, 0, p.world.tick) && S.util.integer(c.deadlineWorldTick) && (c.deadlineWorldTick === c.acceptedAtWorldTick + DEADLINE_TICKS || c.deadlineMigrated === true), 'INVALID_DEADLINE');
+      E(S.util.integer(c.acceptedAtArrivalSequence, 0, p.world.arrivalSequence), 'INVALID_ARRIVAL_SEQUENCE');
+    }
+    return true;
+  }
+  function snapshot(p) {
+    const acceptable = activeCount(p) < capacity(p);
     return {
-      capacity: capacity(p), activeCount: p.commissions.active.filter(c => activeStatuses.has(c.status)).length,
-      pool: p.commissions.pool.map(c => ({ ...clone(c), attributeLabels: attributeLabels(c), acceptableHere: here(c), acceptAt: Number.isSafeInteger(c.sourceStage) ? stageLabels[c.sourceStage] : null })),
-      active: p.commissions.active.map(c => ({ ...clone(c), attributeLabels: attributeLabels(c), cargo: cargoPlan(p, c), urgentOpen: c.urgent ? urgentOpen(p, c) : null })),
-      results: clone(p.commissions.results.slice(-20)), history: (p.commissions.history || []).length, draft: draftView(p), locked: p.reputation.value < 5
+      capacity: capacity(p), activeCount: activeCount(p), boardTarget: boardTarget(p), locked: p.reputation.value < 5,
+      board: p.commissions.board.map(c => ({ ...clone(c), attributeLabels: attributeLabels(c), acceptable })),
+      active: activeRows(p).map(c => ({ ...clone(c), attributeLabels: attributeLabels(c), delivery: deliveryEligibility(p, c), urgentOpen: c.urgent ? urgentOpen(p, c) : null, deadlineLabel: S.time.format(c.deadlineWorldTick) })),
+      results: clone(p.commissions.results.slice(-20)), history: (p.commissions.history || []).length,
+      arrival: p.world.currentArrival ? clone(p.world.currentArrival) : null
     };
   }
-  S.commissions = { initial, capacity, generatePool, generateStarterIfNeeded, buildPool, draftPool, draftView, draftToggle, activateDraft, remainingFeasible, accept, pickup, cargoPlan, ownConditions, eligibleDelivery, freezeGrace, deliver, expire, finalizeFailures, cleanup, arrived, refreshAvailability, departureWarnings, waitTarget, acknowledgeNotices, ackResult, archiveTrip, migrate, snapshot, templateFields, attributeLabels, stageLabels, stopMatches, urgentOpen };
+  S.commissions = { initial, capacity, boardTarget, config, fillBoard, syncBoard, hasAcceptable, arrivalSequence, recordArrival, cargoRemoved, accept, pickup, cargoPlan, deliveryEligibility, deliver, expire, cleanup, arrived, waitTarget, acknowledgeNotices, ackResult, archiveTerminal, migrate, validate, snapshot, templateFields, attributeLabels, urgentOpen, DEADLINE_TICKS, activeStatuses, terminalStatuses };
   for (const [type, fn] of Object.entries({ accept, pickup, deliver, abandon })) S.commands.register('commission.' + type, fn);
-  S.time.register('commissions', { afterTick });
+  S.time.register('commissions', { afterTick, dayStart(p, ctx) { syncBoard(p, ctx, 'day'); } });
 })(globalThis.Silk = globalThis.Silk || {});

@@ -71,6 +71,7 @@
     E(!p.merchant.cabinets.some(other => other !== c && other.goodId === lot.goodId), 'DUPLICATE_CABINET_GOOD', '请放入现有货柜。');
     c.goodId = lot.goodId;
     const moved = { ...S.util.clone(lot), id: S.util.id(p, 'lot'), quantity: x.quantity, sourceLotId: lot.id };
+    if (S.commissions?.cargoRemoved) S.commissions.cargoRemoved(p, lot, x.quantity);   // COMMISSION v3.0: stocking a cabinet removes the units from deliverable cargo
     c.lots.push(moved); lot.quantity -= x.quantity; p.inventory.lots = p.inventory.lots.filter(l => l.quantity > 0);
     return { type: 'stockCabinet', cabinetId: c.cabinetId, goodId: c.goodId, quantity: x.quantity };
   }

@@ -134,17 +134,14 @@
     for(const lot of c.p.inventory.lots){const card=c.el('section','voucher-card');if(S.assets['goods_'+lot.goodId]){const art=c.el('img','goods-art');art.src=S.assets['goods_'+lot.goodId];art.alt=lot.goodId;card.append(art);}c.row(lot.storyLabel||lot.goodId,(lot.storyUnits?.length||lot.quantity)+'件 · '+conditions[lot.condition],card);if(lot.storyUnits)info(c,card,Object.entries(conditions).map(([key,label])=>label+lot.storyUnits.filter(u=>u.condition===key).length+'件').join(' · '));c.row('所属',ownership[lot.ownership],card);if(lot.ownership==='playerOwned'){money(c,card,'实际买入单价',lot.acquisitionPrice);c.row('购入地',cities[lot.acquisitionCity],card);}c.row('占用货位',lot.condition==='destroyed'?0:lot.quantity*lot.slotCost,card);if(lot.nonMarketable)info(c,card,'此物不可用于市场交易或商号上柜。');b.append(card);}
     if(!c.p.inventory.lots.length)info(c,b,'行囊里还没有货物。');
   }});
-  function endTrip(c){
-    const view=S.trip.returnView(c.p);
-    if(!view.requiresWarning){c.dispatch('trip.finalize');return;}
-    c.showModal({title:'还有未处理的委托',body:'结束本次商旅后，这些委托将按原失败规则处理。',actions:[{label:'返回处理',run:c.dismissModal},{label:'仍要结束（你还有未处理的委托哦）',run:async()=>{const r=await c.dispatch('trip.finalize',{confirmOutstanding:true});if(r)c.dismissModal();}}]});
-  }
+  // COMMISSION v3.0: ending a trip never touches ordinary commissions, so there is nothing to warn about here.
+  function endTrip(c){c.dispatch('trip.finalize');}
   function depart(c,destinationCity){
-    // RC3 BUG-08: from 长安 the confirm only prepares a departure draft; the supply/cargo warnings and the 22-day period belong to 【开始行程】.
-    if(!c.p.trip){c.dispatch('trip.begin').then(result=>{if(result){c.dismissModal();c.openPanel('departure-commissions')}});return}
-    const v=S.trip.departureView(c.p),payload={destinationCity,acknowledgeSupplyWarning:v.requiresSupplyWarning,confirmMissedPickup:v.pendingPickupIds.length>0}
+    // RC3 BUG-08: from 长安 the confirm only prepares the departure; the supply/cargo warnings and the 22-day period belong to 【开始行程】. COMMISSION v3.0: no commission draft, no pickup warning — commissions run on their own 30-day deadline.
+    if(!c.p.trip){c.dispatch('trip.begin').then(result=>{if(result){c.dismissModal();c.openPanel('departure')}});return}
+    const v=S.trip.departureView(c.p),payload={destinationCity,acknowledgeSupplyWarning:v.requiresSupplyWarning}
     const commit=async()=>{const result=await c.dispatch('trip.depart',payload);if(result){c.dismissModal();c.openPanel('trip')}}
-    const extra=[v.requiresCargoWarning?'你没有携带可供交易的商品，仍可出发，但无法通过现有货物跑商获利。':'',v.pendingPickupIds.length?'离开后将无法领取部分委托货物，这些委托会按原规则失效。':''].filter(Boolean).join('\n')
+    const extra=v.requiresCargoWarning?'你没有携带可供交易的商品，仍可出发，但无法通过现有货物跑商获利。':''
     const cancel=()=>{c.dismissModal();c.closePanel()}
     c.showModal({title:v.requiresSupplyWarning?'粮草可能不足':'确认出发',body:(v.requiresSupplyWarning?'当前粮草：'+c.p.inventory.provisions+'日份\n':'')+'此程预计'+v.leg.days+'日。'+(v.requiresSupplyWarning?'\n途中断粮可能需要高价补给、绕路寻粮、消耗干果或承担延误。':'')+(extra?'\n'+extra:''),actions:[{label:'返回城中',run:cancel},{label:v.requiresSupplyWarning?'继续出发':'确认出发',run:commit}]})
   }
@@ -162,38 +159,28 @@
       for(const destination of destinations)b.append(c.button(cities[destination],()=>depart(c,destination),{disabled:!view.canDepart||destination!==view.leg.to}));
       if(c.p.world.city==='dunhuang')info(c,b,'本趟商旅下一站：'+cities[view.leg.to]+'。正式路线：长安 → 敦煌 → 于阗 → 敦煌 → 长安。');
       if(S.time.phase(c.p)===2)info(c,b,'暮时请先安排歇息。');
-      if(view.draft){info(c,b,'出发准备已保存（关闭面板不会启动商期）。');b.append(c.button('出发前委托 · 已选定 '+view.draft.selectedCount+' / '+view.draft.capacity,()=>c.openSecondary('departure-commissions')));}
     }
   }});
-  function startFromDraft(c){
-    // RC3 BUG-08: the only place where the trip (clock, commissions, route) actually starts. Same warning texts as the former 确认出发 step.
-    const v=S.trip.departureView(c.p),go=async()=>{const result=await c.dispatch('trip.depart',{destinationCity:'dunhuang',acknowledgeSupplyWarning:v.requiresSupplyWarning,confirmMissedPickup:v.pendingPickupIds.length>0});if(result){c.dismissModal();c.openPanel('trip')}}
-    const extra=[v.requiresCargoWarning?'你没有携带可供交易的商品，仍可出发，但无法通过现有货物跑商获利。':'',v.pendingPickupIds.length?'离开后将无法领取部分委托货物，这些委托会按原规则失效。':''].filter(Boolean).join('\n')
+  function startTrip(c){
+    // RC3 BUG-08: the only place where the trip (clock, route) actually starts. Same warning texts as the former 确认出发 step. COMMISSION v3.0: commissions are not part of departure.
+    const v=S.trip.departureView(c.p),go=async()=>{const result=await c.dispatch('trip.depart',{destinationCity:'dunhuang',acknowledgeSupplyWarning:v.requiresSupplyWarning});if(result){c.dismissModal();c.openPanel('trip')}}
+    const extra=v.requiresCargoWarning?'你没有携带可供交易的商品，仍可出发，但无法通过现有货物跑商获利。':''
     c.showModal({title:v.requiresSupplyWarning?'粮草可能不足':'确认出发',body:(v.requiresSupplyWarning?'当前粮草：'+c.p.inventory.provisions+'日份\n':'')+'此程预计'+v.leg.days+'日。'+(v.requiresSupplyWarning?'\n途中断粮可能需要高价补给、绕路寻粮、消耗干果或承担延误。':'')+(extra?'\n'+extra:'')+'\n点击【开始行程】后，22日商期正式开始。',actions:[{label:'返回准备',run:c.dismissModal},{label:'开始行程',run:go}]})
   }
-  S.ui.registerPanel('departure-commissions',{title:'出发前委托',render(c,b){
-    const view=S.trip.departureView(c.p),draft=view.draft;
-    if(!draft){info(c,b,c.p.trip?'本趟商旅已经开始。':'当前没有出发准备。');return;}
-    info(c,b,'这里只是准备：关闭本面板不会启动商期，也不影响未启程时的经营。点击【开始行程】后，22日商期才开始，选定的委托才正式承接。');
-    c.row('可同时承接',draft.selectedCount+' / '+draft.capacity,b);
-    if(!draft.rows.length)info(c,b,'本趟没有委托候选（商誉达到5后开放普通委托）。');
-    for(const task of draft.rows){
-      const card=c.el('section','voucher-card');c.row(task.title,task.goodId+' × '+task.quantity,card);c.row('属性',task.attributeLabels.join('、'),card);c.row('交付',cities[task.deliveryCity]+(task.type==='delivery'?' · 取货 '+cities[task.pickupCity]:task.type==='procurement'?' · 采买 '+cities[task.procurementCity]:''),card);money(c,card,'约定报酬',task.rewardCash);
-      if(task.acceptAt)info(c,card,'到达'+task.acceptAt+'后可承接。');
-      else if(!task.selectable)info(c,card,'本期已无法承接。');
-      else card.append(c.button(task.selected?'取消选定':'选定（启程时承接）',()=>c.dispatch('trip.draftSelect',{commissionId:task.commissionId,selected:!task.selected})));
-      if(task.selected&&task.willPickup===false)info(c,card,'货位不足以领取该委托货物，启程前请腾出货位或取消选定。');
-      card.append(c.button('查看详情',()=>c.openSecondary('commission-detail',{commissionId:task.commissionId,draft:true})));b.append(card);
-    }
-  },footer(c,f){const view=S.trip.departureView(c.p);f.append(c.button('开始行程',()=>startFromDraft(c),{disabled:!view.canDepart||Boolean(view.draft&&view.draft.blockedPickups.length)}));}});
+  // COMMISSION v3.0: the departure page carries no commission function — at most one hint line; the candidates live only in the top 【委托】 board.
+  S.ui.registerPanel('departure',{title:'开始行程',render(c,b){
+    const view=S.trip.departureView(c.p);
+    if(c.p.trip){info(c,b,'本趟商旅已经开始。');return;}
+    info(c,b,'这里只是准备：关闭本面板不会启动商期，也不影响未启程时的经营。点击【开始行程】后，22日商期才开始。');
+    c.row('当前粮草',c.p.inventory.provisions+'日份',b);if(view.leg)c.row('此程预计',view.leg.days+'日',b);
+    if(view.commissionHint){const hint=c.el('p','form-hint departure-commission-hint','有委托可接，可在顶部【委托】中查看。');b.append(hint);}
+  },footer(c,f){const view=S.trip.departureView(c.p);f.append(c.button('开始行程',()=>startTrip(c),{disabled:!view.canDepart||Boolean(c.p.trip)}));}});
   S.ui.registerPanel('return-tasks',{title:'返程事务',render(c,b){
     if(c.p.trip?.phase!=='return_tasks'){info(c,b,'请先安排歇息，次晨处理返程事务。');return;}
     const view=S.trip.returnView(c.p),labels={commission:'委托',market:'市场',merchant:'商号'};
-    if(view.graceDeadlineLabel)info(c,b,'冻结委托可办理至'+view.graceDeadlineLabel+'；交付时仍检查当前库存。');
     for(const [task,status]of Object.entries(view.tasks)){
       if(status==='not_applicable')continue;
       const card=c.el('section','voucher-card');header(c,card,labels[task]);info(c,card,{pending:'待处理',processed:'已处理',deferred:'已选择暂不处理'}[status]);
-      if(task==='commission')card.append(c.button('查看返程委托',()=>c.openSecondary('commission')));
       if(task==='market')card.append(c.button('前往市场',()=>c.openPanel('market'),{disabled:S.time.phase(c.p)===2}));
       if(task==='merchant')card.append(c.button('转入商号货物',()=>c.openSecondary('merchant_business',{returnTasks:true})));
       if(status==='pending'){
@@ -204,13 +191,6 @@
     }
     if(view.ready)info(c,b,'返程事务已处理完毕，可查看本趟商旅总结。');
   },footer(c,f){if(c.p.trip?.phase==='return_tasks')f.append(c.button('结束本次商旅',()=>endTrip(c),{disabled:!S.trip.returnView(c.p).ready}));}});
-  S.ui.registerPanel('return-commissions',{title:'处理宽限委托',render(c,b){
-    if(c.p.trip?.phase!=='return_tasks'){info(c,b,'返程事务状态已更新。');return;}
-    const view=S.trip.returnView(c.p),ids=new Set(view.pendingGraceIds),rows=S.commissions.snapshot(c.p,S.core.context('return-ui')).active.filter(x=>ids.has(x.commissionId));
-    if(view.graceDeadlineLabel)info(c,b,'交付期限：'+view.graceDeadlineLabel+'。只保留抵达时已冻结的委托；交付时按当前合格货物验收。');
-    if(!rows.length)info(c,b,'宽限委托已处理完毕');
-    for(const task of rows){const card=c.el('section','voucher-card');c.row(task.title,task.goodId+' × '+task.quantity,card);card.append(c.button('查看委托',()=>c.openSecondary('commission-detail',{commissionId:task.commissionId,returnGrace:true})));b.append(card);}
-  },footer(c,f){f.append(c.button('返回返程事务',c.closeSecondary));}});
   S.ui.registerPanel('settings-controls',{render(c,b){
     for(const [key,label]of [['soundEnabled','声音']]){c.row(label,c.state.preferences[key]?'开启':'关闭',b,()=>c.dispatch('settings.update',{key,value:!c.state.preferences[key]}));}
   }});

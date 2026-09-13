@@ -55,20 +55,17 @@
   function durationText(n) { return n === 1 ? '一个时段' : n + '个时段'; }
   function check(p, type, payload = {}) {
     const elapsed = actionTicks(p, type, payload), trip = p.trip;
-    if (!elapsed || !trip) return null;
-    const endingGrace=S.trip?.graceAdvanceWarning?.(p,type,payload);
-    if(endingGrace)return endingGrace;
+    if (!elapsed) return null;
     const now = p.world.tick, after = now + elapsed, lines = [];
-    const candidates = (p.commissions?.active || []).filter(c => c.tripId === trip.id && active.has(c.status));
-    const grace = new Set(trip.graceIds || []);
-    const ordinary = candidates.filter(c => !grace.has(c.commissionId || c.id));
-    const expiring = ordinary.filter(c => now <= c.deadlineTick && after > c.deadlineTick);
-    if (expiring.length) lines.push('尚有普通委托将在商期结束后立即失效：' + expiring.map(c => c.title).join('、') + '。');
-    // RC3 BUG-02: warn only when this action would push past the open urgent window of the current delivery stop.
+    // COMMISSION v3.0: every active commission runs on its own 30-day deadline, with or without a trip.
+    const ordinary = (p.commissions?.active || []).filter(c => active.has(c.status));
+    const expiring = ordinary.filter(c => now <= c.deadlineWorldTick && after > c.deadlineWorldTick);
+    if (expiring.length) lines.push('尚有普通委托将在此操作后到期失效：' + expiring.map(c => c.title).join('、') + '。');
+    // RC3 BUG-02: warn only when this action would push past the open urgent window of the current delivery city.
     const urgent = ordinary.filter(c => !expiring.includes(c) && c.urgent && c.urgentWindow && now <= c.urgentWindow.deadlineTick && after > c.urgentWindow.deadlineTick);
     if (urgent.length) lines.push('继续后将错过加急委托的交付窗口：' + urgent.map(c => c.title).join('、') + '。');
 
-    const returned = trip.arrivedChanganTick !== null && trip.arrivedChanganTick !== undefined;
+    const returned = !trip || trip.arrivedChanganTick !== null && trip.arrivedChanganTick !== undefined;
     if (!returned) {
       if (now > trip.deadlineTick) {
         const overdue = now - trip.deadlineTick, penalty = Math.abs(trip.overdueActualPenalty || 0);

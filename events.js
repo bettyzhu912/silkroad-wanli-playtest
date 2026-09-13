@@ -439,7 +439,6 @@
     if (p.work?.routeGame && !p.work.routeGame.result) return true;
     if (S.caravan?.isActive && S.caravan.isActive(p)) return true;
     if (p.market?.visit && !p.market.visit.settled) return true;
-    const deadline = S.trip?.graceDeadline ? S.trip.graceDeadline(p) : null; if (deadline !== null && deadline !== undefined && p.world.tick > deadline) return true;
     return false;
   }
   // Called after every command. Only a successful, time-advancing in-city action earns a judgement (keyed by its start day).

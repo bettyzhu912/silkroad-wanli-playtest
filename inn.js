@@ -109,8 +109,8 @@
     return { branch: 'cargo', text: '夜露侵货。清晨检查时，你发现一件货物受了些潮损。', effects: [{ type: 'cargo_damage', lotId: changed.id, goodId: changed.goodId, quantity: 1, condition: changed.condition, ownership: changed.ownership }] };
   }
   function localRestOptions(p) {
-    const graceDeadline = S.trip?.graceDeadline?.(p) ?? p.trip?.graceDeadlineTick;
-    const hasHome = p.merchant.properties.some(a => a.use === 'home'), inChangan = !p.world.route && p.world.city === 'changan', pendingReturn = p.trip?.phase === 'returned_at_dusk_pending_rest'||p.trip?.phase==='return_tasks'&&p.trip.arrivedChanganTick!=null&&S.util.integer(graceDeadline)&&p.world.tick<=graceDeadline;
+    // COMMISSION v3.0: the return grace is gone — any dusk spent in 长安 after returning (before the trip is closed) may be slept at home.
+    const hasHome = p.merchant.properties.some(a => a.use === 'home'), inChangan = !p.world.route && p.world.city === 'changan', pendingReturn = p.trip?.phase === 'returned_at_dusk_pending_rest'||p.trip?.phase==='return_tasks'&&p.trip.arrivedChanganTick!=null;
     return { hasHome, canHome: inChangan && phase(p) === 2 && hasHome && (!p.trip || pendingReturn), canRestOutside: inChangan && phase(p) === 2 && !hasHome && !p.trip };
   }
   function overnight(p, x, ctx, action) {

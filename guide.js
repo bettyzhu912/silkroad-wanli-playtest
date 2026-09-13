@@ -26,7 +26,7 @@
   const VERSION = 'NEW_PLAYER_GUIDE_AUTHORITY_v1.0';
   function initial() { return { version: VERSION, status: 'pending', step: 0, startedTick: null, endedTick: null }; }
   // A save made before this patch never saw the entry choice: only a genuinely untouched game (nothing done, still in 长安) gets it.
-  function fresh(p) { return p.journal.length === 0 && !p.trip && !p.departureDraft && p.tripHistory.length === 0 && p.world.city === 'changan' && !p.world.route && !(p.market && p.market.visit); }
+  function fresh(p) { return p.journal.length === 0 && !p.trip && p.tripHistory.length === 0 && p.world.city === 'changan' && !p.world.route && !(p.market && p.market.visit); }
   function effective(p) { const g = p.presentation && p.presentation.guide; if (g) return g; return fresh(p) ? initial() : { version: VERSION, status: 'done', step: STEPS.length, startedTick: null, endedTick: null, legacy: true }; }
   function write(p) { if (!p.presentation.guide) p.presentation.guide = effective(p); return p.presentation.guide; }
   function view(p) {
