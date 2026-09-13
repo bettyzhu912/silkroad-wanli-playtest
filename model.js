@@ -73,13 +73,13 @@
     longStories30Runtime: 'BLOCK', npcAffinity: 'BLOCK', futureCities: 'BLOCK', goodsQuality: 'DELETED', legacyProject: 'REFERENCE_ONLY'
   });
   S.core = {
-    versions: Object.freeze({ releaseVersion: 'v0.3.0-competition-rc3', schemaVersion: 2, balanceVersion: '2026-09-13-weighted-avg-cost' }),
+    versions: Object.freeze({ releaseVersion: 'v0.3.0-competition-rc3', schemaVersion: 2, balanceVersion: '2026-09-13-qiyuan-final' }),
     emptyEnvelope() { return { meta: { ...S.core.versions, generation: 0, revision: 0 }, preferences: { tutorialEnabled: true, soundEnabled: true }, progress: null, ledger: {}, pending: null, results: {} }; },
     upgradeEnvelope(envelope) {
       S.core.validate(envelope);
       if(S.core.isCurrent(envelope))return {state:clone(envelope),changed:false};
       const fromRC2=['2026-09-09-effective','2026-09-10-g01-g05'].includes(envelope.meta.balanceVersion);
-      ensure(fromRC2||envelope.meta.balanceVersion==='2026-09-11-rc3-logic-patch','BALANCE_UNSUPPORTED','此存档来自另一套规则版本，原记录已保留');
+      ensure(fromRC2||['2026-09-11-rc3-logic-patch','2026-09-13-weighted-avg-cost'].includes(envelope.meta.balanceVersion),'BALANCE_UNSUPPORTED','此存档来自另一套规则版本，原记录已保留');
       ensure(!envelope.pending,'TRANSACTION_PENDING','请先恢复上次尚未保存的操作');
       const next=clone(envelope),p=next.progress;
       if(p&&fromRC2){
@@ -97,6 +97,8 @@
       }
       // WEIGHTED_AVERAGE_INVENTORY_COST_PATCH v1.0 (RC2 and RC3-logic-patch saves): fold the batches of each good once into one integer 持仓均价.
       if(p&&S.inventory?.migrateCost)S.inventory.migrateCost(p);
+      // 商路奇缘 FINAL v1.0 (all older saves): finale chapters, read-only result snapshots for completed lines, legacy chapter-5 handling — never a roll, never a reward.
+      if(p&&S.stories?.migrate)S.stories.migrate(p);
       next.meta.migrations=[...(next.meta.migrations||[]),{from:envelope.meta.balanceVersion,to:S.core.versions.balanceVersion,atRevision:envelope.meta.revision}];
       Object.assign(next.meta,S.core.versions);next.meta.revision++;
       S.core.validate(next);return {state:next,changed:true};

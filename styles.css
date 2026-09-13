@@ -170,3 +170,11 @@
 .hud-tool .ui-icon{filter:drop-shadow(0 0 .6px #fff3dc) drop-shadow(0 0 5px rgba(255,214,150,.38)) drop-shadow(0 1px 1px #fff)}
 .hud-tool:disabled .ui-icon,.global-hud.is-blocked .hud-tool .ui-icon{filter:drop-shadow(0 0 .4px #f3e6d0) drop-shadow(0 1px 1px #fff)}
 @media(prefers-reduced-motion:reduce){.city-hotspot .hotspot-halo{animation:none}}
+
+/* ---- 商路奇缘 FINAL v1.0 (2026-09-13): six permanent cards + the finale directory card (three vertical, equal-width, same-tier entries; no default selection) ---- */
+.story-card{cursor:pointer}.story-card .story-status{color:var(--muted);font-size:.9rem}.story-card .story-next{font-size:.9rem}
+.story-finale{display:flex;flex-direction:column;gap:10px;padding:6px 2px}.story-finale-eyebrow{font-size:.8rem;letter-spacing:.18em;color:#795b32}.story-finale h3{font-size:1.25rem;font-weight:600;margin:0}.story-finale-subtitle{color:var(--muted);font-size:.95rem}
+.story-finale-entries{display:flex;flex-direction:column;gap:10px;margin-top:8px}.story-finale-entries .ui-button{width:100%;min-height:48px;text-align:center;font-weight:600}
+.story-finale-detail-title{font-size:1rem;font-weight:600;margin:0 0 6px}.story-finale-body p{white-space:pre-wrap}.story-finale-body p+p{margin-top:.5rem}
+.story-gains .info-row{padding:6px 0}.story-gains-footer{color:var(--muted);font-size:.85rem;margin-top:10px}
+.story-chapter-title{font-weight:600}.story-chapter-text{white-space:pre-wrap;margin:6px 0 10px}
