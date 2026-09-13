@@ -46,7 +46,7 @@
     const summary=c.el('div','trade-summary');const left=c.el('span','trade-summary-left'),right=c.el('span','trade-summary-right');summary.append(left,right);
     const confirm=c.button(spec.confirmLabel,()=>{void submit();},{});const reason=c.el('p','trade-block-reason');reason.setAttribute('role','status');
     const facts=()=>{const raw=stepper.input.value;const valid=/^[0-9]+$/.test(raw)&&Number.isSafeInteger(Number(raw))&&Number(raw)>0;const n=valid?Number(raw):0;return {valid,n,...spec.facts(n)};};
-    function refresh(){const f=facts();const r=blockReason(spec.kind,f);spec.summary(left,right,f);reason.textContent=r;reason.hidden=!r;const ok=!r&&f.valid;confirm.disabled=!ok||c.app.busy;if(ok)confirm.dataset.busyDisabled='true';else delete confirm.dataset.busyDisabled;stepper.refresh();return ok;}
+    function refresh(){const f=facts();const r=blockReason(spec.kind,f);spec.summary(left,right,f);reason.textContent=r;reason.hidden=!r;const ok=!r&&f.valid&&(!spec.commitAvailable||spec.commitAvailable(f.n));confirm.disabled=!ok||c.app.busy;if(ok)confirm.dataset.busyDisabled='true';else delete confirm.dataset.busyDisabled;stepper.refresh();return ok;}
     async function submit(){if(!box.isConnected||!refresh())return;await spec.submit(facts().n);}
     stepper.input.addEventListener('input',refresh);stepper.input.addEventListener('change',refresh);
     box.append(summary,confirm,reason);card.append(box);refresh();return box;
@@ -83,6 +83,9 @@
       const avgUnit=value/held; // display estimate over all lots of the good; the engine sells per its existing per-lot rule
       tradeExpand(c,card,{kind:'sell',id:good.id,fieldLabel:'交易数量',confirmLabel:'确认出售',
         facts:n=>({held,lots:lots.length,slotCost:good.slotCost}),
+        // Unresolved gameplay dependency (reported, not player-facing): a partial quantity over lots with different cost / provenance
+        // has no committed consumption rule yet, so the confirm stays unavailable for exactly that case — no copy, no invented rule.
+        commitAvailable:n=>S.market.sellPlan(c.p,good.id,n).ok,
         summary(left,right,f){const n=f.valid?Math.min(f.n,held):0;const est=n===held?value:Math.round(avgUnit*n);left.textContent='本次可得 '+c.formatMoney(f.valid?est:0);right.textContent='释放货位 '+(f.valid?n*good.slotCost:0);},
         submit:quantity=>c.dispatch('market.sell',{visitId:visit.id,quantity,goodId:good.id})});
     }

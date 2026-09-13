@@ -47,22 +47,29 @@ test('blocking-reason priority helper: 未解锁 → 货位不足 → 铜钱不�
   assert.strictEqual(ui.blockReason('provisions', { valid: true, n: 5, needsSlot: false, available: 0, cash: 3, unit: 1 }), '随身铜钱不足');
   assert.strictEqual(ui.blockReason('provisions', { valid: false, n: 0, needsSlot: false, available: 0, cash: 3, unit: 1 }), '请输入正整数日份');
 });
-test('sell by goodId (InventoryLot never exposed): single lot, all lots in full, partial across lots refused as LOT_POLICY_PENDING', () => {
+test('sell by goodId (InventoryLot never exposed): single lot; partial over outcome-equivalent lots; all lots in full; partial over non-equivalent lots refused (no rule invented, no player copy)', () => {
   const d = fresh(204); d.run('market.enter'); const v = d.p.market.visit;
   d.run('market.buy', { visitId: v.id, goodId: '绢帛', quantity: 2 }); d.ack();
   const one = d.run('market.sell', { visitId: v.id, goodId: '绢帛', quantity: 1 }); d.ack();
   assert.ok(one.kind === 'marketSell' && one.quantity === 1 && one.goodId === '绢帛', 'single lot: partial sell by goodId ok');
   d.run('market.buy', { visitId: v.id, goodId: '绢帛', quantity: 3 }); d.ack();
-  const lots = S.market.marketableLots(d.p, '绢帛'); assert.strictEqual(lots.length, 2, 'two backend lots kept (no merge)');
-  const partial = d.tryRun('market.sell', { visitId: v.id, goodId: '绢帛', quantity: 2 });
-  assert.ok(!partial.ok && partial.code === 'LOT_POLICY_PENDING' && /全部 4 件/.test(partial.message), 'partial across lots refused, rule left to the gameplay authority: ' + partial.message);
-  assert.strictEqual(S.market.marketableLots(d.p, '绢帛').length, 2, 'refusal changes nothing');
+  let lots = S.market.marketableLots(d.p, '绢帛'); assert.strictEqual(lots.length, 2, 'two backend lots kept (no merge)');
+  assert.ok(S.market.outcomeEquivalent(lots), 'same city / day / price / provenance → outcome-equivalent');
+  assert.deepStrictEqual(S.market.sellPlan(d.p, '绢帛', 2).ok, true);
+  const before = d.p.cash; const two = d.run('market.sell', { visitId: v.id, goodId: '绢帛', quantity: 2 }); d.ack();
+  assert.ok(two.kind === 'marketSell' && two.quantity === 2 && two.items.length === 2 && d.p.cash === before + two.total, 'partial over equivalent lots commits (1 from the first lot, 1 from the second)');
+  lots = S.market.marketableLots(d.p, '绢帛'); assert.strictEqual(lots.length, 1, 'the first lot was consumed in inventory order, one lot of 2 remains'); assert.strictEqual(lots[0].quantity, 2);
+  d.run('market.buy', { visitId: v.id, goodId: '绢帛', quantity: 2 }); d.ack(); lots = S.market.marketableLots(d.p, '绢帛'); assert.strictEqual(lots.length, 2);
+  // make the lots non-equivalent (a different cost) → the undecided case
+  lots[0].acquisitionPrice += 1; assert.ok(!S.market.outcomeEquivalent(lots));
+  const plan = S.market.sellPlan(d.p, '绢帛', 1); assert.ok(!plan.ok && plan.code === 'LOT_POLICY_PENDING', 'partial over non-equivalent lots is not committed');
+  const partial = d.tryRun('market.sell', { visitId: v.id, goodId: '绢帛', quantity: 1 }); assert.ok(!partial.ok && partial.code === 'LOT_POLICY_PENDING');
+  assert.strictEqual(S.market.blockReason('sell', { valid: true, n: 1, held: 4, lots: 2 }), '', 'no player-facing copy for the undecided case');
   const over = d.tryRun('market.sell', { visitId: v.id, goodId: '绢帛', quantity: 5 }); assert.ok(!over.ok && over.code === 'INVALID_QUANTITY');
-  const before = d.p.cash; const all = d.run('market.sell', { visitId: v.id, goodId: '绢帛', quantity: 4 }); d.ack();
-  assert.ok(all.kind === 'marketSell' && all.quantity === 4 && all.items.length === 2 && all.total === all.items[0].total + all.items[1].total && d.p.cash === before + all.total, 'all lots in full (existing 一键出售 semantics per good)');
+  const cash2 = d.p.cash; const all = d.run('market.sell', { visitId: v.id, goodId: '绢帛', quantity: 4 }); d.ack();
+  assert.ok(all.kind === 'marketSell' && all.quantity === 4 && all.items.length === 2 && d.p.cash === cash2 + all.total, 'all lots in full still works (existing 一键出售 semantics per good)');
   assert.strictEqual(S.market.marketableLots(d.p, '绢帛').length, 0);
-  assert.strictEqual(S.market.blockReason('sell', { valid: true, n: 2, held: 4, lots: 2 }), S.market.lotPolicyPendingMessage(4));
-  assert.strictEqual(S.market.blockReason('sell', { valid: true, n: 4, held: 4, lots: 2 }), ''); assert.strictEqual(S.market.blockReason('sell', { valid: true, n: 5, held: 4, lots: 1 }), '出售件数无效');
+  assert.strictEqual(S.market.blockReason('sell', { valid: true, n: 5, held: 4, lots: 1 }), '出售件数无效');
   assert.strictEqual(S.market.blockReason('buy', { valid: true, n: 3, unlocked: true, slotCost: 2, available: 4, cash: 999, unit: 10 }), '货位不足，还需 2 个货位');
   assert.strictEqual(S.market.blockReason('buy', { valid: true, n: 3, unlocked: true, slotCost: 1, available: 6, cash: 5, unit: 10 }), '随身铜钱不足');
 });

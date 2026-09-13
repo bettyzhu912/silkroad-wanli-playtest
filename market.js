@@ -125,11 +125,22 @@
     return { kind: 'marketSell', ...entry, cashDelta: total, reputation, cancelledPurchaseTurnover };
   }
   function marketableLots(p, goodId) { return p.inventory.lots.filter(l => l.goodId === goodId && l.ownership === 'playerOwned' && !l.nonMarketable && l.condition !== 'destroyed' && l.quantity > 0); }
-  // MARKET_UI_CORRECTION v0.2 / InventoryLot contract: the market UI submits goodId + quantity and never exposes lots.
-  // Backend consumption stays what it was: a whole single lot or part of it, or every lot of the good in full (一键出售 semantics).
-  // A partial quantity spread over several lots needs the lot-consumption rule (FIFO / LIFO / …) that the gameplay
-  // authority has not closed yet — it is refused here with LOT_POLICY_PENDING instead of an invented policy.
-  function lotPolicyPendingMessage(held) { return '该商品有多批存货，部分出售的扣减规则待定，当前可出售全部 ' + held + ' 件'; }
+  // InventoryLot contract (2026-09-13): the market UI submits goodId + quantity and never exposes lots.
+  // Backend consumption stays what it was: one lot (whole or part), or every lot of the good in full (一键出售 semantics).
+  // Lots whose every gameplay-relevant attribute is identical are "outcome-equivalent": whichever of them is consumed first, cash,
+  // journal cost / profit, sale price caps, transport provenance and turnover totals come out the same, so a partial quantity over
+  // such lots is taken in inventory order without any policy choice. A partial quantity over NON-equivalent lots (different cost,
+  // city or provenance) would need the lot-consumption rule (FIFO / LIFO / weighted …) that the gameplay authority has not closed;
+  // sellPlan() reports that as unavailable and the engine refuses it (LOT_POLICY_PENDING) — no rule invented, nothing player-facing.
+  const EQUIVALENCE_KEYS = ['acquisitionPrice', 'acquisitionCity', 'condition', 'discountOriginCity', 'supplierDiscountRate', 'hasTransportedToOtherCity', 'hasLeftAcquisitionCity', 'purchaseTurnoverPending', 'slotCost'];
+  function outcomeEquivalent(lots) { const key = l => JSON.stringify(EQUIVALENCE_KEYS.map(k => l[k] ?? null)); const first = key(lots[0]); return lots.every(l => key(l) === first); }
+  function sellPlan(p, goodId, quantity) {
+    const lots = marketableLots(p, goodId), held = lots.reduce((n, l) => n + l.quantity, 0);
+    if (!lots.length) return { ok: false, code: 'NOT_MARKETABLE', lots, held };
+    if (!integer(quantity, 1, held)) return { ok: false, code: 'INVALID_QUANTITY', lots, held };
+    if (lots.length === 1 || quantity === held || outcomeEquivalent(lots)) return { ok: true, lots, held, spansLots: lots.length > 1 && quantity < held };
+    return { ok: false, code: 'LOT_POLICY_PENDING', lots, held };
+  }
   function sell(p, payload, ctx) {
     const v = visit(p, payload);
     if (payload.lotId !== undefined && payload.lotId !== null) {
@@ -137,12 +148,13 @@
       ensure(lot && lot.ownership === 'playerOwned' && !lot.nonMarketable && lot.condition !== 'destroyed', 'NOT_MARKETABLE', '这批货物不能出售');
       return sellLot(p, v, lot, payload.quantity, ctx);
     }
-    const lots = marketableLots(p, payload.goodId); ensure(lots.length > 0, 'NOT_MARKETABLE', '这批货物不能出售');
-    const held = lots.reduce((n, l) => n + l.quantity, 0);
-    ensure(integer(payload.quantity, 1, held), 'INVALID_QUANTITY', '出售件数无效');
-    if (lots.length === 1) return sellLot(p, v, lots[0], payload.quantity, ctx);
-    ensure(payload.quantity === held, 'LOT_POLICY_PENDING', lotPolicyPendingMessage(held));
-    const items = lots.map(l => sellLot(p, v, l, l.quantity, ctx));
+    const plan = sellPlan(p, payload.goodId, payload.quantity);
+    ensure(plan.code !== 'NOT_MARKETABLE', 'NOT_MARKETABLE', '这批货物不能出售');
+    ensure(plan.code !== 'INVALID_QUANTITY', 'INVALID_QUANTITY', '出售件数无效');
+    ensure(plan.ok, 'LOT_POLICY_PENDING', '出售规则尚未确定');
+    if (plan.lots.length === 1) return sellLot(p, v, plan.lots[0], payload.quantity, ctx);
+    let remaining = payload.quantity; const items = [];
+    for (const lot of plan.lots) { if (!remaining) break; const q = Math.min(remaining, lot.quantity); items.push(sellLot(p, v, lot, q, ctx)); remaining -= q; }
     const sum = k => items.reduce((n, r) => n + r[k], 0);
     return { kind: 'marketSell', goodId: payload.goodId, quantity: sum('quantity'), unitPrice: S.money.round(sum('total') / sum('quantity')), total: sum('total'), cost: sum('cost'), profit: sum('profit'), city: p.world.city, cashDelta: sum('cashDelta'), items, cancelledPurchaseTurnover: sum('cancelledPurchaseTurnover') };
   }
@@ -170,11 +182,10 @@
     if((kind==='buy'||kind==='provisions')&&(!Number.isSafeInteger(n*f.unit)||n*f.unit>f.cash))return Number.isSafeInteger(n*f.unit)?'随身铜钱不足':(kind==='provisions'?'请输入正整数日份':'请输入正整数件数');
     if(!f.valid)return kind==='sell'?'出售件数无效':kind==='provisions'?'请输入正整数日份':'请输入正整数件数';
     if(kind==='sell'&&f.n>f.held)return '出售件数无效';
-    if(kind==='sell'&&f.lots>1&&f.n<f.held)return lotPolicyPendingMessage(f.held);
     return '';
   }
   const reducers = { 'market.enter': enter, 'market.leave': leave, 'market.buy': buy, 'market.sell': sell, 'market.sellAll': sellAll, 'market.provisions': provisions };
-  S.market = { price, quote:(p,city,id)=>S.pricing.quote(p,city,id), buyQuote, sellUnitPrice, enter, leave, summaryPreview, blockReason, marketableLots, lotPolicyPendingMessage, buy, sell, sellAll, provisions, settlePurchaseTurnover, validate };
+  S.market = { price, quote:(p,city,id)=>S.pricing.quote(p,city,id), buyQuote, sellUnitPrice, enter, leave, summaryPreview, blockReason, marketableLots, sellPlan, outcomeEquivalent, buy, sell, sellAll, provisions, settlePurchaseTurnover, validate };
   for (const [type, fn] of Object.entries(reducers)) S.commands.register(type, fn);
   S.time.register('purchaseTurnover',{dayStart:settlePurchaseTurnover});
 })(globalThis.Silk = globalThis.Silk || {});
