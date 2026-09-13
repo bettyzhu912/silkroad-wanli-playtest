@@ -149,11 +149,12 @@
   function renderSettle() {
     nodes.bg.src = 'art/bg_settle.jpg'; const run = ui.run, w = run.wages; nodes.hud.hidden = true;
     if (run.status === 'trial') { openOverlay('trialEnd'); return; }
-    nodes.layer.append(place(el('div', 'piece paper settle-status', run.status === 'timeout' ? '日影已尽' : '顺利收工'), 236, 400, 392, 66));
+    // PATCH A (hotfix v1.0): the main plaque states the work result; the end reason (日影已尽) is secondary text; 合计收入 carries the highest weight; the woven count is a light line under the income block and the painted closing line (巧手织锦绣，汗水换金银) stays visible. Values are the settlement state, never recomputed.
+    nodes.layer.append(place(el('div', 'piece paper settle-status', '顺利收工'), 236, 400, 392, 66));
     const rows = [[603, '基础工钱', w.base], [686, '常规加赏', w.regular], [766, '急束加成', w.urgent]];
     for (const [y, label, v] of rows) { nodes.layer.append(place(el('div', 'piece settle-label', label), 300, y - 22, 150, 44)); nodes.layer.append(place(el('div', 'piece settle-value', String(v)), 576, y - 26, 100, 52)); }
-    nodes.layer.append(place(el('div', 'piece settle-value total', String(w.total)), 566, 855 - 32, 120, 64));
-    nodes.layer.append(place(el('div', 'piece settle-note', `本次织成 ${w.totalCompleted} / 15 根 · 完成 ${w.roundsCompleted} 轮`), 230, 955, 404, 40));
+    nodes.layer.append(place(el('div', 'piece settle-value total', String(w.total)), 556, 855 - 34, 130, 68));
+    nodes.layer.append(place(el('div', 'piece settle-stats', (run.status === 'timeout' ? '日影已尽 · ' : '') + `本次织成 ${w.totalCompleted} / 15 根 · 完成 ${w.roundsCompleted} 轮`), 214, 908, 436, 38));
     const stay = place(el('div', 'piece hit-btn'), 164, 1087, 244, 88), leave = place(el('div', 'piece hit-btn'), 460, 1087, 241, 88);
     stay.setAttribute('role', 'button'); stay.setAttribute('aria-label', '继续留坊'); leave.setAttribute('role', 'button'); leave.setAttribute('aria-label', '离开织坊');
     stay.addEventListener('pointerdown', ev => { ev.preventDefault(); startRun('formal'); }); leave.addEventListener('pointerdown', ev => { ev.preventDefault(); toEntry(); }); nodes.layer.append(stay, leave);
