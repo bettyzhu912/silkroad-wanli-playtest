@@ -1,0 +1,606 @@
+{
+ "schema": "tod-config-v1",
+ "pipelineVersion": "tod-grade-v0.2.1",
+ "version": "v1.1",
+ "status": "approved (human-confirmed 2026-09-13; v1.1 = v1 + user-specified noon sky contrast 1.1 / saturation 1.6 / temperature +10 and dusk title brightness 0.91; values unchanged from the reviewed candidate)",
+ "city": "dunhuang",
+ "cityName": "敦煌",
+ "baseline": "B7_khotan_tod_config_v1.json",
+ "asset": {
+  "runtimeSet": "B7_city_dunhuang_runtime_v01",
+  "files": {
+   "sky": "B7_city_dunhuang_sky_v01.png",
+   "city": "B7_city_dunhuang_city_ground_v01.png",
+   "title": "B7_city_dunhuang_title_overlay_v01.png",
+   "mask": "B7_city_dunhuang_horizon_edge_protect_mask_v01.png",
+   "recon": "B7_city_dunhuang_layer_reconstruction_preview_v01.png"
+  },
+  "softnessHelper": "B7_city_dunhuang_sky_blur3_v01.png"
+ },
+ "canvas": [
+  720,
+  1600
+ ],
+ "layerOrder": [
+  "SKY",
+  "CITY_GROUND",
+  "TITLE_OVERLAY"
+ ],
+ "colorSpace": "sRGB 8-bit, math on 0..1 values, no linearisation",
+ "transition": {
+  "durationSec": 2.0,
+  "easing": "smoothstep",
+  "interpolate": "every numeric parameter and colour, linear in parameter space; reserved for the formal world-time logic"
+ },
+ "edgeProtect": {
+  "enabled": 1.0,
+  "blendSky": 0.15,
+  "blendCity": 0.15
+ },
+ "states": {
+  "morning": {
+   "visualGoal": "Slightly cooler, lighter and clearer than noon; Dunhuang sky is already pale, so haze/softness are a touch lower than the Khotan baseline. Not grey, not milky.",
+   "sky": {
+    "brightness": 1.05,
+    "contrast": 0.94,
+    "saturation": 0.86,
+    "temperature": -16,
+    "tint": 0,
+    "softness": 0.18,
+    "haze": 0.06,
+    "hazeColor": [
+     0.9,
+     0.94,
+     0.98
+    ],
+    "tintStrength": 0.5,
+    "tintColor": [
+     0.94,
+     0.97,
+     1.0
+    ],
+    "gradientTop": 1.0,
+    "horizonY": 0.43,
+    "glowStrength": 0.0,
+    "glowBand": 0.12,
+    "glowColor": [
+     1.0,
+     0.72,
+     0.45
+    ],
+    "shadowTintStrength": 0.0,
+    "shadowTintColor": [
+     0.5,
+     0.58,
+     0.92
+    ],
+    "shadowPower": 1.6,
+    "shadowLift": 0.0,
+    "shadowLiftColor": [
+     0.05,
+     0.08,
+     0.2
+    ],
+    "highlightTintStrength": 0.0,
+    "highlightTintColor": [
+     0.95,
+     0.96,
+     1.0
+    ],
+    "highlightPower": 2.0,
+    "highlightCompress": 0.0,
+    "highlightKnee": 0.78,
+    "warmProtect": 0.0,
+    "greenProtect": 0.0,
+    "tealProtect": 0.0,
+    "pinkProtect": 0.0,
+    "protectSatLow": 0.15,
+    "protectSatHigh": 0.45
+   },
+   "cityGround": {
+    "brightness": 1.03,
+    "contrast": 0.97,
+    "saturation": 0.98,
+    "temperature": -8,
+    "tint": 0,
+    "softness": 0.0,
+    "haze": 0.03,
+    "hazeColor": [
+     0.86,
+     0.9,
+     0.96
+    ],
+    "tintStrength": 0.5,
+    "tintColor": [
+     0.97,
+     0.985,
+     1.0
+    ],
+    "gradientTop": 1.0,
+    "horizonY": 0.375,
+    "glowStrength": 0.0,
+    "glowBand": 0.12,
+    "glowColor": [
+     1.0,
+     0.72,
+     0.45
+    ],
+    "shadowTintStrength": 0.0,
+    "shadowTintColor": [
+     0.5,
+     0.58,
+     0.92
+    ],
+    "shadowPower": 1.6,
+    "shadowLift": 0.0,
+    "shadowLiftColor": [
+     0.05,
+     0.08,
+     0.2
+    ],
+    "highlightTintStrength": 0.0,
+    "highlightTintColor": [
+     0.95,
+     0.96,
+     1.0
+    ],
+    "highlightPower": 2.0,
+    "highlightCompress": 0.0,
+    "highlightKnee": 0.78,
+    "warmProtect": 0.0,
+    "greenProtect": 0.0,
+    "tealProtect": 0.0,
+    "pinkProtect": 0.0,
+    "protectSatLow": 0.15,
+    "protectSatHigh": 0.45
+   },
+   "titleOverlay": {
+    "brightness": 1.0,
+    "contrast": 1.0,
+    "saturation": 1.0,
+    "temperature": 0.0,
+    "tint": 0.0,
+    "softness": 0.0,
+    "haze": 0.0,
+    "hazeColor": [
+     0.88,
+     0.92,
+     0.97
+    ],
+    "tintStrength": 0.0,
+    "tintColor": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "gradientTop": 1.0,
+    "horizonY": 0.375,
+    "glowStrength": 0.0,
+    "glowBand": 0.12,
+    "glowColor": [
+     1.0,
+     0.72,
+     0.45
+    ],
+    "shadowTintStrength": 0.0,
+    "shadowTintColor": [
+     0.5,
+     0.58,
+     0.92
+    ],
+    "shadowPower": 1.6,
+    "shadowLift": 0.0,
+    "shadowLiftColor": [
+     0.05,
+     0.08,
+     0.2
+    ],
+    "highlightTintStrength": 0.0,
+    "highlightTintColor": [
+     0.95,
+     0.96,
+     1.0
+    ],
+    "highlightPower": 2.0,
+    "highlightCompress": 0.0,
+    "highlightKnee": 0.78,
+    "warmProtect": 0.0,
+    "greenProtect": 0.0,
+    "tealProtect": 0.0,
+    "pinkProtect": 0.0,
+    "protectSatLow": 0.15,
+    "protectSatHigh": 0.45
+   },
+   "globalUnify": {
+    "unifyTintStrength": 0.0,
+    "unifyTint": [
+     0.96,
+     0.97,
+     1.0
+    ],
+    "unifyContrast": 0.0
+   },
+   "edgeProtect": {
+    "enabled": 1.0,
+    "blendSky": 0.15,
+    "blendCity": 0.15
+   }
+  },
+  "noon": {
+   "visualGoal": "Noon: CITY_GROUND and TITLE identical to the cleaned master (neutral). SKY only: contrast 1.10, saturation 1.60, temperature +10 - a punchier, slightly warmer noon sky. Because the sky is graded, Noon is no longer pixel-identical to the reconstruction (sky region differs; city/title diff 0 outside the edge-protect mask).",
+   "sky": {
+    "brightness": 1.0,
+    "contrast": 1.1,
+    "saturation": 1.6,
+    "temperature": 10,
+    "tint": 0.0,
+    "softness": 0.0,
+    "haze": 0.0,
+    "hazeColor": [
+     0.88,
+     0.92,
+     0.97
+    ],
+    "tintStrength": 0.0,
+    "tintColor": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "gradientTop": 1.0,
+    "horizonY": 0.375,
+    "glowStrength": 0.0,
+    "glowBand": 0.12,
+    "glowColor": [
+     1.0,
+     0.72,
+     0.45
+    ],
+    "shadowTintStrength": 0.0,
+    "shadowTintColor": [
+     0.5,
+     0.58,
+     0.92
+    ],
+    "shadowPower": 1.6,
+    "shadowLift": 0.0,
+    "shadowLiftColor": [
+     0.05,
+     0.08,
+     0.2
+    ],
+    "highlightTintStrength": 0.0,
+    "highlightTintColor": [
+     0.95,
+     0.96,
+     1.0
+    ],
+    "highlightPower": 2.0,
+    "highlightCompress": 0.0,
+    "highlightKnee": 0.78,
+    "warmProtect": 0.0,
+    "greenProtect": 0.0,
+    "tealProtect": 0.0,
+    "pinkProtect": 0.0,
+    "protectSatLow": 0.15,
+    "protectSatHigh": 0.45
+   },
+   "cityGround": {
+    "brightness": 1.0,
+    "contrast": 1.0,
+    "saturation": 1.0,
+    "temperature": 0.0,
+    "tint": 0.0,
+    "softness": 0.0,
+    "haze": 0.0,
+    "hazeColor": [
+     0.88,
+     0.92,
+     0.97
+    ],
+    "tintStrength": 0.0,
+    "tintColor": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "gradientTop": 1.0,
+    "horizonY": 0.375,
+    "glowStrength": 0.0,
+    "glowBand": 0.12,
+    "glowColor": [
+     1.0,
+     0.72,
+     0.45
+    ],
+    "shadowTintStrength": 0.0,
+    "shadowTintColor": [
+     0.5,
+     0.58,
+     0.92
+    ],
+    "shadowPower": 1.6,
+    "shadowLift": 0.0,
+    "shadowLiftColor": [
+     0.05,
+     0.08,
+     0.2
+    ],
+    "highlightTintStrength": 0.0,
+    "highlightTintColor": [
+     0.95,
+     0.96,
+     1.0
+    ],
+    "highlightPower": 2.0,
+    "highlightCompress": 0.0,
+    "highlightKnee": 0.78,
+    "warmProtect": 0.0,
+    "greenProtect": 0.0,
+    "tealProtect": 0.0,
+    "pinkProtect": 0.0,
+    "protectSatLow": 0.15,
+    "protectSatHigh": 0.45
+   },
+   "titleOverlay": {
+    "brightness": 1.0,
+    "contrast": 1.0,
+    "saturation": 1.0,
+    "temperature": 0.0,
+    "tint": 0.0,
+    "softness": 0.0,
+    "haze": 0.0,
+    "hazeColor": [
+     0.88,
+     0.92,
+     0.97
+    ],
+    "tintStrength": 0.0,
+    "tintColor": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "gradientTop": 1.0,
+    "horizonY": 0.375,
+    "glowStrength": 0.0,
+    "glowBand": 0.12,
+    "glowColor": [
+     1.0,
+     0.72,
+     0.45
+    ],
+    "shadowTintStrength": 0.0,
+    "shadowTintColor": [
+     0.5,
+     0.58,
+     0.92
+    ],
+    "shadowPower": 1.6,
+    "shadowLift": 0.0,
+    "shadowLiftColor": [
+     0.05,
+     0.08,
+     0.2
+    ],
+    "highlightTintStrength": 0.0,
+    "highlightTintColor": [
+     0.95,
+     0.96,
+     1.0
+    ],
+    "highlightPower": 2.0,
+    "highlightCompress": 0.0,
+    "highlightKnee": 0.78,
+    "warmProtect": 0.0,
+    "greenProtect": 0.0,
+    "tealProtect": 0.0,
+    "pinkProtect": 0.0,
+    "protectSatLow": 0.15,
+    "protectSatHigh": 0.45
+   },
+   "globalUnify": {
+    "unifyTintStrength": 0.0,
+    "unifyTint": [
+     0.96,
+     0.97,
+     1.0
+    ],
+    "unifyContrast": 0.0
+   },
+   "edgeProtect": {
+    "enabled": 1.0,
+    "blendSky": 0.15,
+    "blendCity": 0.15
+   }
+  },
+  "dusk": {
+   "visualGoal": "Blue hour, late phase: deep indigo sky with cloud structure; the flat, exposed desert horizon stays blue (glow kept very faint so the pale horizon band does not turn grey). Ground: sand keeps a faint warm-beige in midtones (global cooling lighter than Khotan), shadows go blue via shadowTint, highlights of the big sand field softly compressed; river teal, oasis greens, red awnings and camel warmth protected. No yellow-grey, no dirt-grey, no dirty orange. Title brightness 0.91 (user choice for Dunhuang; Khotan keeps 0.97), joins the same air.",
+   "sky": {
+    "brightness": 0.58,
+    "contrast": 1.02,
+    "saturation": 0.92,
+    "temperature": -50,
+    "tint": 8,
+    "softness": 0.0,
+    "haze": 0.0,
+    "hazeColor": [
+     0.4,
+     0.47,
+     0.66
+    ],
+    "tintStrength": 0.48,
+    "tintColor": [
+     0.62,
+     0.71,
+     1.0
+    ],
+    "gradientTop": 0.78,
+    "horizonY": 0.43,
+    "glowStrength": 0.06,
+    "glowBand": 0.1,
+    "glowColor": [
+     1.0,
+     0.7,
+     0.45
+    ],
+    "shadowTintStrength": 0.35,
+    "shadowTintColor": [
+     0.55,
+     0.62,
+     0.95
+    ],
+    "shadowPower": 1.6,
+    "shadowLift": 0.06,
+    "shadowLiftColor": [
+     0.06,
+     0.09,
+     0.22
+    ],
+    "highlightTintStrength": 0.3,
+    "highlightTintColor": [
+     0.92,
+     0.94,
+     1.0
+    ],
+    "highlightPower": 2.0,
+    "highlightCompress": 0.25,
+    "highlightKnee": 0.72,
+    "warmProtect": 0.0,
+    "greenProtect": 0.0,
+    "tealProtect": 0.0,
+    "pinkProtect": 0.0,
+    "protectSatLow": 0.15,
+    "protectSatHigh": 0.45
+   },
+   "cityGround": {
+    "brightness": 0.78,
+    "contrast": 1.04,
+    "saturation": 1.05,
+    "temperature": -8,
+    "tint": 1,
+    "softness": 0.0,
+    "haze": 0.0,
+    "hazeColor": [
+     0.55,
+     0.62,
+     0.8
+    ],
+    "tintStrength": 0.1,
+    "tintColor": [
+     0.86,
+     0.9,
+     1.0
+    ],
+    "gradientTop": 1.0,
+    "horizonY": 0.375,
+    "glowStrength": 0.0,
+    "glowBand": 0.12,
+    "glowColor": [
+     1.0,
+     0.72,
+     0.45
+    ],
+    "shadowTintStrength": 0.65,
+    "shadowTintColor": [
+     0.54,
+     0.6,
+     0.9
+    ],
+    "shadowPower": 1.6,
+    "shadowLift": 0.05,
+    "shadowLiftColor": [
+     0.05,
+     0.08,
+     0.2
+    ],
+    "highlightTintStrength": 0.35,
+    "highlightTintColor": [
+     0.95,
+     0.96,
+     1.0
+    ],
+    "highlightPower": 2.0,
+    "highlightCompress": 0.3,
+    "highlightKnee": 0.74,
+    "warmProtect": 0.55,
+    "greenProtect": 0.45,
+    "tealProtect": 0.5,
+    "pinkProtect": 0.0,
+    "protectSatLow": 0.15,
+    "protectSatHigh": 0.45
+   },
+   "titleOverlay": {
+    "brightness": 0.91,
+    "contrast": 1.0,
+    "saturation": 1.0,
+    "temperature": -6,
+    "tint": 0,
+    "softness": 0.0,
+    "haze": 0.0,
+    "hazeColor": [
+     0.88,
+     0.92,
+     0.97
+    ],
+    "tintStrength": 0.4,
+    "tintColor": [
+     0.95,
+     0.965,
+     1.0
+    ],
+    "gradientTop": 1.0,
+    "horizonY": 0.375,
+    "glowStrength": 0.0,
+    "glowBand": 0.12,
+    "glowColor": [
+     1.0,
+     0.72,
+     0.45
+    ],
+    "shadowTintStrength": 0.0,
+    "shadowTintColor": [
+     0.5,
+     0.58,
+     0.92
+    ],
+    "shadowPower": 1.6,
+    "shadowLift": 0.0,
+    "shadowLiftColor": [
+     0.05,
+     0.08,
+     0.2
+    ],
+    "highlightTintStrength": 0.3,
+    "highlightTintColor": [
+     0.96,
+     0.975,
+     1.0
+    ],
+    "highlightPower": 2.0,
+    "highlightCompress": 0.0,
+    "highlightKnee": 0.78,
+    "warmProtect": 0.0,
+    "greenProtect": 0.0,
+    "tealProtect": 0.0,
+    "pinkProtect": 0.0,
+    "protectSatLow": 0.15,
+    "protectSatHigh": 0.45
+   },
+   "globalUnify": {
+    "unifyTintStrength": 0.5,
+    "unifyTint": [
+     0.96,
+     0.97,
+     1.0
+    ],
+    "unifyContrast": 0.06
+   },
+   "edgeProtect": {
+    "enabled": 1.0,
+    "blendSky": 0.06,
+    "blendCity": 0.1
+   }
+  }
+ }
+}

@@ -13,7 +13,7 @@ const noWebp = argv.includes('--no-webp');
 const version = fs.readFileSync(path.join(root, 'model.js'), 'utf8').match(/releaseVersion:\s*'([^']+)'/)[1];
 const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root }).toString().trim();
 const dirty = execFileSync('git', ['status', '--porcelain'], { cwd: root }).toString().trim();
-const tracked = execFileSync('git', ['ls-files'], { cwd: root }).toString().trim().split('\n').filter(f => f && !f.startsWith('tests/') && !f.startsWith('weaving-demo/') && !f.startsWith('weaving-v5/') && !f.startsWith('caravan-demo/') && !f.startsWith('pattern-chain/') && !f.startsWith('.claude/') && f !== '.gitignore');
+const tracked = execFileSync('git', ['ls-files'], { cwd: root }).toString().trim().split('\n').filter(f => f && !f.startsWith('tests/') && !f.startsWith('weaving-demo/') && !f.startsWith('weaving-v5/') && !f.startsWith('caravan-demo/') && !f.startsWith('pattern-chain/') && !f.startsWith('tod-prototype/') && !f.startsWith('.claude/') && f !== '.gitignore');
 const report = { version, commit, dirty: dirty ? dirty.split('\n') : [], builtAt: new Date().toISOString(), skill: 'minitool-zip-builder 1.6.0', steps: [], errors: [], warnings: [] };
 const step = (name, detail) => { report.steps.push({ name, detail }); console.log('• ' + name + (detail ? ': ' + (typeof detail === 'string' ? detail : JSON.stringify(detail)) : '')); };
 const fail = msg => { report.errors.push(msg); console.log('ERROR: ' + msg); };

@@ -6,10 +6,10 @@ const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/M
 function getJSON(url) { return new Promise((res, rej) => http.get(url, r => { let b = ''; r.on('data', d => b += d); r.on('end', () => { try { res(JSON.parse(b)); } catch (e) { rej(e); } }); }).on('error', rej)); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function portFree(port) { try { await getJSON('http://127.0.0.1:' + port + '/json/version'); return false; } catch (_) { return true; } }
-async function launch({ port = 9333, width = 1280, height = 900, mobile = false, profile } = {}) {
+async function launch({ port = 9333, width = 1280, height = 900, mobile = false, profile, gpu = false, extraArgs = [] } = {}) { // gpu: keep WebGL alive in headless (ANGLE / SwiftShader) instead of --disable-gpu
   while (!(await portFree(port))) port++; // never attach to a stale Chrome left behind by an interrupted run
   const dir = profile || fs.mkdtempSync(path.join(os.tmpdir(), 'silk-cdp-'));
-  const args = ['--headless=new', '--remote-debugging-port=' + port, '--user-data-dir=' + dir, '--window-size=' + width + ',' + height, '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--hide-scrollbars', 'about:blank'];
+  const args = ['--headless=new', '--remote-debugging-port=' + port, '--user-data-dir=' + dir, '--window-size=' + width + ',' + height, '--no-first-run', '--no-default-browser-check', ...(gpu ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : ['--disable-gpu']), '--hide-scrollbars', ...extraArgs, 'about:blank'];
   const proc = spawn(CHROME, args, { stdio: ['ignore', 'ignore', 'pipe'] }); let err = ''; proc.stderr.on('data', d => { err += d; });
   let targets; for (let i = 0; i < 100; i++) { await sleep(150); try { targets = await getJSON('http://127.0.0.1:' + port + '/json/list'); if (targets?.length) break; } catch (_) { } }
   if (!targets?.length) { proc.kill(); throw new Error('chrome did not start: ' + err.slice(-500)); }

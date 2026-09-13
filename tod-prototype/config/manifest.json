@@ -1,0 +1,95 @@
+{
+ "schema": "b7-tod-prototype-manifest-v1",
+ "cities": {
+  "khotan": {
+   "name": "于阗",
+   "config": "config/B7_khotan_tod_config_v1.json",
+   "assets": {
+    "sky": "assets/khotan/B7_city_khotan_sky_v01.png",
+    "city": "assets/khotan/B7_city_khotan_city_ground_v01.png",
+    "title": "assets/khotan/B7_city_khotan_title_overlay_v01.png",
+    "mask": "assets/khotan/B7_city_khotan_sky_edge_protect_mask_v01.png",
+    "recon": "assets/khotan/B7_city_khotan_layer_reconstruction_preview_v01.png"
+   },
+   "derived": {
+    "skyBlur": "assets/khotan/derived/B7_city_khotan_sky_blur3_v01.png"
+   },
+   "previews": {
+    "morning": "reference/previews/B7_khotan_tod_morning_v1.png",
+    "noon": "reference/previews/B7_khotan_tod_noon_v1.png",
+    "dusk": "reference/previews/B7_khotan_tod_dusk_v1.png"
+   },
+   "sha256": {
+    "B7_city_khotan_sky_v01.png": "ee06c9bc31225ccbdf06276c0b9dd9e5b72f370a8ef3fb06f55140e1ada6fbc0",
+    "B7_city_khotan_city_ground_v01.png": "f80cfcf23608cade837984232320169b73deef3b1ed4fde3402c2b2bbf6bec44",
+    "B7_city_khotan_title_overlay_v01.png": "f67abf8b9221583030d420904fffd383785f608bb05d3c8e039d57f8d6d52d18",
+    "B7_city_khotan_sky_edge_protect_mask_v01.png": "e456551092fbe6714a2c28632d477ac4f9bedc9c1e83fffb411a7a5ad810dda7",
+    "B7_city_khotan_layer_reconstruction_preview_v01.png": "780faf22367f77396197a8d3b6a0d0777b7590a840c0e41d8790951fd6e965ee"
+   },
+   "configSha256": "f159c0f6aec363e5a2556e95e2df4895edcef7912c450ae58bfd75b1a75e3e1d",
+   "runtimeSet": "B7_city_khotan_runtime_v01",
+   "configVersion": "v1",
+   "status": "approved (human-confirmed: Morning/Noon v0.1, Dusk v0.2, title brightness 0.97)"
+  },
+  "changan": {
+   "name": "长安",
+   "config": "config/B7_changan_tod_config_v1.json",
+   "assets": {
+    "sky": "assets/changan/B7_city_changan_sky_v01.png",
+    "city": "assets/changan/B7_city_changan_city_ground_v01.png",
+    "title": "assets/changan/B7_city_changan_title_overlay_v01.png",
+    "mask": "assets/changan/B7_city_changan_sky_edge_protect_mask_v01.png",
+    "recon": "assets/changan/B7_city_changan_layer_reconstruction_preview_v01.png"
+   },
+   "derived": {
+    "skyBlur": "assets/changan/derived/B7_city_changan_sky_blur3_v01.png"
+   },
+   "previews": {
+    "morning": "reference/previews/B7_changan_tod_morning_v1.png",
+    "noon": "reference/previews/B7_changan_tod_noon_v1.png",
+    "dusk": "reference/previews/B7_changan_tod_dusk_v1.png"
+   },
+   "sha256": {
+    "B7_city_changan_sky_v01.png": "6dcef6417542e5216c8cd7ff0d8ac66efd7c03aa6871c8664adfb5274864b15b",
+    "B7_city_changan_city_ground_v01.png": "b6ac11e56917b6a7907db927a9fb3bb680d16f916eeda4ca44f251ea9bac092f",
+    "B7_city_changan_title_overlay_v01.png": "13876ba92daf5fb401bf1538c4163cb127ead9a10268d72042b0da3d598bebd3",
+    "B7_city_changan_sky_edge_protect_mask_v01.png": "0613f4759c48e62d6db5c2afbcbbc9e9ec064219155d2b1f95e84408ec5f7068",
+    "B7_city_changan_layer_reconstruction_preview_v01.png": "30f6959cb9809f7d20b272865f20c9fdac28f2b4189e68da0d13d59cb3b892de"
+   },
+   "configSha256": "ade4178531922c0708c85e68aaff18078a8add60dca33ae7aff3c6e02896d5ea",
+   "runtimeSet": "B7_city_changan_runtime_v01",
+   "configVersion": "v1",
+   "status": "approved (human-confirmed 2026-09-13; values unchanged from the reviewed v1 candidate)"
+  },
+  "dunhuang": {
+   "name": "敦煌",
+   "config": "config/B7_dunhuang_tod_config_v1.1.json",
+   "assets": {
+    "sky": "assets/dunhuang/B7_city_dunhuang_sky_v01.png",
+    "city": "assets/dunhuang/B7_city_dunhuang_city_ground_v01.png",
+    "title": "assets/dunhuang/B7_city_dunhuang_title_overlay_v01.png",
+    "mask": "assets/dunhuang/B7_city_dunhuang_horizon_edge_protect_mask_v01.png",
+    "recon": "assets/dunhuang/B7_city_dunhuang_layer_reconstruction_preview_v01.png"
+   },
+   "derived": {
+    "skyBlur": "assets/dunhuang/derived/B7_city_dunhuang_sky_blur3_v01.png"
+   },
+   "previews": {
+    "morning": "reference/previews/B7_dunhuang_tod_morning_v1.1.png",
+    "noon": "reference/previews/B7_dunhuang_tod_noon_v1.1.png",
+    "dusk": "reference/previews/B7_dunhuang_tod_dusk_v1.1.png"
+   },
+   "sha256": {
+    "B7_city_dunhuang_sky_v01.png": "805e3030515c4111274645041c4a4c23c29ff6990056c79dd23b80193d059cb3",
+    "B7_city_dunhuang_city_ground_v01.png": "40d67744a7846effa92aa568c20cf7f45d5ad9997a94be68db5b8e9df7726509",
+    "B7_city_dunhuang_title_overlay_v01.png": "c8327cfcb92aef4541a0207983feb12b589aeec0fdfd2664373db716552735c1",
+    "B7_city_dunhuang_horizon_edge_protect_mask_v01.png": "b3b4aab07146b90954feec4071e59b8c1c4240490f9f652e783d47d61bde511a",
+    "B7_city_dunhuang_layer_reconstruction_preview_v01.png": "4330fe8ef429cadd6b6ac54e3a55ce424b9f66bef3a7301a913bff7ce71d3846"
+   },
+   "configSha256": "6debcf4a45f8845aac65230b07116b79cc65c5cea9267ad0e65b0a50354af5ea",
+   "runtimeSet": "B7_city_dunhuang_runtime_v01",
+   "configVersion": "v1.1",
+   "status": "approved (human-confirmed 2026-09-13; v1.1 = v1 + user-specified noon sky contrast 1.1 / saturation 1.6 / temperature +10 and dusk title brightness 0.91; values unchanged from the reviewed candidate)"
+  }
+ }
+}

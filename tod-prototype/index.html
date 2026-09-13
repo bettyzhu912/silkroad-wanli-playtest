@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0d0a08">
+<title>B7 TOD Runtime Validation v0.1</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="tod-prototype.css?v=364ca0e8d5">
+</head>
+<body>
+<div id="scene" class="scene" aria-label="B7 城市主界面背景 · Time-of-Day runtime 验证">
+  <div id="scene-world" class="scene-world">
+    <canvas id="bg" class="city-background" width="720" height="1600" aria-label="城市背景 runtime 合成"></canvas>
+    <img id="preview-overlay" class="preview-overlay" alt="" draggable="false" hidden>
+    <div id="wipe" class="wipe" hidden></div>
+    <div id="guide" class="b7-guide" hidden><div class="slack-line"></div><div class="std-frame"></div></div>
+  </div>
+</div>
+<div id="panel" class="panel">
+  <div class="row head"><b>B7 TOD runtime · 验证原型 v0.1</b><span class="tag" id="tag-city">—</span><button type="button" class="btn" id="btn-collapse">收起</button></div>
+  <div class="row"><span class="lbl">城市</span><span class="seg" id="seg-city"><button type="button" data-city="changan">长安</button><button type="button" data-city="dunhuang">敦煌</button><button type="button" data-city="khotan">于阗</button></span></div>
+  <div class="row"><span class="lbl">时段</span><span class="seg" id="seg-state"><button type="button" data-state="morning">Morning 晨</button><button type="button" data-state="noon">Noon 午</button><button type="button" data-state="dusk">Dusk 暮</button></span></div>
+  <div class="row"><span class="lbl">切换</span><span class="seg" id="seg-mode"><button type="button" data-mode="instant" aria-pressed="true">instant</button><button type="button" data-mode="transition">transition</button></span><label>时长 <input type="range" id="tr-range" min="0" max="6" step="0.1"> <span id="tr-val">2.0</span> s <small id="tr-note">(config.transition.durationSec 预留值)</small></label></div>
+  <div class="row"><span class="lbl">图层</span><button type="button" class="chip" id="tg-sky" aria-pressed="true">SKY</button><button type="button" class="chip" id="tg-city" aria-pressed="true">CITY_GROUND</button><button type="button" class="chip" id="tg-title" aria-pressed="true">TITLE_OVERLAY</button><button type="button" class="chip" id="tg-mask" aria-pressed="false">protect mask</button></div>
+  <div class="row"><span class="lbl">对比</span><button type="button" class="chip" id="tg-compare" aria-pressed="false">母版擦除线</button><button type="button" class="chip" id="tg-preview" aria-pressed="false">approved 预览擦除线</button><button type="button" class="chip" id="tg-guide" aria-pressed="false">B7 基准框</button><button type="button" class="btn" id="btn-measure">测量</button><button type="button" class="btn" id="btn-diff">对母版 diff</button></div>
+  <div class="row"><pre class="readout" id="readout">loading…</pre></div>
+</div>
+<div id="msg" class="msg" hidden></div>
+<script src="tod-runtime.js?v=364ca0e8d5"></script>
+<script src="tod-debug.js?v=364ca0e8d5"></script>
+</body>
+</html>
