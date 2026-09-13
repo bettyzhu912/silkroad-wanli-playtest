@@ -11,7 +11,7 @@
     yellow: '<path fill-rule="evenodd" d="M24 4L44 24 24 44 4 24Z M24 13L35 24 24 35 13 24Z"/><path d="M24 18l6 6-6 6-6-6z"/>',
     purple: [0, 90, 180, 270].map(a => `<ellipse cx="24" cy="12" rx="6.5" ry="11" transform="rotate(${a} 24 24)"/>`).join('') + '<circle cx="24" cy="24" r="4.2" fill="#fff" fill-opacity=".8"/><circle cx="24" cy="24" r="2.2"/>'
   };
-  const glyph = (id, cls) => `<svg class="glyph ${cls || ''}" viewBox="0 0 48 48" fill="currentColor" aria-hidden="true">${GLYPH[id]}</svg>`;
+  const glyph = (id, cls) => `<svg class="glyph ${cls || ''}" viewBox="0 0 48 48" fill="currentColor" aria-hidden="true">${GLYPH[id] || GLYPH.red}</svg>`; // PATCH B: an unknown id never yields an empty (blank) glyph
   const $ = id => document.getElementById(id), el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
   const nodes = { app: $('app'), stage: $('stage'), bg: $('bg'), layer: $('layer'), lines: $('lines'), chips: $('chips'), hud: $('hud'), hudCount: $('hud-count'), hudFill: $('hud-fill'), hudSun: $('hud-sun'), hudSecs: $('hud-secs'), pause: $('pause'), overlay: $('overlay') };
   const ui = { run: null, mode: 'entry', scale: 1, left: 0, top: 0, phaseShown: null, drag: null, lastFrame: 0, raf: 0, overlay: null, teachQueue: [], seenTeach: {} };
@@ -94,7 +94,8 @@
   }
   function refreshWeave() {
     const run = ui.run, b = boardOf(), urgent = run.phase === 'URGENT';
-    nodes.layer.querySelectorAll('.target').forEach(t => { const j = +t.dataset.slot, id = b.targets[j]; if (t.dataset.id !== id) { t.dataset.id = id; t.innerHTML = glyph(id); t.style.setProperty('--silk', ID[id].hex); } t.classList.toggle('lit', Boolean(b.lit[id])); t.classList.toggle('urgent-req', urgent && run.urgent.required.includes(id)); });
+    // PATCH B: the finished-pattern plaques are driven only by the persistent board state (targets / lit); a plaque is never re-rendered from an invalid id — the last valid glyph is kept — and a lit 素白 plaque is outlined so it never blends into the parchment (see weaving.css).
+    nodes.layer.querySelectorAll('.target').forEach(t => { const j = +t.dataset.slot, raw = b.targets[j], id = ID[raw] ? raw : (ID[t.dataset.id] ? t.dataset.id : null); if (!id) return; if (t.dataset.id !== id || !t.querySelector('.glyph')) { t.dataset.id = id; t.innerHTML = glyph(id); t.style.setProperty('--silk', ID[id].hex); } t.classList.toggle('lit', Boolean(b.lit[id])); t.classList.toggle('urgent-req', urgent && run.urgent.required.includes(id)); });
     nodes.layer.querySelectorAll('.bundle-top').forEach(x => { x.classList.toggle('done', Boolean(b.lit[x.dataset.id])); x.classList.toggle('urgent-req', urgent && run.urgent.required.includes(x.dataset.id)); });
     const litNodes = {}; for (const [id, p] of Object.entries(b.paths)) for (const n of p) litNodes[n] = id; if (b.current) for (const n of b.current.nodes) litNodes[n] = b.current.identity;
     const loose = !urgent && run.weave.loose, knot = !urgent && run.weave.knot;
