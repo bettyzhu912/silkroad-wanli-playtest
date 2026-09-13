@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#2a1f16">
+<link rel="icon" href="data:,">
+<title>缀纹成章 · standalone 试玩</title>
+<link rel="stylesheet" href="pattern-chain.css">
+</head>
+<body>
+<div id="host" class="host">
+  <div class="city" aria-hidden="true"><img src="assets/mock/B7_city_dunhuang_bg_v01_20x9.webp" alt="" draggable="false"></div>
+  <div class="city-hud" aria-hidden="true"><span class="city-name">敦煌</span><span class="city-time" id="city-time">第 1 天 · 晨</span><span class="city-cash" id="city-cash">100 钱</span></div>
+  <div class="city-nav" aria-hidden="true"><span>行囊</span><span>任务</span><span>地图</span><span>营生</span><span>设置</span></div>
+  <div id="dim" class="dim"></div>
+  <div id="entry" class="entry" hidden><button id="btn-entry" class="entry-button" type="button">进入缀纹成章</button><p class="entry-note">模拟入口（standalone 测试版）· 主游戏 B7 营生入口未接入</p></div>
+  <div id="modal" class="modal" role="dialog" aria-label="缀纹成章">
+    <section id="page-ready" class="page page-ready">
+      <img class="page-bg" src="assets/runtime/DPC_READY_BG_v01.rt1646.webp" alt="" draggable="false">
+      <button class="close" id="ready-close" type="button" aria-label="关闭">×</button>
+      <div class="ready-body">
+        <h1 class="title">缀纹成章</h1>
+        <div class="title-ornament" aria-hidden="true"><i></i><b></b><i></i></div>
+        <p class="subtitle">连缀纹样，观其成章。</p>
+        <p class="intro">在限定时间与笔数内，拖动连起相同纹样。<br>连得越长，得分越高；长链还能生成万能图样。<br>一局结束后，你本轮连缀最多的纹样将逐步展开为完整敦煌图样。</p>
+        <div class="time-hint" id="time-hint"><span class="sun" aria-hidden="true"></span><span id="time-hint-text">当前：晨 · 可开始帮工</span></div>
+        <button id="btn-formal" class="btn btn-primary" type="button">开始帮工</button>
+        <button id="btn-trial" class="btn btn-secondary" type="button">试玩</button>
+        <p class="trial-note">完整体验玩法与结算，不消耗时间，也不获得实际收益。</p>
+        <button id="btn-howto" class="btn btn-text" type="button">玩法说明 <span class="chev">›</span></button>
+      </div>
+    </section>
+    <section id="page-howto" class="page page-howto" hidden>
+      <img class="page-bg" src="assets/runtime/DPC_READY_BG_v01.rt1646.webp" alt="" draggable="false">
+      <button class="close" id="howto-close" type="button" aria-label="返回">×</button>
+      <div class="howto-body">
+        <h2 class="title2">玩法说明</h2>
+        <ol class="howto-list">
+          <li>拖动连接相邻的相同纹样，3 个及以上即可完成一笔。</li>
+          <li>可沿八个方向连接，也可以在拖动过程中逐格回退。</li>
+          <li>万能图样可代替任意普通纹样；一笔连到 8 个及以上时，会生成 1 个万能图样。</li>
+          <li>在有限时间与有效笔数内规划更长的路径，获得更高分。</li>
+          <li>结算时，你本轮连缀最多的纹样会从单一图样逐步组合成完整纹样。</li>
+        </ol>
+        <div class="legend" id="howto-legend"></div>
+        <button id="btn-howto-back" class="btn btn-secondary" type="button">返回</button>
+      </div>
+    </section>
+    <section id="page-game" class="page page-game" hidden>
+      <div class="game-hud">
+        <div class="hud-item"><span class="hud-label">余时</span><b id="hud-time">60</b><span class="hud-unit">秒</span></div>
+        <div class="hud-bar" id="hud-bar"><i id="hud-fill"></i></div>
+        <div class="hud-item"><span class="hud-label">余笔</span><b id="hud-strokes">10</b></div>
+        <div class="hud-item"><span class="hud-label">得分</span><b id="hud-score">0</b></div>
+        <span class="hud-mode" id="hud-mode">试玩</span>
+        <button class="close close-game" id="game-close" type="button" aria-label="中止">×</button>
+      </div>
+      <div class="board-wrap" id="board-wrap">
+        <div class="board-bg-clip"><img class="board-bg" src="assets/runtime/DPC_BOARD_BG_SILK_v01.rt1024.webp" alt="" draggable="false"></div>
+        <div class="tiles" id="tiles"></div>
+        <svg class="path-layer" id="path-layer" viewBox="0 0 1056 1310" preserveAspectRatio="none" aria-hidden="true"><polyline id="path-line" points=""></polyline></svg>
+        <div class="preview-badge" id="preview-badge" hidden><img src="assets/runtime/DPC_07_BAOXIANGHUA_WILDCARD_v01.rt192.webp" alt=""><span>将生成万能图样</span></div>
+        <div class="board-notice" id="board-notice" hidden>无可连之路 · 已重排</div>
+      </div>
+      <div class="cancel-zone" id="cancel-zone">拖到这里取消本笔</div>
+      <div class="active-motifs" id="active-motifs"></div>
+    </section>
+    <section id="page-settle" class="page page-settle" hidden>
+      <img class="page-bg" src="assets/runtime/DPC_READY_BG_v01.rt1646.webp" alt="" draggable="false">
+      <div class="settle-body">
+        <h2 class="title settle-title">帮工完成</h2>
+        <p class="settle-sub">本轮连缀最多的纹样</p>
+        <div class="motif-plaque"><span class="plaque-orn" aria-hidden="true"></span><span id="settle-motif-name">—</span><span class="plaque-orn r" aria-hidden="true"></span></div>
+        <div class="reveal-row" id="reveal-row">
+          <div class="reveal-unit"><img id="reveal-unit-img" alt="最小单元" draggable="false"></div>
+          <div class="reveal-mid"><svg class="reveal-arrow" viewBox="0 0 60 24" aria-hidden="true"><path class="arrow-line" d="M3 12 C 18 3, 36 21, 55 12"/><path class="arrow-head" d="M48 6 L56 12 L48 18"/></svg></div>
+          <div class="reveal-full"><canvas id="reveal-canvas" aria-hidden="true"></canvas><img id="reveal-full-img" alt="完整图样" draggable="false" hidden></div>
+        </div>
+        <p class="settle-copy" id="settle-copy">你本轮最常连缀的纹样，已渐次成章。</p>
+        <div class="divider" aria-hidden="true"><i></i><span class="flower"></span><i></i></div>
+        <ul class="stats" id="settle-stats"></ul>
+        <div class="settle-buttons" id="settle-buttons"></div>
+        <span class="fixture-tag" id="fixture-tag" hidden>调试夹具 · 非真实对局</span>
+      </div>
+    </section>
+    <div id="dialog" class="dialog" hidden><div class="dialog-box"><p id="dialog-text"></p><div class="dialog-buttons"><button id="dialog-cancel" class="btn btn-secondary small" type="button">继续帮工</button><button id="dialog-ok" class="btn btn-primary small" type="button">中止</button></div></div></div>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+  <button id="debug-toggle" class="debug-toggle" type="button">模拟 host</button>
+  <div id="debug" class="debug" hidden></div>
+</div>
+<script src="pattern-chain-engine.js"></script>
+<script src="pattern-chain-host-mock.js"></script>
+<script src="pattern-chain-reveal.js"></script>
+<script src="pattern-chain-ui.js"></script>
+</body>
+</html>

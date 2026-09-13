@@ -1,0 +1,276 @@
+{
+ "generated": "2026-09-13",
+ "policy": "ZHUWEN_CHENGZHANG_ASSET_MANIFEST_v1.1 §8 runtime derivatives: canonical 17 PNG remain the source assets; these files are derived copies for standalone loading performance only",
+ "derivatives": [
+  {
+   "canonical": "DPC_01_LOTUS_PETAL_C217_v01.png",
+   "canonical_sha256": "b703abb6124413d1637004d904c1844d1604b3e78e8811cbc67df70993837a4c",
+   "source_size": [
+    1254,
+    1254
+   ],
+   "derivative": "DPC_01_LOTUS_PETAL_C217_v01.rt192.webp",
+   "derivative_size": [
+    192,
+    192
+   ],
+   "mode": "RGBA",
+   "quality": 90,
+   "kind": "tile",
+   "bytes": 12416,
+   "note": "runtime derivative / optimized asset; scaled (LANCZOS) and WebP-encoded only; composition, colour, alpha relationship and content unchanged"
+  },
+  {
+   "canonical": "DPC_02_DRAGON_C392_v01.png",
+   "canonical_sha256": "4cbb21f52c5be0aa6abcd999c5fe09a72581830c652d1a054568755542e8c07f",
+   "source_size": [
+    700,
+    887
+   ],
+   "derivative": "DPC_02_DRAGON_C392_v01.rt192.webp",
+   "derivative_size": [
+    152,
+    192
+   ],
+   "mode": "RGBA",
+   "quality": 90,
+   "kind": "tile",
+   "bytes": 12878,
+   "note": "runtime derivative / optimized asset; scaled (LANCZOS) and WebP-encoded only; composition, colour, alpha relationship and content unchanged"
+  },
+  {
+   "canonical": "DPC_03_THREE_HARES_RABBIT_C407_v01.png",
+   "canonical_sha256": "1a22dfe9cccc4fd86975391c62acb09ce3daf876b700c16c2dba4250f6879e2b",
+   "source_size": [
+    1254,
+    1254
+   ],
+   "derivative": "DPC_03_THREE_HARES_RABBIT_C407_v01.rt192.webp",
+   "derivative_size": [
+    192,
+    192
+   ],
+   "mode": "RGBA",
+   "quality": 90,
+   "kind": "tile",
+   "bytes": 12812,
+   "note": "runtime derivative / optimized asset; scaled (LANCZOS) and WebP-encoded only; composition, colour, alpha relationship and content unchanged"
+  },
+  {
+   "canonical": "DPC_04_POMEGRANATE_SCROLL_C148_v01.png",
+   "canonical_sha256": "b00cf7b7970620e1c8e15e1ad994973c2edf1ce0ec1bd5486ad4489ff5f5a389",
+   "source_size": [
+    1254,
+    1254
+   ],
+   "derivative": "DPC_04_POMEGRANATE_SCROLL_C148_v01.rt192.webp",
+   "derivative_size": [
+    192,
+    192
+   ],
+   "mode": "RGBA",
+   "quality": 90,
+   "kind": "tile",
+   "bytes": 22256,
+   "note": "runtime derivative / optimized asset; scaled (LANCZOS) and WebP-encoded only; composition, colour, alpha relationship and content unchanged"
+  },
+  {
+   "canonical": "DPC_05_PEARL_CHAIN_C334_v01.png",
+   "canonical_sha256": "6c26ce6aef7c4745f906343b842468bd75658162e15f691c1df5fd7ea4289f96",
+   "source_size": [
+    1254,
+    1254
+   ],
+   "derivative": "DPC_05_PEARL_CHAIN_C334_v01.rt192.webp",
+   "derivative_size": [
+    192,
+    192
+   ],
+   "mode": "RGBA",
+   "quality": 90,
+   "kind": "tile",
+   "bytes": 9112,
+   "note": "runtime derivative / optimized asset; scaled (LANCZOS) and WebP-encoded only; composition, colour, alpha relationship and content unchanged"
+  },
+  {
+   "canonical": "DPC_06_DIAMOND_PATTERN_C079_v01.png",
+   "canonical_sha256": "fa8b95675ce05f9402f0641545adc6519251785b64986fcd4f7f2288ea16c695",
+   "source_size": [
+    1254,
+    1254
+   ],
+   "derivative": "DPC_06_DIAMOND_PATTERN_C079_v01.rt192.webp",
+   "derivative_size": [
+    192,
+    192
+   ],
+   "mode": "RGBA",
+   "quality": 90,
+   "kind": "tile",
+   "bytes": 8782,
+   "note": "runtime derivative / optimized asset; scaled (LANCZOS) and WebP-encoded only; composition, colour, alpha relationship and content unchanged"
+  },
+  {
+   "canonical": "DPC_07_BAOXIANGHUA_WILDCARD_v01.png",
+   "canonical_sha256": "ef94f5afe23c0e39f0e83cc40d09ed3d6eb15092381add9421e9ebbee4b2652a",
+   "source_size": [
+    1254,
+    1254
+   ],
+   "derivative": "DPC_07_BAOXIANGHUA_WILDCARD_v01.rt192.webp",
+   "derivative_size": [
+    192,
+    192
+   ],
+   "mode": "RGBA",
+   "quality": 90,
+   "kind": "tile",
+   "bytes": 22998,
+   "note": "runtime derivative / optimized asset; scaled (LANCZOS) and WebP-encoded only; composition, colour, alpha relationship and content unchanged"
+  },
+  {
+   "canonical": "DPC_FULL_01_LOTUS_ROSETTE_C217_v01.png",
+   "canonical_sha256": "fe4ee8ee84cd6ae32eec54d674611cd8576d10288f6c8c9679f8557bed7d3bd5",
+   "source_size": [
+    1254,
+    1254
+   ],
+   "derivative": "DPC_FULL_01_LOTUS_ROSETTE_C217_v01.rt640.webp",
+   "derivative_size": [
+    640,
+    640
+   ],
+   "mode": "RGBA",
+   "quality": 88,
+   "kind": "full_pattern",
+   "bytes": 145232,
+   "note": "runtime derivative / optimized asset; scaled (LANCZOS) and WebP-encoded only; composition, colour, alpha relationship and content unchanged"
+  },
+  {
+   "canonical": "DPC_FULL_02_DOUBLE_DRAGON_C392_v01.png",
+   "canonical_sha256": "e8c24d34440641a8673f1989dce896c56a64d9e9bd64357c9eeacb14025b385f",
+   "source_size": [
+    1074,
+    887
+   ],
+   "derivative": "DPC_FULL_02_DOUBLE_DRAGON_C392_v01.rt640.webp",
+   "derivative_size": [
+    640,
+    529
+   ],
+   "mode": "RGBA",
+   "quality": 88,
+   "kind": "full_pattern",
+   "bytes": 112182,
+   "note": "runtime derivative / optimized asset; scaled (LANCZOS) and WebP-encoded only; composition, colour, alpha relationship and content unchanged"
+  },
+  {
+   "canonical": "DPC_FULL_03_THREE_HARES_ROUNDEL_C407_v01.png",
+   "canonical_sha256": "86ee7d05afe81fc7305a6c368372e25130d3236b06514ae1db2dc4684225b9fb",
+   "source_size": [
+    2048,
+    2048
+   ],
+   "derivative": "DPC_FULL_03_THREE_HARES_ROUNDEL_C407_v01.rt640.webp",
+   "derivative_size": [
+    640,
+    640
+   ],
+   "mode": "RGBA",
+   "quality": 88,
+   "kind": "full_pattern",
+   "bytes": 137116,
+   "note": "runtime derivative / optimized asset; scaled (LANCZOS) and WebP-encoded only; composition, colour, alpha relationship and content unchanged"
+  },
+  {
+   "canonical": "DPC_FULL_04_POMEGRANATE_SCROLL_BAND_C148_v01.png",
+   "canonical_sha256": "7320a12bb509dea53a09ba807b8f038c2f8a08b8c61096774812f449b1f97bb8",
+   "source_size": [
+    1024,
+    1536
+   ],
+   "derivative": "DPC_FULL_04_POMEGRANATE_SCROLL_BAND_C148_v01.rt640.webp",
+   "derivative_size": [
+    427,
+    640
+   ],
+   "mode": "RGBA",
+   "quality": 88,
+   "kind": "full_pattern",
+   "bytes": 69630,
+   "note": "runtime derivative / optimized asset; scaled (LANCZOS) and WebP-encoded only; composition, colour, alpha relationship and content unchanged"
+  },
+  {
+   "canonical": "DPC_FULL_05_PEARL_CHAIN_BAND_C334_v01.png",
+   "canonical_sha256": "01fd2f6f597b921ce28ea8dc2a000fca0a646bf1ef7086c4d2d26dfa0c5f7c46",
+   "source_size": [
+    1254,
+    1254
+   ],
+   "derivative": "DPC_FULL_05_PEARL_CHAIN_BAND_C334_v01.rt640.webp",
+   "derivative_size": [
+    640,
+    640
+   ],
+   "mode": "RGBA",
+   "quality": 88,
+   "kind": "full_pattern",
+   "bytes": 121134,
+   "note": "runtime derivative / optimized asset; scaled (LANCZOS) and WebP-encoded only; composition, colour, alpha relationship and content unchanged"
+  },
+  {
+   "canonical": "DPC_FULL_06_DIAMOND_REPEAT_C079_v01.png",
+   "canonical_sha256": "bae34b1db4f50e173a5cecceffd5030c1b96135b01e1209bdfe1f88d6f235a13",
+   "source_size": [
+    1254,
+    1254
+   ],
+   "derivative": "DPC_FULL_06_DIAMOND_REPEAT_C079_v01.rt640.webp",
+   "derivative_size": [
+    640,
+    640
+   ],
+   "mode": "RGB",
+   "quality": 88,
+   "kind": "full_pattern",
+   "bytes": 120658,
+   "note": "runtime derivative / optimized asset; scaled (LANCZOS) and WebP-encoded only; composition, colour, alpha relationship and content unchanged"
+  },
+  {
+   "canonical": "DPC_BOARD_BG_SILK_v01.png",
+   "canonical_sha256": "aa33d843b096ec28ea2047024810785b97312f235d4ebfabc9048ad694375e6f",
+   "source_size": [
+    1161,
+    1355
+   ],
+   "derivative": "DPC_BOARD_BG_SILK_v01.rt1024.webp",
+   "derivative_size": [
+    877,
+    1024
+   ],
+   "mode": "RGB",
+   "quality": 86,
+   "kind": "board_background",
+   "bytes": 39464,
+   "note": "runtime derivative / optimized asset; scaled (LANCZOS) and WebP-encoded only; composition, colour, alpha relationship and content unchanged"
+  },
+  {
+   "canonical": "DPC_READY_BG_v01.png",
+   "canonical_sha256": "1ad15cd2b94dfdf230498404c67a4595cb1c6310a3ba2b06f9a6e560b7dcc4ea",
+   "source_size": [
+    956,
+    1646
+   ],
+   "derivative": "DPC_READY_BG_v01.rt1646.webp",
+   "derivative_size": [
+    956,
+    1646
+   ],
+   "mode": "RGB",
+   "quality": 84,
+   "kind": "page_background",
+   "bytes": 217036,
+   "note": "runtime derivative / optimized asset; scaled (LANCZOS) and WebP-encoded only; composition, colour, alpha relationship and content unchanged"
+  }
+ ]
+}
