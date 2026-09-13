@@ -1,0 +1,107 @@
+{
+ "art": {
+  "w": 864,
+  "h": 1536
+ },
+ "crop": {
+  "x0": 82,
+  "x1": 782,
+  "w": 700
+ },
+ "top": 158,
+ "feather": 10,
+ "phases": {
+  "sort": {
+   "img": "art/modal/body_sort.webp",
+   "src": "art/bg_sort.jpg",
+   "w": 700,
+   "h": 1091,
+   "end": 1336,
+   "removed": [
+    [
+     708,
+     795
+    ]
+   ]
+  },
+  "warp": {
+   "img": "art/modal/body_warp.webp",
+   "src": "art/bg_warp.jpg",
+   "w": 700,
+   "h": 1091,
+   "end": 1336,
+   "removed": [
+    [
+     550,
+     577
+    ],
+    [
+     787,
+     803
+    ],
+    [
+     953,
+     983
+    ],
+    [
+     1320,
+     1334
+    ]
+   ]
+  },
+  "warp_done": {
+   "img": "art/modal/body_warp_done.webp",
+   "src": "art/bg_warp_done.jpg",
+   "w": 700,
+   "h": 1091,
+   "end": 1349,
+   "removed": [
+    [
+     505,
+     550
+    ],
+    [
+     989,
+     1044
+    ]
+   ]
+  },
+  "weave": {
+   "img": "art/modal/body_weave.webp",
+   "src": "art/bg_weave.jpg",
+   "w": 700,
+   "h": 1091,
+   "end": 1336,
+   "removed": [
+    [
+     976,
+     991
+    ],
+    [
+     1136,
+     1185
+    ],
+    [
+     1237,
+     1260
+    ]
+   ]
+  }
+ },
+ "settle": {
+  "img": "art/modal/body_settle.webp",
+  "src": "art/src/ui09_settle_template_v1.1.png",
+  "srcW": 954,
+  "srcH": 1649,
+  "top": 168,
+  "w": 954,
+  "h": 1481
+ },
+ "sources": {
+  "art/bg_sort.jpg": "522d4de64fc62d305f156ea52bbb446afb237980e4210387d08389b68cfde413",
+  "art/bg_warp.jpg": "3550089743ff39ecf9d79555e31759900d7980ed3a33f9d1cc67a03f1920d8fe",
+  "art/bg_warp_done.jpg": "5c7f40b2f14c8653cb8f6083945f5c3ce71c9f16063182569f81d8db5ce52f36",
+  "art/bg_weave.jpg": "54a2b2d417db15bec7aff77e1f70cd0ae2ca50e75b4a0431f7cb9e1c7349049f",
+  "art/src/ui09_settle_template_v1.1.png": "56090ebf43bc36d209520f77ca78a1b2e6bc664bace3b7da986b387f9ba08de4"
+ }
+}

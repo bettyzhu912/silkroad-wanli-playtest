@@ -1,6 +1,6 @@
 'use strict';
-// 于阗织坊 FINAL v5.0 hotfix regression (PATCH A / PATCH B) — real mouse input through the Chrome DevTools protocol on the stand-alone
-// page weaving-v5/. Each run: 正式帮工 → 理丝 (drag every bundle to its tag) → 定经 (drag every weight into 合宜) → 进入开工 → three rounds of
+// 于阗织坊 FINAL v5.0 hotfix regression (PATCH A / PATCH B), modal edition — real mouse input through the Chrome DevTools protocol on the
+// stand-alone page weaving-v5/ (360×620 modal: painting coordinates are mapped to the screen through YutianWeavingUI.geom() of the current body). Each run: 正式帮工 → 理丝 (drag every bundle to its tag) → 定经 (drag every weight into 合宜) → 进入开工 → three rounds of
 // five routed lines (knots untied, loose threads repaired, the 急束 challenge woven on its own board) → 今日收工. Scenario flags per run:
 // fast (no pauses between moves), pauseAt (pause / resume after that line), timeoutAt (the sun runs out after that line), viaStay (the next run
 // starts from 继续留坊), forceUrgent. After every finished line, every round start, every 急束 end and every resume, each lit target plaque is
@@ -39,12 +39,13 @@ function inkFraction(img, rect) { // fraction of pixels in rect that are not par
   const c = await launch({ port: Number(flag('--cdp')) || 9663, width: W, height: H, mobile: true });
   const ev = js => c.eval(js);
   const mouse = async (type, x, y, extra = {}) => c.send('Input.dispatchMouseEvent', Object.assign({ type, x, y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: type === 'mouseMoved' ? 0 : 1, pointerType: 'mouse' }, extra));
-  const geom = async () => ev('(()=>{const u=YutianWeavingUI.ui;return {scale:u.scale,left:u.left,top:u.top}})()');
-  let G = null; const S = (ax, ay) => ({ x: ax * G.scale + G.left, y: ay * G.scale + G.top });
+  const geom = async () => ev('YutianWeavingUI.geom()');
+  let G = null; const syncG = async () => { G = await geom(); return G; }; const T9 = { stay: [295, 1423], leave: [665, 1423] }; // UI-09 template coordinates of the painted buttons
+  const S = (ax, ay) => { let cy = ay - G.artTop; for (const [a, b] of G.removed) { if (ay >= b) cy -= b - a; else if (ay > a) { cy -= ay - a; break; } } return { x: G.left + G.ox + (ax - G.x0) * G.k, y: G.top + G.oy + cy * G.k }; }; // painting px → client px through the composed body of the current phase
   const run = () => ev('(()=>{const r=YutianWeavingUI.ui.run;if(!r)return null;const b=r.phase==="URGENT"?r.urgent.board:r.weave.board;return {phase:r.phase,paused:r.paused,round:r.weave.round,total:r.weave.totalCompleted,rounds:r.weave.roundsCompleted,timeLeft:r.timeLeftMs,tray:r.sort.tray,placed:Object.keys(r.sort.placed).length,warp:r.warp.values,warpDone:r.warp.done,targets:b?b.targets:null,lit:b?Object.keys(b.lit):null,knot:r.weave.knot?r.weave.knot.node:null,loose:r.weave.loose?{from:r.weave.loose.from,to:r.weave.loose.to}:null,urgent:r.urgent?{required:r.urgent.required,lit:Object.keys(r.urgent.board.lit),msLeft:r.urgent.msLeft}:null,status:r.status,wages:r.wages,overlay:YutianWeavingUI.ui.overlay,mode:YutianWeavingUI.ui.mode}})()');
   const waitFor = async (pred, ms = 6000, step = 60) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { const r = await run(); if (pred(r)) return r; await sleep(step); } return await run(); };
   const drag = async (from, to, steps, dwell) => { await mouse('mousePressed', from.x, from.y); await sleep(dwell); for (let i = 1; i <= steps; i++) { await mouse('mouseMoved', from.x + (to.x - from.x) * i / steps, from.y + (to.y - from.y) * i / steps); if (dwell) await sleep(dwell / 2); } await mouse('mouseReleased', to.x, to.y); };
-  const clickArt = async (ax, ay) => { const p = S(ax, ay); await mouse('mousePressed', p.x, p.y); await sleep(30); await mouse('mouseReleased', p.x, p.y); };
+  const clickArt = async (ax, ay) => { await syncG(); const p = S(ax, ay); await mouse('mousePressed', p.x, p.y); await sleep(30); await mouse('mouseReleased', p.x, p.y); };
   const clickText = text => ev(`(()=>{const b=[...document.querySelectorAll('button')].find(b=>!b.disabled&&b.offsetParent!==null&&b.textContent.trim()===${JSON.stringify(text)});if(!b)return false;b.click();return true})()`);
   const plaques = () => ev('[...document.querySelectorAll(".target")].map(t=>{const r=t.getBoundingClientRect();const g=t.querySelector(".glyph");const gr=g?g.getBoundingClientRect():null;const cs=getComputedStyle(t);return {slot:t.dataset.slot,id:t.dataset.id,lit:t.classList.contains("lit"),rect:{x:r.x,y:r.y,w:r.width,h:r.height},glyph:gr?{x:gr.x,y:gr.y,w:gr.width,h:gr.height,color:getComputedStyle(g).color}:null,vis:cs.visibility,op:cs.opacity,disp:cs.display}})');
   const stats = { plaqueChecks: 0, blank: 0, minInk: {}, byId: {}, lines: 0, knots: 0, loose: 0, urgent: 0, pauses: 0 };
@@ -69,7 +70,7 @@ function inkFraction(img, rect) { // fraction of pixels in rect that are not par
     await mouse('mouseReleased', pts[pts.length - 1].x, pts[pts.length - 1].y);
   };
   const clearFaults = async (tag) => { // knot: click the mark; loose: drag from → to (both real input); returns after the board is free
-    for (let guard = 0; guard < 6; guard++) { const r = await run(); if (r.phase !== 'WEAVE') return r;
+    for (let guard = 0; guard < 6; guard++) { const r = await run(); if (r.phase !== 'WEAVE') return r; await syncG();
       if (r.knot !== null) { stats.knots++; const n = r.knot, p = S(ART.cols[n % 5], ART.rows[Math.floor(n / 5)]); await mouse('mousePressed', p.x, p.y); await sleep(20); await mouse('mouseReleased', p.x, p.y); await sleep(80); const r2 = await run(); if (r2.knot !== null) { await ev('YutianWeavingUI.E.knotUntie(YutianWeavingUI.ui.run);YutianWeavingUI.refresh()'); check(tag + ' knot untied by real click', false, 'fallback to engine call'); } continue; }
       if (r.loose) { stats.loose++; const a = S(ART.cols[r.loose.from % 5], ART.rows[Math.floor(r.loose.from / 5)]), b = S(ART.cols[r.loose.to % 5], ART.rows[Math.floor(r.loose.to / 5)]); await drag(a, b, 4, 20); await sleep(80); const r2 = await run(); if (r2.loose) { await ev('const R=YutianWeavingUI.ui.run;YutianWeavingUI.E.looseRepair(R,R.weave.loose.from,R.weave.loose.to);YutianWeavingUI.refresh()'); check(tag + ' loose thread repaired by real drag', false, 'fallback to engine call'); } continue; }
       return r; }
@@ -77,7 +78,7 @@ function inkFraction(img, rect) { // fraction of pixels in rect that are not par
   };
   const weaveBoard = async (tag, fast, opts) => { // finishes the current board (round or urgent); returns when the phase moves on
     for (let guard = 0; guard < 12; guard++) {
-      let r = await clearFaults(tag); if (!['WEAVE', 'URGENT'].includes(r.phase)) return r;
+      let r = await clearFaults(tag); if (!['WEAVE', 'URGENT'].includes(r.phase)) return r; await syncG();
       const order = opts.order || IDS; const pending = r.phase === 'URGENT' ? order.filter(x => r.urgent.required.includes(x) && !r.urgent.lit.includes(x)) : order.filter(x => !r.lit.includes(x)); if (!pending.length) return r;
       const id = pending[0]; await routeLine(id, r.targets, fast); await sleep(fast ? 40 : 90);
       const r2 = await run(); const litNow = r2.phase === 'URGENT' ? (r2.urgent ? r2.urgent.lit : []) : r2.lit;
@@ -90,23 +91,23 @@ function inkFraction(img, rect) { // fraction of pixels in rect that are not par
     return await run();
   };
   try {
-    await c.navigate('http://127.0.0.1:' + port + '/weaving-v5/'); await sleep(800); await ev('new Promise(r=>{const t=setInterval(()=>{if(window.YutianWeavingUI){clearInterval(t);r()}},50)})'); G = await geom();
+    await c.navigate('http://127.0.0.1:' + port + '/weaving-v5/'); await sleep(800); await ev('new Promise(r=>{const t=setInterval(()=>{if(window.YutianWeavingUI){clearInterval(t);r()}},50)})'); await syncG();
     if (flag('--shots')) { // UI-regression shots: fixed seed, no 急束, named pages (identical boards on every tree that keeps the engine)
       const seed = Number(flag('--seed')) || 20260913, shot = name => c.screenshot(path.join(outDir, name + '.png'));
       await ev(`YutianWeavingUI.startRun('formal',{seed:${seed},forceUrgent:false})`); await sleep(400); await shot('01-sort');
       let r = await run(); for (let i = 0; i < 5; i++) { r = await run(); const id = r.tray[i], t = IDS.indexOf(id); await drag(S(ART.trayX[i], ART.trayY + 89), S(ART.tagX[t], ART.tagY + 40), 6, 20); await sleep(120); }
-      r = await waitFor(x => x.phase === 'WARP', 3000); await ev('new Promise(res=>{const t0=Date.now();const t=setInterval(()=>{if(document.querySelectorAll(".weight").length===5||Date.now()-t0>3000){clearInterval(t);res()}},40)})'); await sleep(200); await shot('02-warp');
+      r = await waitFor(x => x.phase === 'WARP', 3000); await ev('new Promise(res=>{const t0=Date.now();const t=setInterval(()=>{if(document.querySelectorAll(".weight").length===5||Date.now()-t0>3000){clearInterval(t);res()}},40)})'); await sleep(200); await shot('02-warp'); await syncG();
       for (let i = 0; i < 5; i++) { r = await run(); const v0 = r.warp[i]; await drag(S(ART.weightX[i], ART.weightY + 90), S(ART.weightX[i], ART.weightY + 90 + (v0 - 0.5) * 230), 8, 15); await sleep(100); }
-      r = await waitFor(x => x.phase === 'WARP_DONE' || x.phase === 'WEAVE', 3000); if (r.phase === 'WARP_DONE') { await sleep(300); await shot('03-warp-done'); await clickArt(430, 1314); r = await waitFor(x => x.phase === 'WEAVE', 3000); }
-      await sleep(200); await shot('04-weave-empty');
+      r = await waitFor(x => x.phase === 'WARP_DONE' || x.phase === 'WEAVE', 3000); if (r.phase === 'WARP_DONE') { await sleep(300); await shot('03-warp-done'); await clickArt(430, 1307); r = await waitFor(x => x.phase === 'WEAVE', 3000); }
+      await sleep(200); await shot('04-weave-empty'); await syncG();
       for (const id of ['red', 'white', 'teal', 'yellow']) { r = await clearFaults('shots'); await routeLine(id, r.targets, false); await sleep(120); }
       r = await clearFaults('shots'); await sleep(150); await shot('05-weave-lit'); check('shots: four lines lit on the fixed-seed board (' + r.lit.join(',') + ')', r.lit.length === 4, JSON.stringify(r.targets));
       await ev('YutianWeavingUI.ui.run.timeLeftMs=400'); r = await waitFor(x => x.phase === 'SETTLED', 4000); await sleep(300); await shot('06-settle-timeout'); check('shots: 日影耗尽 settlement (' + r.total + ' lines)', r.status === 'timeout', JSON.stringify(r.wages));
-      await clickArt(286, 1131); await sleep(300); await ev(`YutianWeavingUI.startRun('formal',{seed:${seed + 1},forceUrgent:false})`); await sleep(300);
+      await clickArt(...T9.stay); await sleep(300); await ev(`YutianWeavingUI.startRun('formal',{seed:${seed + 1},forceUrgent:false})`); await sleep(300); await syncG();
       for (let i = 0; i < 5; i++) { r = await run(); const id = r.tray[i], t = IDS.indexOf(id); await drag(S(ART.trayX[i], ART.trayY + 89), S(ART.tagX[t], ART.tagY + 40), 6, 20); await sleep(120); }
-      r = await waitFor(x => x.phase === 'WARP', 3000); await ev('new Promise(res=>{const t0=Date.now();const t=setInterval(()=>{if(document.querySelectorAll(".weight").length===5||Date.now()-t0>3000){clearInterval(t);res()}},40)})');
+      r = await waitFor(x => x.phase === 'WARP', 3000); await ev('new Promise(res=>{const t0=Date.now();const t=setInterval(()=>{if(document.querySelectorAll(".weight").length===5||Date.now()-t0>3000){clearInterval(t);res()}},40)})'); await syncG();
       for (let i = 0; i < 5; i++) { r = await run(); const v0 = r.warp[i]; await drag(S(ART.weightX[i], ART.weightY + 90), S(ART.weightX[i], ART.weightY + 90 + (v0 - 0.5) * 230), 8, 15); await sleep(100); }
-      r = await waitFor(x => x.phase === 'WARP_DONE' || x.phase === 'WEAVE', 3000); if (r.phase === 'WARP_DONE') { await clickArt(430, 1314); r = await waitFor(x => x.phase === 'WEAVE', 3000); }
+      r = await waitFor(x => x.phase === 'WARP_DONE' || x.phase === 'WEAVE', 3000); if (r.phase === 'WARP_DONE') { await clickArt(430, 1307); r = await waitFor(x => x.phase === 'WEAVE', 3000); }
       let guard = 0; while (guard++ < 8) { r = await run(); if (r.phase === 'SETTLED') break; if (r.phase === 'ROUND_TRANSITION') { r = await waitFor(x => x.phase !== 'ROUND_TRANSITION', 3000); continue; } if (r.phase === 'URGENT') { r = await weaveBoard('shots/urgent', false, {}); await waitFor(x => x.phase !== 'URGENT', 9000); continue; } r = await weaveBoard('shots', false, {}); }
       r = await waitFor(x => x.phase === 'SETTLED', 4000); await sleep(300); await shot('07-settle-complete'); check('shots: complete settlement (' + r.total + ' lines, ' + r.rounds + ' rounds)', r.status === 'complete' && r.total === 15, JSON.stringify(r.wages));
       await ev('document.getElementById("pause")&&YutianWeavingUI.ui.run&&0'); const errs = c.console.filter(m => m.type === 'error' || m.type === 'exception').map(m => m.text.slice(0, 160)); check('shots: no console errors', errs.length === 0, JSON.stringify(errs.slice(0, 3)));
@@ -116,17 +117,17 @@ function inkFraction(img, rect) { // fraction of pixels in rect that are not par
     for (let k = 1; k <= RUNS; k++) {
       const order = IDS.slice(k % 5).concat(IDS.slice(0, k % 5)); const tag = 'run ' + k, fast = k % 4 === 0, pauseAt = 4, timeoutAt = (k === 7 || k === 14) ? 6 : null, viaStay = k > 1 && k % 2 === 0, forceUrgent = k % 3 === 0;
       const prev = await run();
-      if (viaStay && prev && prev.phase === 'SETTLED') { await clickArt(286, 1131); } // 继续留坊 → a new formal run
-      else { if (prev && prev.phase === 'SETTLED') await clickArt(580, 1131); await sleep(150); await ev(`YutianWeavingUI.startRun('formal',{forceUrgent:${forceUrgent}})`); }
-      await sleep(250); let r = await run(); check(tag + ' starts in 理丝 (' + (viaStay ? 'via 继续留坊' : 'fresh') + ')', r && r.phase === 'SORT' && r.placed === 0, JSON.stringify({ phase: r && r.phase }));
+      if (viaStay && prev && prev.phase === 'SETTLED') { await clickArt(...T9.stay); } // 继续留坊 (painted button on the UI-09 template) → a new formal run
+      else { if (prev && prev.phase === 'SETTLED') await clickArt(...T9.leave); await sleep(150); await ev(`YutianWeavingUI.startRun('formal',{forceUrgent:${forceUrgent}})`); }
+      await sleep(250); await syncG(); let r = await run(); check(tag + ' starts in 理丝 (' + (viaStay ? 'via 继续留坊' : 'fresh') + ')', r && r.phase === 'SORT' && r.placed === 0, JSON.stringify({ phase: r && r.phase }));
       // 理丝: drag each tray bundle to the tag of its identity
       for (let i = 0; i < 5; i++) { r = await run(); const id = r.tray[i], t = IDS.indexOf(id); await drag(S(ART.trayX[i], ART.trayY + 89), S(ART.tagX[t], ART.tagY + 40), 6, fast ? 0 : 20); await sleep(fast ? 60 : 120); }
-      r = await waitFor(x => x.phase === 'WARP', 3000); await ev('new Promise(res=>{const t0=Date.now();const t=setInterval(()=>{if(document.querySelectorAll(".weight").length===5||Date.now()-t0>3000){clearInterval(t);res()}},40)})'); check(tag + ' 理丝 done by real drags → 定经', r.phase === 'WARP', JSON.stringify({ phase: r.phase, placed: r.placed }));
+      r = await waitFor(x => x.phase === 'WARP', 3000); await ev('new Promise(res=>{const t0=Date.now();const t=setInterval(()=>{if(document.querySelectorAll(".weight").length===5||Date.now()-t0>3000){clearInterval(t);res()}},40)})'); await syncG(); check(tag + ' 理丝 done by real drags → 定经', r.phase === 'WARP', JSON.stringify({ phase: r.phase, placed: r.placed }));
       // 定经: drag each weight so its value lands at 0.5 (inside 合宜)
       for (let i = 0; i < 5; i++) { r = await run(); const v0 = r.warp[i], from = S(ART.weightX[i], ART.weightY + 90), to = S(ART.weightX[i], ART.weightY + 90 + (v0 - 0.5) * 230); await drag(from, to, 8, fast ? 0 : 15); await sleep(fast ? 50 : 100); }
       r = await waitFor(x => x.phase === 'WARP_DONE' || x.phase === 'WEAVE', 3000); check(tag + ' 定经 done by real drags → 经线已齐', r.phase === 'WARP_DONE' || r.phase === 'WEAVE', JSON.stringify({ phase: r.phase, done: r.warpDone }));
-      if (r.phase === 'WARP_DONE') { await clickArt(430, 1314); r = await waitFor(x => x.phase === 'WEAVE', 3000); }
-      check(tag + ' 开工 round 1', r.phase === 'WEAVE' && r.round === 1, r.phase);
+      if (r.phase === 'WARP_DONE') { await clickArt(430, 1307); r = await waitFor(x => x.phase === 'WEAVE', 3000); }
+      await syncG(); check(tag + ' 开工 round 1', r.phase === 'WEAVE' && r.round === 1, r.phase);
       let paused = false, forcedTimeout = false, urgentSeen = false, linesDone = 0;
       const onLine = async (id, st) => {
         linesDone++;
@@ -142,10 +143,10 @@ function inkFraction(img, rect) { // fraction of pixels in rect that are not par
       const expectStatus = timeoutAt !== null ? 'timeout' : 'complete';
       check(tag + ' settled: ' + r.status + ' (' + r.total + ' lines, ' + r.rounds + ' rounds, urgent ' + (urgentSeen ? 'yes' : 'no') + ')', r.phase === 'SETTLED' && r.status === expectStatus, JSON.stringify(r.wages));
       // settlement page: rendered values = engine values; hierarchy elements present
-      const page = await ev('(()=>{const q=s=>[...document.querySelectorAll(s)];const st=q(".settle-status")[0],vals=q(".settle-value:not(.total)").map(e=>e.textContent),tot=q(".settle-value.total")[0],stats=q(".settle-stats")[0],labels=q(".settle-label").map(e=>e.textContent);const fs=e=>e?parseFloat(getComputedStyle(e).fontSize):0;return {status:st?st.textContent:null,statusFont:fs(st),labels,vals,total:tot?tot.textContent:null,totalFont:fs(tot),valueFont:fs(q(".settle-value:not(.total)")[0]),stats:stats?stats.textContent:null,statsFont:fs(stats),hud:document.getElementById("hud").hidden,bg:document.getElementById("bg").getAttribute("src"),buttons:q(".hit-btn").map(b=>b.getAttribute("aria-label"))}})()');
+      const page = await ev('(()=>{const q=s=>[...document.querySelectorAll(s)];const cs=e=>getComputedStyle(e);const st=q(".settle-status")[0],vals=q(".settle-value:not(.total)").map(e=>e.textContent),tot=q(".settle-value.total")[0],labels=q(".settle-label").map(e=>e.textContent);const fs=e=>e?parseFloat(cs(e).fontSize):0;const dyn=q(".settle-status,.settle-label,.settle-value");const opaque=dyn.filter(e=>{const s=cs(e);return !(s.backgroundColor==="rgba(0, 0, 0, 0)"||s.backgroundColor==="transparent")||s.boxShadow!=="none"||s.borderStyle!=="none"}).map(e=>e.className);const txt=document.getElementById("modal").innerText;return {status:st?st.textContent:null,statusTag:st?st.tagName:null,statusFont:fs(st),labels,vals,total:tot?tot.textContent:null,totalFont:fs(tot),valueFont:fs(q(".settle-value:not(.total)")[0]),opaque,stats:q(".settle-stats").length,hasStats:/本次织成|完成\\s*\\d\\s*轮/.test(txt),hasCraft:/获得手艺/.test(txt),hud:document.getElementById("hud").hidden,hudText:document.getElementById("hud").innerText.replace(/\\s+/g," "),bg:document.getElementById("bg").getAttribute("src"),buttons:q(".hit-btn").map(b=>b.getAttribute("aria-label"))}})()');
       if (!r.wages) { check(tag + ' 今日收工 reached', false, JSON.stringify({ phase: r.phase })); results.push({ run: k, status: r.status, failed: true }); await ev("YutianWeavingUI.toEntry()"); await sleep(200); continue; }
       const w = r.wages; const engine = await ev('JSON.stringify(YutianWeavingUI.E.wagesFor(YutianWeavingUI.ui.run))');
-      check(tag + ' 今日收工: status plaque 顺利收工 (end reason secondary), values = engine wages ' + w.base + '/' + w.regular + '/' + w.urgent + ' = ' + w.total + ', total dominant, stats line secondary', page.status === '顺利收工' && page.labels.join('/') === '基础工钱/常规加赏/急束加成' && page.vals.join('/') === [w.base, w.regular, w.urgent].join('/') && page.total === String(w.total) && JSON.parse(engine).total === w.total && page.totalFont > page.valueFont && page.totalFont > page.statusFont && page.statsFont < page.valueFont && page.stats.includes(`本次织成 ${w.totalCompleted} / 15 根 · 完成 ${w.roundsCompleted} 轮`) && (r.status !== 'timeout' || page.stats.startsWith('日影已尽')) && page.hud === false && page.bg === 'art/bg_settle.jpg' && page.buttons.join('/') === '继续留坊/离开织坊', JSON.stringify(page));
+      check(tag + ' 今日收工 on the UI-09 template: status 顺利收工 (plain text, PATCH A A1), values = engine wages ' + w.base + '/' + w.regular + '/' + w.urgent + ' = ' + w.total + ', total dominant, transparent text only, no stats line / 获得手艺, HUD frozen, painted buttons', page.status === '顺利收工' && page.statusTag === 'DIV' && page.labels.join('/') === '基础工钱/常规加赏/急束加成/合计收入' && page.vals.join('/') === [w.base, w.regular, w.urgent].join('/') && page.total === String(w.total) && JSON.parse(engine).total === w.total && page.totalFont > page.valueFont && page.totalFont > page.statusFont && page.opaque.length === 0 && page.stats === 0 && !page.hasStats && !page.hasCraft && page.hud === false && page.bg === 'art/modal/body_settle.webp' && page.buttons.join('/') === '继续留坊/离开织坊', JSON.stringify(page));
       if (k === 1 || k === 7 || k === 3) await c.screenshot(path.join(outDir, `settle-run${k}-${r.status}.png`));
       results.push({ run: k, status: r.status, lines: r.total, rounds: r.rounds, wages: w, urgent: urgentSeen, fast, viaStay, paused });
       console.log('run ' + k + ' ' + JSON.stringify({ status: r.status, total: r.total, rounds: r.rounds, total钱: w.total, urgent: urgentSeen }));
