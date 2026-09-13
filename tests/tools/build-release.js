@@ -7,7 +7,7 @@ const version = require('vm').runInNewContext(fs.readFileSync(path.join(root, 'm
 fs.mkdirSync(out, { recursive: true });
 const commit = execSync('git rev-parse HEAD', { cwd: root }).toString().trim(), dirty = execSync('git status --porcelain', { cwd: root }).toString().trim();
 const tracked = execSync('git ls-files', { cwd: root }).toString().trim().split('\n');
-const runtimeFiles = tracked.filter(f => !f.startsWith('tests/') && !f.startsWith('weaving-demo/') && !f.startsWith('caravan-demo/') && !f.startsWith('.claude/') && !f.startsWith('.github/') && f !== '.gitignore');
+const runtimeFiles = tracked.filter(f => !f.startsWith('tests/') && !f.startsWith('weaving-demo/') && !f.startsWith('weaving-v5/') && !f.startsWith('caravan-demo/') && !f.startsWith('.claude/') && !f.startsWith('.github/') && f !== '.gitignore');
 const runtimeZip = path.join(out, version + '.zip'), sourceZip = path.join(out, version + '-source.zip');
 for (const z of [runtimeZip, sourceZip]) fs.rmSync(z, { force: true });
 // runtime zip: flat folder, index.html at the root (same layout as the GitHub Pages deployment)

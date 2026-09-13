@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#5a3a22">
+<title>于阗织坊 · 试玩（FINAL v5.0）</title>
+<link rel="stylesheet" href="weaving.css">
+</head>
+<body>
+<div id="app" class="app">
+  <div id="stage" class="stage" aria-label="于阗织坊">
+    <img id="bg" class="bg" alt="" draggable="false">
+    <div id="layer" class="layer"></div>
+    <svg id="lines" class="lines" viewBox="0 0 864 1536" aria-hidden="true"></svg>
+    <div id="chips" class="chips"></div>
+  </div>
+  <div id="hud" class="hud" hidden>
+    <div class="hud-title">于阗织坊</div>
+    <div class="hud-mid"><span id="hud-count" class="hud-count">已理丝线 <b>0</b>/5</span><span class="hud-sep">｜</span><span class="hud-time">日影 <span class="hud-bar"><i id="hud-fill"></i><em id="hud-sun"></em></span> 余 <b id="hud-secs">75</b></span></div>
+    <button id="pause" class="hud-pause" type="button" aria-label="暂停">▮▮</button>
+  </div>
+  <div id="overlay" class="overlay" hidden></div>
+</div>
+<script src="weaving-engine.js"></script>
+<script src="weaving-ui.js"></script>
+</body>
+</html>
