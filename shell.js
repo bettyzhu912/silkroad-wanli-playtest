@@ -195,7 +195,7 @@
     // Home art (941×2091, parchment slack 300 above / 119 below the original composition): slack fit rule, see fitSlack()
     const fit=fitSlack(availW,availH,homeArt);frame.style.width=fit.w+'px';frame.style.height=fit.h+'px';frame.style.marginLeft=fit.left+'px';frame.style.marginTop=fit.top+'px';
   }
-  function describe() {return S.time&&S.time.describe?S.time.describe(p()):{yearLabel:'贞元十六年',dateLabel:p().world.tick===0?'三月十一日':date(p().world.tick),phaseLabel:['晨','午','暮'][p().world.tick%3],tripLabel:p().trip?'商旅进行中':'商期 未启程'};}
+  function describe() {if(S.time&&S.time.describe)return S.time.describe(p());const cal=S.time&&S.time.calendar?S.time.calendar(p().world.tick):null;return {yearLabel:cal?cal.yearLabel:'',dateLabel:cal?cal.dateLabel:date(p().world.tick),phaseLabel:['晨','午','暮'][p().world.tick%3],tripLabel:p().trip?'商旅进行中':'商期 未启程'};}
   function renderHUD() {
     if(!p())return;const d=describe();nodes.hudTop.replaceChildren();
     const money=button('',()=>openPanel('funds'),{className:'hud-status money-status',label:'随身铜钱 '+p().cash+'，查看资金总览'});money.append(icon('money'),el('span','status-value',p().cash.toLocaleString('zh-CN')));
