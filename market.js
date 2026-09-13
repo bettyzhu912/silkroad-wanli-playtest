@@ -107,24 +107,44 @@
     p.journal.push({ type: 'marketBuy', lotId: lot.id, goodId: row.id, quantity: lot.quantity, unitPrice, total, city: p.world.city, tick: p.world.tick, tripId: p.trip?.id || null });
     return { kind: 'marketBuy', goodId: row.id, quantity: payload.quantity, unitPrice, total, cashDelta: -total, reputation, lotId: lot.id };
   }
-  function sell(p, payload, ctx) {
-    const v = visit(p, payload); const lot = p.inventory.lots.find(l => l.id === payload.lotId);
-    ensure(lot && lot.ownership === 'playerOwned' && !lot.nonMarketable && lot.condition !== 'destroyed', 'NOT_MARKETABLE', '这批货物不能出售');
-    ensure(integer(payload.quantity, 1, lot.quantity), 'INVALID_QUANTITY', '出售件数无效');
+  function sellLot(p, v, lot, quantity, ctx) {
+    ensure(integer(quantity, 1, lot.quantity), 'INVALID_QUANTITY', '出售件数无效');
     const normal = price(p, lot.goodId, ctx);
     const unitPrice = sellUnitPrice(p, lot, normal);
-    const total = unitPrice * payload.quantity; ensure(integer(total), 'INVALID_AMOUNT');
+    const total = unitPrice * quantity; ensure(integer(total), 'INVALID_AMOUNT');
     // RC3 BUG-07: only cargo that has really left its purchase city earns turnover. Selling an unmoved lot in its
     // purchase city (same day or days later) cancels the pending purchase amount and earns no sale turnover either.
     const transported = S.inventory.transportQualified(lot, p.world.city);
     if(transported)confirmPurchase(p,lot,'beforeSale');
-    const cancelledPurchaseTurnover=transported?0:cancelResale(p,lot,payload.quantity);
-    const sold = S.inventory.take(p, lot.id, payload.quantity); p.cash += total; v.hadActivity = true;
+    const cancelledPurchaseTurnover=transported?0:cancelResale(p,lot,quantity);
+    const sold = S.inventory.take(p, lot.id, quantity); p.cash += total; v.hadActivity = true;
     const reputation = S.reputation.addTurnover(p, transported ? total : 0, { type: 'marketSell', lotId: sold.id });
     const cost = sold.acquisitionPrice * sold.quantity;
     const entry = { type: 'marketSell', goodId: sold.goodId, lotId: sold.id, quantity: sold.quantity, unitPrice, total, cost, profit: total - cost, city: p.world.city, acquisitionCity:sold.acquisitionCity,crossCity:sold.acquisitionCity!==p.world.city, transportQualified: transported, tick: p.world.tick, tripId: p.trip?.id || null };
     p.journal.push(entry);
     return { kind: 'marketSell', ...entry, cashDelta: total, reputation, cancelledPurchaseTurnover };
+  }
+  function marketableLots(p, goodId) { return p.inventory.lots.filter(l => l.goodId === goodId && l.ownership === 'playerOwned' && !l.nonMarketable && l.condition !== 'destroyed' && l.quantity > 0); }
+  // MARKET_UI_CORRECTION v0.2 / InventoryLot contract: the market UI submits goodId + quantity and never exposes lots.
+  // Backend consumption stays what it was: a whole single lot or part of it, or every lot of the good in full (一键出售 semantics).
+  // A partial quantity spread over several lots needs the lot-consumption rule (FIFO / LIFO / …) that the gameplay
+  // authority has not closed yet — it is refused here with LOT_POLICY_PENDING instead of an invented policy.
+  function lotPolicyPendingMessage(held) { return '该商品有多批存货，部分出售的扣减规则待定，当前可出售全部 ' + held + ' 件'; }
+  function sell(p, payload, ctx) {
+    const v = visit(p, payload);
+    if (payload.lotId !== undefined && payload.lotId !== null) {
+      const lot = p.inventory.lots.find(l => l.id === payload.lotId);
+      ensure(lot && lot.ownership === 'playerOwned' && !lot.nonMarketable && lot.condition !== 'destroyed', 'NOT_MARKETABLE', '这批货物不能出售');
+      return sellLot(p, v, lot, payload.quantity, ctx);
+    }
+    const lots = marketableLots(p, payload.goodId); ensure(lots.length > 0, 'NOT_MARKETABLE', '这批货物不能出售');
+    const held = lots.reduce((n, l) => n + l.quantity, 0);
+    ensure(integer(payload.quantity, 1, held), 'INVALID_QUANTITY', '出售件数无效');
+    if (lots.length === 1) return sellLot(p, v, lots[0], payload.quantity, ctx);
+    ensure(payload.quantity === held, 'LOT_POLICY_PENDING', lotPolicyPendingMessage(held));
+    const items = lots.map(l => sellLot(p, v, l, l.quantity, ctx));
+    const sum = k => items.reduce((n, r) => n + r[k], 0);
+    return { kind: 'marketSell', goodId: payload.goodId, quantity: sum('quantity'), unitPrice: S.money.round(sum('total') / sum('quantity')), total: sum('total'), cost: sum('cost'), profit: sum('profit'), city: p.world.city, cashDelta: sum('cashDelta'), items, cancelledPurchaseTurnover: sum('cancelledPurchaseTurnover') };
   }
   function sellAll(p, payload, ctx) {
     visit(p, payload);
@@ -144,16 +164,17 @@
   // 市场交易页 UI feedback (2026-09-13): one blocking reason at a time, fixed priority 未解锁 → 货位不足 → 铜钱不足 → 数量限制. Pure read model over the existing rules and their messages; the reducers above stay the authority.
   function blockReason(kind,f){
     const n=f.valid?f.n:1; // an empty / zero entry is judged as the smallest trade so the real blocker (slots, cash) still wins over 数量限制
-    if(kind==='buy'&&!f.unlocked)return '尚未建立该货源关系';
-    if(kind==='buy'&&n*f.slotCost>f.available)return '行囊货位不足';
+    if(kind==='buy'&&!f.unlocked)return f.lockedReason||'商品尚未解锁';
+    if(kind==='buy'&&n*f.slotCost>f.available)return '货位不足，还需 '+(n*f.slotCost-f.available)+' 个货位';
     if(kind==='provisions'&&f.needsSlot&&f.available<1)return '补给需要一个货位';
-    if((kind==='buy'||kind==='provisions')&&n*f.unit>f.cash)return '随身现钱不足';
+    if((kind==='buy'||kind==='provisions')&&(!Number.isSafeInteger(n*f.unit)||n*f.unit>f.cash))return Number.isSafeInteger(n*f.unit)?'随身铜钱不足':(kind==='provisions'?'请输入正整数日份':'请输入正整数件数');
     if(!f.valid)return kind==='sell'?'出售件数无效':kind==='provisions'?'请输入正整数日份':'请输入正整数件数';
-    if(kind==='sell'&&f.n>f.max)return '出售件数无效';
+    if(kind==='sell'&&f.n>f.held)return '出售件数无效';
+    if(kind==='sell'&&f.lots>1&&f.n<f.held)return lotPolicyPendingMessage(f.held);
     return '';
   }
   const reducers = { 'market.enter': enter, 'market.leave': leave, 'market.buy': buy, 'market.sell': sell, 'market.sellAll': sellAll, 'market.provisions': provisions };
-  S.market = { price, quote:(p,city,id)=>S.pricing.quote(p,city,id), buyQuote, sellUnitPrice, enter, leave, summaryPreview, blockReason, buy, sell, sellAll, provisions, settlePurchaseTurnover, validate };
+  S.market = { price, quote:(p,city,id)=>S.pricing.quote(p,city,id), buyQuote, sellUnitPrice, enter, leave, summaryPreview, blockReason, marketableLots, lotPolicyPendingMessage, buy, sell, sellAll, provisions, settlePurchaseTurnover, validate };
   for (const [type, fn] of Object.entries(reducers)) S.commands.register(type, fn);
   S.time.register('purchaseTurnover',{dayStart:settlePurchaseTurnover});
 })(globalThis.Silk = globalThis.Silk || {});

@@ -15,106 +15,111 @@
       return {good,lots,held,unlocked,index,rank:held?1:local?(unlocked?2:3):(unlocked?4:5)};
     }).sort((a,b)=>a.rank-b.rank||a.index-b.index);
   }
-  // ---- 市场交易页 UI/UX（已确认设计实施稿 2026-09-13）: centred title, three-column status, time hint, 35/65 cards with tags,
-  // in-card buy/sell expand (one normal card at a time), live blocking reasons, provisions special card, card-level button tier,
-  // three equal bottom entries, MARKET_EXIT_CONFIRM (0 tick) → 确认离市 = atomic close + advance once. Rules and prices unchanged.
-  const expandState={visitId:null,goodId:null,mode:null,lotId:null,provisions:false};
-  function syncExpand(p){const id=p.market.visit&&!p.market.visit.settled?p.market.visit.id:null;if(expandState.visitId!==id){expandState.visitId=id;expandState.goodId=null;expandState.mode=null;expandState.lotId=null;expandState.provisions=false;}}
+  // ---- 市场交易页 UI/UX（已确认设计实施稿 2026-09-13 + MARKET_UI_CORRECTION v0.2）: centred title, three-column status, time hint,
+  // 25/75 goods cards (title + tags / 当前价格·货位 / 持有·商报 / holding summary when held), in-card buy/sell expand opened only by
+  // the 买入⌄ / 卖出⌄ buttons (one normal card at a time), compact stepper with no affordability clamp, one live feedback line under
+  // the confirm, goodId-level aggregation (no lot exposure), provisions special card, card-level button tier, three equal bottom
+  // entries, MARKET_EXIT_CONFIRM (0 tick) → 确认离市 = atomic close + advance once, then straight back to the city.
+  const expandState={visitId:null,goodId:null,mode:null,provisions:false};
+  function syncExpand(p){const id=p.market.visit&&!p.market.visit.settled?p.market.visit.id:null;if(expandState.visitId!==id){expandState.visitId=id;expandState.goodId=null;expandState.mode=null;expandState.provisions=false;}}
   function iconImg(c,name){const img=c.el('img','ui-icon');img.src=S.assets['global_icon_'+name+'_v01'];img.alt='';img.draggable=false;return img;}
-  function reportStatus(p){try{const a=S.newspapers.availability(p);return a.owned?'最新':a.latest?'历史':'未购买';}catch(e){return S.newspapers.latest(p)?'历史':'未购买';}}
-  function statusCell(c,iconName,label,value){const cell=c.el('span','market-status-cell');cell.append(iconImg(c,iconName),c.el('span','status-label',label+' '),c.el('b','status-value',value));return cell;}
+  function reportState(p){try{const a=S.newspapers.availability(p);return a.owned?'latest':a.latest?'history':'none';}catch(e){return S.newspapers.latest(p)?'history':'none';}}
+  const reportLabels={latest:'最新',history:'历史',none:'未购买'};
+  function reportStatus(p){return reportLabels[reportState(p)];}
+  function statusCell(c,iconName,label,value,stateClass){const cell=c.el('span','market-status-cell');cell.append(iconImg(c,iconName),c.el('span','status-label',label+' '),c.el('b','status-value'+(stateClass?' '+stateClass:''),value));return cell;}
   function tag(c,text,kind){return c.el('span','market-tag '+(kind==='specialty'?'tag-specialty':'tag-attr'),text);}
-  function statLine(c,parent,pairs,className){const line=c.el('div',className||'market-stat-line');for(const [label,value] of pairs){const item=c.el('span','stat-item');item.append(c.el('span','stat-label',label+' '),c.el('b','stat-value',value));line.append(item);}parent.append(line);return line;}
+  function statItem(c,label,value,valueClass){const item=c.el('span','stat-item');item.append(c.el('span','stat-label',label+' '),c.el('b','stat-value'+(valueClass?' '+valueClass:''),value));return item;}
+  function statLine(c,parent,items,className){const line=c.el('div',className||'market-stat-line');for(const it of items)line.append(Array.isArray(it)?statItem(c,it[0],it[1],it[2]):it);parent.append(line);return line;}
   const signedMoney=(c,n)=>(n>0?'+':'')+c.formatMoney(n);
-  function marketStatus(c){const p=c.p,block=c.el('div','market-status-block'),rowEl=c.el('div','market-status-row');
-    rowEl.append(statusCell(c,'pack','可用货位',S.inventory.available(p)+'/'+S.inventory.capacity(p)),statusCell(c,'money','随身铜钱',c.formatMoney(p.cash)),statusCell(c,'message','商报',reportStatus(p)));
+  function marketStatus(c){const p=c.p,block=c.el('div','market-status-block'),rowEl=c.el('div','market-status-row'),state=reportState(p);
+    rowEl.append(statusCell(c,'pack','可用货位',S.inventory.available(p)+'/'+S.inventory.capacity(p)),statusCell(c,'money','随身铜钱',c.formatMoney(p.cash)),statusCell(c,'message','商报',reportLabels[state],'report-'+state));
     const v=p.market.visit,traded=Boolean(v&&!v.settled&&v.hadActivity);const hint=c.el('p','market-time-hint',traded?'已发生交易 · 离市后将推进半日':'查看市价不推进时间');hint.dataset.traded=String(traded);
     block.append(rowEl,hint);return block;}
   const blockReason=(kind,f)=>S.market.blockReason(kind,f);
   function rerender(c){S.ui.render(c.state);}
+  // Compact expand: 交易数量 [−] n [+] · one-line summary with a fixed right column · confirm · one feedback line (only when blocked).
+  // The stepper carries no affordability maximum (input range ≠ current tradable range); blocked states disable the confirm instead.
   function tradeExpand(c,card,spec){
     const box=c.el('div','trade-expand');box.dataset.mode=spec.kind;
-    if(spec.before)spec.before(box);
     const field=c.el('div','trade-quantity');field.append(c.el('span','field-label',spec.fieldLabel));
-    const stepper=c.numericStepper({name:'quantity-'+spec.id,value:'1',min:1,max:()=>spec.max(),label:spec.fieldLabel});field.append(stepper.element);box.append(field);
-    const hint=c.el('p','form-hint');const summary=c.el('div','trade-summary');const left=c.el('span','trade-summary-left'),right=c.el('span','trade-summary-right');summary.append(left,right);
+    const stepper=c.numericStepper({name:'quantity-'+spec.id,value:'1',min:1,label:spec.fieldLabel});stepper.element.classList.add('stepper-compact');field.append(stepper.element);box.append(field);
+    const summary=c.el('div','trade-summary');const left=c.el('span','trade-summary-left'),right=c.el('span','trade-summary-right');summary.append(left,right);
     const confirm=c.button(spec.confirmLabel,()=>{void submit();},{});const reason=c.el('p','trade-block-reason');reason.setAttribute('role','status');
-    const facts=()=>{const raw=stepper.input.value;const valid=/^[0-9]+$/.test(raw)&&Number.isSafeInteger(Number(raw))&&Number(raw)>0;const n=valid?Number(raw):0;return {valid,n,max:spec.max(),...spec.facts(n)};};
-    function refresh(){const f=facts();const r=blockReason(spec.kind,f);spec.summary(left,right,f);hint.textContent='最多'+f.max+spec.unit;reason.textContent=r;reason.hidden=!r;const ok=!r&&f.valid;confirm.disabled=!ok||c.app.busy;if(ok)confirm.dataset.busyDisabled='true';else delete confirm.dataset.busyDisabled;stepper.refresh();return ok;}
+    const facts=()=>{const raw=stepper.input.value;const valid=/^[0-9]+$/.test(raw)&&Number.isSafeInteger(Number(raw))&&Number(raw)>0;const n=valid?Number(raw):0;return {valid,n,...spec.facts(n)};};
+    function refresh(){const f=facts();const r=blockReason(spec.kind,f);spec.summary(left,right,f);reason.textContent=r;reason.hidden=!r;const ok=!r&&f.valid;confirm.disabled=!ok||c.app.busy;if(ok)confirm.dataset.busyDisabled='true';else delete confirm.dataset.busyDisabled;stepper.refresh();return ok;}
     async function submit(){if(!box.isConnected||!refresh())return;await spec.submit(facts().n);}
     stepper.input.addEventListener('input',refresh);stepper.input.addEventListener('change',refresh);
-    box.append(hint,summary,confirm,reason);card.append(box);refresh();return box;
+    box.append(summary,confirm,reason);card.append(box);refresh();return box;
   }
-  function toggleGood(c,goodId,mode){if(expandState.goodId===goodId&&expandState.mode===mode){expandState.goodId=null;expandState.mode=null;expandState.lotId=null;}else{expandState.goodId=goodId;expandState.mode=mode;expandState.lotId=null;}rerender(c);}
-  function goodsCard(c,b,visit,latestReport,{good,lots,held,unlocked,rank}){
+  function toggleGood(c,goodId,mode){if(expandState.goodId===goodId&&expandState.mode===mode){expandState.goodId=null;expandState.mode=null;}else{expandState.goodId=goodId;expandState.mode=mode;}rerender(c);}
+  function goodsCard(c,b,visit,latestReport,reportSt,{good,lots,held,unlocked,rank}){
     const p=c.p,price=currentPrice(p,good.id),open=expandState.goodId===good.id?expandState.mode:null;
     const card=c.el('section','market-product'+(!unlocked?' locked-product':'')+(open?' is-expanded':''));card.dataset.goodId=good.id;card.dataset.sortGroup=rank;if(open)card.dataset.mode=open;
     const art=c.el('img','goods-art');art.src=S.assets['goods_'+good.id];art.alt=good.name;art.draggable=false;card.append(art);
     const infoBox=c.el('div','market-info');
     const title=c.el('h3','market-title');title.append(c.el('span','goods-name',good.name),tag(c,cities[good.originCity]+'特产','specialty'));if(good.fragile)title.append(tag(c,'易碎','attr'));infoBox.append(title);
-    statLine(c,infoBox,[['当前价',c.formatMoney(price)],['持有',String(held)],['货位',good.slotCost+'/件']]);
-    const judgement=latestReport?.productJudgements?.[good.id];statLine(c,infoBox,[['商报判断',latestReport?(judgement?.label||'—'):'未购买']],'market-stat-line market-judgement');
-    let cost=0,value=0;if(held){cost=lots.reduce((n,l)=>n+l.acquisitionPrice*l.quantity,0);value=lots.reduce((n,l)=>n+S.market.sellUnitPrice(p,l,price)*l.quantity,0);statLine(c,infoBox,[['持有成本',c.formatMoney(cost)],['可售价值',c.formatMoney(value)],['盈亏',signedMoney(c,value-cost)]],'market-stat-line market-holding-line');}
-    if(!unlocked)info(c,infoBox,'尚未打通此货货源。请达到相应商誉并建立供应往来。');
+    const judgement=latestReport?.productJudgements?.[good.id];
+    statLine(c,infoBox,[['当前价格',c.formatMoney(price)],['货位',good.slotCost+'/件']],'market-stat-line market-row-1');
+    statLine(c,infoBox,[['持有',String(held)],['商报',latestReport?(judgement?.label||'—'):'未购买','report-'+reportSt]],'market-stat-line market-row-2');
+    // Aggregated by goodId (InventoryLot never shown): total cost = weighted average acquisition cost × held; value and profit use the existing calculation.
+    let cost=0,value=0;if(held){cost=lots.reduce((n,l)=>n+l.acquisitionPrice*l.quantity,0);value=lots.reduce((n,l)=>n+S.market.sellUnitPrice(p,l,price)*l.quantity,0);}
+    const lockedReason=!unlocked?'尚未打通此货货源。请达到相应商誉并建立供应往来。':'';
+    if(lockedReason){const note=c.el('p','form-hint locked-reason',lockedReason);note.setAttribute('role','note');infoBox.append(note);}
     card.append(infoBox);
+    // third row (only when held) spans the card width so the three amounts stay on one line
+    if(held)statLine(c,card,[['持有成本',c.formatMoney(cost)],['可售价值',c.formatMoney(value)],['盈亏',signedMoney(c,value-cost)]],'market-stat-line market-holding-line');
     const actions=c.el('div','market-card-actions');
-    const buyBtn=c.button('买入'+(open==='buy'?'⌃':'⌄'),()=>toggleGood(c,good.id,'buy'),{disabled:price===null});buyBtn.setAttribute('aria-expanded',String(open==='buy'));buyBtn.dataset.action='buy';
-    const sellBtn=c.button('卖出'+(open==='sell'?'⌃':'⌄'),()=>toggleGood(c,good.id,'sell'),{disabled:!held});sellBtn.setAttribute('aria-expanded',String(open==='sell'));sellBtn.dataset.action='sell';
+    const buyBtn=c.button('买入'+(open==='buy'?'⌃':'⌄'),()=>toggleGood(c,good.id,'buy'),{disabled:!unlocked||price===null});buyBtn.setAttribute('aria-expanded',String(open==='buy'));buyBtn.dataset.action='buy';
+    const sellBtn=c.button('卖出'+(open==='sell'?'⌃':'⌄'),()=>toggleGood(c,good.id,'sell'),{disabled:!held||price===null});sellBtn.setAttribute('aria-expanded',String(open==='sell'));sellBtn.dataset.action='sell';
     actions.append(buyBtn,sellBtn);card.append(actions);
-    if(open==='buy'&&price!==null){
+    if(open==='buy'&&unlocked&&price!==null){
       const supplierChannel=good.originCity===p.world.city&&Boolean(p.merchant?.suppliers?.[good.id]);
-      const quote=unlocked?S.market.buyQuote(p,good.id,supplierChannel,S.core.context('quote-view')):{unitPrice:price,supplierDiscountRate:0};const unit=quote.unitPrice;
-      tradeExpand(c,card,{kind:'buy',id:good.id,fieldLabel:'件数',unit:'件',confirmLabel:'确认买入',
-        before(box){statLine(c,box,[['单价',c.formatMoney(unit)]],'market-stat-line trade-unit');if(quote.supplierDiscountRate)info(c,box,'按已建立的供应往来熟价采购；原城回售不超过实际买入成本。');},
-        max:()=>unlocked?Math.max(0,Math.min(Math.floor(c.p.cash/unit),Math.floor(S.inventory.available(c.p)/good.slotCost))):0,
-        facts:n=>({unlocked,slotCost:good.slotCost,available:S.inventory.available(c.p),cash:c.p.cash,unit,total:n*unit}),
-        summary(left,right,f){left.textContent='本次合计 '+c.formatMoney(f.valid?f.n*unit:0);right.textContent='占用货位 '+(f.valid?f.n*good.slotCost:0);},
+      const unit=S.market.buyQuote(p,good.id,supplierChannel,S.core.context('quote-view')).unitPrice;
+      tradeExpand(c,card,{kind:'buy',id:good.id,fieldLabel:'交易数量',confirmLabel:'确认买入',
+        facts:n=>({unlocked,lockedReason,slotCost:good.slotCost,available:S.inventory.available(c.p),cash:c.p.cash,unit}),
+        summary(left,right,f){const total=f.valid&&Number.isSafeInteger(f.n*unit)?f.n*unit:0;left.textContent='本次合计 '+c.formatMoney(total);right.textContent='占用货位 '+(f.valid&&Number.isSafeInteger(f.n*good.slotCost)?f.n*good.slotCost:0);},
         submit:quantity=>c.dispatch('market.buy',{visitId:visit.id,quantity,goodId:good.id,supplierChannel})});
-    }else if(open==='sell'&&held){
-      const lot=lots.find(l=>l.id===expandState.lotId)||lots[0];const unit=S.market.sellUnitPrice(p,lot,price);
-      tradeExpand(c,card,{kind:'sell',id:lot.id,fieldLabel:'件数',unit:'件',confirmLabel:'确认出售',
-        before(box){if(lots.length>1){const picker=c.el('div','lot-picker');picker.setAttribute('role','group');picker.setAttribute('aria-label','选择出售批次');for(const l of lots){const btn=c.button('买入价'+c.formatMoney(l.acquisitionPrice)+' · '+conditions[l.condition]+' · '+l.quantity+'件',()=>{expandState.lotId=l.id;rerender(c);},{className:'lot-choice'});btn.setAttribute('aria-pressed',String(l.id===lot.id));picker.append(btn);}box.append(picker);}statLine(c,box,[['单价',c.formatMoney(unit)]],'market-stat-line trade-unit');},
-        max:()=>lot.quantity,
-        facts:n=>({total:n*unit}),
-        summary(left,right,f){left.textContent='本次可得 '+c.formatMoney(f.valid?f.n*unit:0);right.textContent='释放货位 '+(f.valid?f.n*(lot.slotCost||good.slotCost):0);},
-        submit:quantity=>c.dispatch('market.sell',{visitId:visit.id,quantity,lotId:lot.id})});
+    }else if(open==='sell'&&held&&price!==null){
+      const avgUnit=value/held; // display estimate over all lots of the good; the engine sells per its existing per-lot rule
+      tradeExpand(c,card,{kind:'sell',id:good.id,fieldLabel:'交易数量',confirmLabel:'确认出售',
+        facts:n=>({held,lots:lots.length,slotCost:good.slotCost}),
+        summary(left,right,f){const n=f.valid?Math.min(f.n,held):0;const est=n===held?value:Math.round(avgUnit*n);left.textContent='本次可得 '+c.formatMoney(f.valid?est:0);right.textContent='释放货位 '+(f.valid?n*good.slotCost:0);},
+        submit:quantity=>c.dispatch('market.sell',{visitId:visit.id,quantity,goodId:good.id})});
     }
-    // Card body tap = expand (default mode 买入 — see report: not an approved default, listed for confirmation); inner controls untouched.
-    card.addEventListener('click',e=>{if(e.target.closest('button,input,a,label,.trade-expand'))return;toggleGood(c,good.id,open||'buy');});
+    if(open&&(open==='buy'?!(unlocked&&price!==null):!(held&&price!==null))){expandState.goodId=null;expandState.mode=null;card.classList.remove('is-expanded');delete card.dataset.mode;}
     b.append(card);
   }
   function provisionsCard(c,b,visit){
     const p=c.p,open=expandState.provisions,card=c.el('section','market-product provisions-product'+(open?' is-expanded':''));card.dataset.goodId='provisions';
-    const head=c.el('div','provisions-head');head.append(c.el('h3','market-title','粮草补给'));const stat=c.el('span','stat-item');stat.append(c.el('span','stat-label','现有补给 '),c.el('b','stat-value',p.inventory.provisions+'日份'));head.append(stat);card.append(head);
+    const head=c.el('div','provisions-head');head.append(c.el('h3','market-title','粮草补给'),statItem(c,'现有补给',p.inventory.provisions+'日份'));card.append(head);
     statLine(c,card,[['单价','1钱 / 商队日份'],['有补给时共用','1货位']]);
     const leg=S.trip.plan[p.trip?.routeIndex||0];if(leg)statLine(c,card,[['下一程',cities[leg.from]+' → '+cities[leg.to]+' · 基础路程'+leg.days+'日']],'market-stat-line provisions-leg');
     info(c,card,'途中事件可能延误');
     const actions=c.el('div','market-card-actions provisions-actions');const btn=c.button('购买粮草'+(open?'⌃':'⌄'),()=>{expandState.provisions=!expandState.provisions;rerender(c);});btn.setAttribute('aria-expanded',String(open));btn.dataset.action='provisions';actions.append(btn);card.append(actions);
-    if(open)tradeExpand(c,card,{kind:'provisions',id:'provisions',fieldLabel:'购买日份',unit:'日份',confirmLabel:'确认购买',
-      max:()=>c.p.inventory.provisions>0||S.inventory.available(c.p)>=1?c.p.cash:0,
-      facts:n=>({needsSlot:c.p.inventory.provisions===0,available:S.inventory.available(c.p),cash:c.p.cash,unit:1,total:n}),
+    if(open)tradeExpand(c,card,{kind:'provisions',id:'provisions',fieldLabel:'购买日份',confirmLabel:'确认购买',
+      facts:n=>({needsSlot:c.p.inventory.provisions===0,available:S.inventory.available(c.p),cash:c.p.cash,unit:1}),
       summary(left,right,f){left.textContent='本次合计 '+c.formatMoney(f.valid?f.n:0);right.textContent='购买后共有 '+(c.p.inventory.provisions+(f.valid?f.n:0))+'日份';},
       submit:quantity=>c.dispatch('market.provisions',{visitId:visit.id,quantity})});
     b.append(card);
   }
+  function groupByGood(records){const m=new Map();for(const r of records)m.set(r.goodId,(m.get(r.goodId)||0)+r.quantity);return [...m.entries()];}
   function renderMarketSummary(c,b,r,{preview=false}={}){
     info(c,b,preview?'确认离市后将推进半日 · 返回市场可继续交易':'已过半日 · 当前：'+c.date(r.currentTick));
-    if(r.cashDelta)money(c,b,'随身铜钱净变化',r.cashDelta);for(const x of r.bought)c.row('买入',x.goodId+' × '+x.quantity,b);for(const x of r.sold)c.row('卖出',x.goodId+' × '+x.quantity,b);if(r.provisions)c.row('补给','+'+r.provisions+'日份',b);if(r.slotsChanged)c.row('当前货位',r.slots+' / '+S.inventory.capacity(c.p),b);
+    if(r.cashDelta)money(c,b,'随身铜钱净变化',r.cashDelta);for(const [goodId,q] of groupByGood(r.bought))c.row('买入',goodId+' × '+q,b);for(const [goodId,q] of groupByGood(r.sold))c.row('卖出',goodId+' × '+q,b);if(r.provisions)c.row('补给','+'+r.provisions+'日份',b);if(r.slotsChanged)c.row('当前货位',r.slots+' / '+S.inventory.capacity(c.p),b);
   }
-  S.marketUI={marketRows,expandState,reportStatus,blockReason};
+  S.marketUI={marketRows,expandState,reportStatus,reportState,blockReason};
   S.ui.registerPanel('market',{title:c=>({changan:'长安 · 西市',dunhuang:'敦煌 · 沙洲驿市',khotan:'于阗 · 绿洲市集'})[c.p.world.city],noClose:true,header(c,h){h.append(marketStatus(c));},render(c,b){
     const visit=c.p.market.visit;syncExpand(c.p);
     if(!visit||visit.settled){info(c,b,S.time.phase(c.p)===2?'暮时不可进入市场。请安排歇息后再来。':'正在打开市场…');return;}
     provisionsCard(c,b,visit);
-    info(c,b,'只有真正运离购入城市的货物才计入有效交易额；同城囤放或转手不增加商誉。购买商报不耗时、不计市场活动。');
-    const latestReport=S.newspapers.latest(c.p);
-    for(const row of marketRows(c.p))goodsCard(c,b,visit,latestReport,row);
+    const latestReport=S.newspapers.latest(c.p),reportSt=reportState(c.p);
+    for(const row of marketRows(c.p))goodsCard(c,b,visit,latestReport,reportSt,row);
     const lots=c.p.inventory.lots.filter(l=>l.ownership==='playerOwned'&&!l.nonMarketable&&l.condition!=='destroyed');
     const tools=c.el('div','market-tools');
     tools.append(c.button('一键出售',()=>c.showModal({title:'出售全部可售货物？',body:'只出售可交易的自有货物，按当前实际卖价逐批结算。',actions:[{label:'返回',run:c.dismissModal},{label:'确认出售',run:async()=>{const r=await c.dispatch('market.sellAll',{visitId:visit.id});if(r)c.dismissModal();}}]}),{disabled:!lots.length}));
     tools.append(c.button('查看委托',()=>c.openSecondary('commission')),c.button('查看商情',()=>c.openSecondary('inspect')));b.append(tools);
   },footer(c,f){const v=c.p.market.visit;f.append(c.button('离开市场',()=>{if(v&&!v.settled&&v.hadActivity)c.openSecondary('market-exit-confirm');else c.closePanel();}));}});
-  // MARKET_EXIT_CONFIRM: 0 tick on entry; 返回市场 keeps the same visit; 确认离市 = market.leave (close + advance once).
+  // MARKET_EXIT_CONFIRM: 0 tick on entry; 返回市场 keeps the same visit; 确认离市 = market.leave (close + advance once), then straight back to the city.
   S.ui.registerPanel('market-exit-confirm',{title:'本次市场交易',noClose:true,render(c,b){
     const v=c.p.market.visit;if(!v||v.settled||!v.hadActivity){info(c,b,'本次尚无成功交易。');return;}
     renderMarketSummary(c,b,S.market.summaryPreview(c.p,v.id),{preview:true});
