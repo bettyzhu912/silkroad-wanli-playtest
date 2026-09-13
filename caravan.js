@@ -15,7 +15,7 @@
     entryTitle: '驼队装货', entryDescription: '替货栈将货物稳妥装上驼背。左右装匀，货物放稳，可多得工钱。', entryTime: '耗时：一日', entryPay: '工钱：按装载结算，至多 22 钱', enter: '进入货栈',
     noTime: '今日时间不足，改日再来。', cityOnly: '驼队装货仅在敦煌城内。', busy: '已有营生进行中', startDuration: '正式装货耗时一日',
     abortTitle: '要结束这次装货吗？', abortBody: '已完成的进度不会保留，本次也不会获得工钱或消耗时间。', abortContinue: '继续装货', abortLeave: '结束装货',
-    stale: '这次装货已经中断。', leave: '离开货栈', retryFinish: '重试收工', finishError: '收工记录尚未保存，请重试。', backToWork: '返回营生', exitWork: '退出营生'
+    stale: '这次装货已经中断。', leave: '离开货栈', retryFinish: '重试收工', finishError: '收工记录尚未保存，请重试。', finishWork: '结束帮工'   // UI supplement v1.0 §7.6: the settlement keeps a single 结束帮工 (返回营生 / 退出营生 withdrawn)
   });
   function work(p) { return p.work || (p.work = S.tavern ? S.tavern.initial() : { tavern: null, lastRound: null, routeGame: null }); }
   function history(p) { const w = work(p); return w.caravanHistory || (w.caravanHistory = { formalRuns: 0, recentGroups: [] }); }

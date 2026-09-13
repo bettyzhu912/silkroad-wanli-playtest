@@ -34,9 +34,9 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
     await ev(`(()=>{const orig=window.__bridge.state.bind(window.__bridge);window.__bridge.state=async()=>{const s=await orig();window.__lastState=s;return s};})()`);
     const ready = await ev('window.__bridge.ready.then(m=>m.engine)'); check('1 engine worker reports ready', ready === 'js-port', ready);
     let s = await st(); check('1 READY state with prepared boards', s.state === 'READY' && s.prepared.includes(0), JSON.stringify({ state: s.state, prepared: s.prepared }));
-    let text = await uiText(); check('1 READY screen copy', /驼队待发/.test(text) && /开始装货/.test(text) && /试玩/.test(text) && /玩法说明/.test(text), text.slice(0, 120)); await shot('ready');
+    let text = await uiText(); check('1 READY art screen copy: 驼队装货 / 本次帮工：一日 / 开始装货 / 试玩 / 玩法说明', /驼队装货/.test(text) && /本次帮工：一日/.test(text) && /开始装货/.test(text) && /试玩/.test(text) && /玩法说明/.test(text) && !/驼队待发/.test(text), text.slice(0, 120)); await shot('ready');
     // 2 HOW_TO_PLAY
-    await clickText('玩法说明 ⓘ'); await idle(); text = await uiText(); check('2 HOW_TO_PLAY opens', /怎么玩/.test(text) && /怎么装得稳/.test(text) && /知道了/.test(text)); await shot('how');
+    await clickText('玩法说明'); await idle(); text = await uiText(); check('2 HOW_TO_PLAY opens', /怎么玩/.test(text) && /怎么装得稳/.test(text) && /知道了/.test(text)); await shot('how');
     await clickText('知道了'); await idle(); s = await st(); check('2 知道了 returns to READY', s.state === 'READY');
     // 3 FORMAL mock play: batch 1 with the reference layout via real UI clicks
     s = await freshSession('FORMAL', 75); check('3 FORMAL session starts (mock mode only)', s.state === 'GAMEPLAY' && s.mode === 'FORMAL' && s.batch === 1 && s.remaining <= 75, JSON.stringify({ batch: s.batch, remaining: s.remaining }));
@@ -55,15 +55,15 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
     // 8 third batch → settlement
     const b3ref = await reference(); await placeViaUI(b3ref.left, []); await click(`.cargo[data-id="${b3ref.right[0]}"]`); await sleep(120); await click('.bag.left'); await sleep(250); s = await st(); text = await ev('document.querySelector(".context").textContent');
     check('8 tap on a full bag only hints 已满, nothing moves', s.left.length === 4 && s.waiting.includes(b3ref.right[0]) && /已满/.test(text), text); await click(`.cargo[data-id="${b3ref.right[0]}"]`); await sleep(120); await placeViaUI([], b3ref.right); await shot('formal-b3-loaded'); await settleCycle(); s = await st(); text = await uiText();
-    check('8 three completed batches → Settlement (immediately, no remaining-time reward)', s.state === 'SETTLEMENT' && s.settlement && s.settlement.completed === 3 && s.settlement.cash === 22 && /驼队装货完成/.test(text) && /今日所得/.test(text) && !/×/.test(text), JSON.stringify(s.settlement)); await shot('settlement');
+    check('8 three completed batches → Settlement (immediately, no remaining-time reward)', s.state === 'SETTLEMENT' && s.settlement && s.settlement.completed === 3 && s.settlement.cash === 22 && /帮工完成/.test(text) && /所得工钱/.test(text) && /结束帮工/.test(text) && !/返回营生|退出营生/.test(text) && !/×/.test(text), JSON.stringify(s.settlement)); await shot('settlement');
     const closeAbsent = await ev('!document.querySelector("#app .close")'); check('8 Settlement has no Global Close', closeAbsent);
     const outer1 = (await st()).debug.mockOuter; check('8 mock outer applied once: cash 100→122, worldTicks +2, one work record', outer1.cash === 122 && outer1.worldTicks === 2 && outer1.workHistory.length === 1, JSON.stringify(outer1));
-    await clickText('返回营生'); await idle(); s = await st(); text = await uiText(); check('9 返回营生 → livelihood list, no double commit', s.state === 'LIVELIHOOD_LIST' && /营生/.test(text));
+    await clickText('结束帮工'); await idle(); s = await st(); text = await uiText(); check('9 结束帮工（唯一按钮）→ livelihood list, no double commit', s.state === 'LIVELIHOOD_LIST' && /营生/.test(text));
     await ev("__bridge.action({op:'ready'})"); await idle(); s = await st(); const outer2 = s.debug ? s.debug.mockOuter : null; check('9 mock outer unchanged after navigation', !outer2 || (outer2.cash === 122 && outer2.worldTicks === 2), JSON.stringify(outer2));
     // 5 Timeout (mock clock hook): B1 done, then time runs out
     s = await freshSession('FORMAL', 75); const r1 = await reference(); await placeViaUI(r1.left, r1.right); await settleCycle(); await ev('__bridge.advance(80)'); await sleep(300); await waitFor('(async()=>{const s=await __bridge.state();return s.state==="SETTLEMENT"})()', 5000, 150); await sleep(600); s = await st(); text = await uiText();
     check('5 Timeout after B1 keeps the completed batch (出色 / 未完成 / 未完成, 12钱)', s.state === 'SETTLEMENT' && s.settlement.completed === 1 && s.settlement.cash === 12 && /未完成/.test(text) && !/失败/.test(text), JSON.stringify(s.settlement)); await shot('timeout-after-b1');
-    await clickText('退出营生'); await idle(); s = await st(); check('9 退出营生 → city', s.state === 'CITY');
+    await clickText('结束帮工'); await idle(); s = await st(); check('9 结束帮工 after timeout → livelihood list (single button; CITY navigation stays engine-level)', s.state === 'LIVELIHOOD_LIST');
     // 6/7 Abort cancel and confirm
     s = await freshSession('FORMAL', 90); const r = await reference(); await placeViaUI(r.left, r.right); await settleCycle(); await placeViaUI([(await st()).slots[0]], []); await sleep(1500); const before = (await st()).remaining;
     await click('.close'); await idle(); text = await uiText(); check('6 Global Close in gameplay → abort confirmation copy', /要结束这次装货吗/.test(text) && /继续装货/.test(text) && /结束装货/.test(text)); await shot('abort-confirm');
@@ -77,7 +77,7 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
     s = await st(); text = await uiText(); const outer4 = s.debug.mockOuter;
     check('10 TRIAL settlement: 模拟所得 22, real mock state untouched', s.state === 'SETTLEMENT' && s.settlement.cash === 22 && /模拟所得/.test(text) && /不消耗时间/.test(text) && outer4.cash === 100 && outer4.worldTicks === 0 && outer4.workHistory.length === 0, JSON.stringify({ settlement: s.settlement, outer: outer4 })); await shot('trial-settlement');
     // 11 Debug ON/OFF
-    await clickText('返回营生'); await idle(); await ev("__bridge.action({op:'ready'})"); await idle(); s = await freshSession('FORMAL', 75);
+    await clickText('结束帮工'); await idle(); await ev("__bridge.action({op:'ready'})"); await idle(); s = await freshSession('FORMAL', 75);
     await ev('(()=>{const d=document.querySelector("#debug");if(!d.checked)d.click();})()'); await idle(); const dbgOn = await ev('(()=>{const p=document.querySelector("#debug-panel");return {hidden:p.hidden,len:document.querySelector("#debug-data").textContent.length}})()');
     check('11 Debug ON shows the debug record', !dbgOn.hidden && dbgOn.len > 200, JSON.stringify(dbgOn)); await shot('debug-on');
     await ev('(()=>{const d=document.querySelector("#debug");if(d.checked)d.click();})()'); await idle(); const dbgOff = await ev('(()=>{const p=document.querySelector("#debug-panel");return {hidden:p.hidden,len:document.querySelector("#debug-data").textContent.length}})()');

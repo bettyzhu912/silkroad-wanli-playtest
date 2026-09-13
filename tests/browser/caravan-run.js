@@ -47,7 +47,7 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
     await ev(`document.querySelector('.city-hotspot[data-hotspot="work"]').click()`); await sleep(400);
     let text = await visibleText(); check('A 营生入口卡: 驼队装货 / 耗时：一日 / 进入货栈', /驼队装货/.test(text) && /耗时：一日/.test(text) && /进入货栈/.test(text), text.slice(0, 120)); await shot('job-card');
     await clickText('进入货栈'); await sleep(400); text = await visibleText();
-    check('A 货栈入口页: 驼队待发 / 开始装货 / 试玩 / 玩法说明', /驼队待发/.test(text) && /开始装货/.test(text) && /试玩/.test(text) && /玩法说明/.test(text), text.slice(0, 160));
+    check('A 货栈入口页（art）: 驼队装货 / 本次帮工：一日 / 开始装货 / 试玩 / 玩法说明，无 驼队待发', /驼队装货/.test(text) && /本次帮工：一日/.test(text) && /开始装货/.test(text) && /试玩/.test(text) && /玩法说明/.test(text) && !/驼队待发/.test(text), text.slice(0, 160));
     const prepared = await waitFor('(()=>{const u=Silk.caravanUI.test.ui;return u.game&&!u.preparing&&u.prepared})()', 15000); check('A 备货完成后试玩可用（页内引擎，无 worker）', prepared); await shot('entry');
     const leak = await ev(`(()=>{const t=document.querySelector('[data-panel-id="caravan"]').innerText;return /groupIndex|settlementId|worldTick|Debug|测试题组|MockOuter|referenceSolution/i.test(t)})()`); check('A 玩家看不到开发字段 / 测试栏', !leak);
     await ev("(()=>{Silk.app.state.progress.world.tick+=1;Silk.ui.render(Silk.app.state);Silk.caravanUI.render();})()"); await sleep(200);
@@ -58,9 +58,9 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
     check('A 暮: 开始装货不显示（P0 formal_entry.visible=false），试玩可用', !noon.formal && !noon.trialDisabled, JSON.stringify(noon));
     await ev("(()=>{Silk.app.state.progress.world.tick-=2;Silk.ui.render(Silk.app.state);Silk.caravanUI.render();})()"); await sleep(200);
     // ---------------- B. instructions
-    await clickText('玩法说明 ⓘ'); await sleep(250); text = await visibleText();
+    await clickText('玩法说明'); await sleep(250); text = await visibleText();
     check('B 玩法说明含 4 件规则与新交互文案', /每只驼袋最多装 4 件/.test(text) && /点驼袋放入/.test(text), text.slice(0, 200)); await shot('how');
-    await clickText('知道了'); await sleep(250); text = await visibleText(); check('B 知道了 → 待发页', /驼队待发/.test(text));
+    await clickText('知道了'); await sleep(250); text = await visibleText(); check('B 知道了 → READY art 页', /本次帮工：一日/.test(text) && /开始装货/.test(text));
     // ---------------- C. trial: three batches, no world effect
     await clickText('试玩'); await sleep(400); await shot('trial-start'); let d = await data(); check('C 试玩开始: GAMEPLAY 第1批 · 75s · 无主游戏会话', d && d.state === 'GAMEPLAY' && d.batch === 1 && d.mode === 'TRIAL' && d.remaining <= 75 && !(await state()).caravan, JSON.stringify(d && { state: d.state, batch: d.batch, mode: d.mode }));
     let ref = await reference(); await place(ref.left, ref.right); d = await data(); check('C 点驼袋装入参考解 → 确认装好', d.canSubmit && d.waiting.length === 0); await shot('trial-b1-loaded');
@@ -68,8 +68,8 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
     ref = await reference(); await place(ref.left, ref.right); check('C 批次 2 PASS → 第3批', await submitAndWait(3));
     ref = await reference(); await place(ref.left, ref.right); check('C 批次 3 PASS → 试玩结算', await submitAndWait(null)); await sleep(300);
     text = await visibleText(); check('C 试玩结算: 模拟所得 22 钱 + 试玩不消耗时间', /模拟所得/.test(text) && /22 钱/.test(text) && /试玩不消耗时间/.test(text), text.slice(0, 200)); await shot('trial-settlement');
-    await clickText('返回营生'); await sleep(400); st = await state(); text = await visibleText();
-    check('C 返回营生 → 营生列表；钱 / 时段不变、无会话', /进入货栈/.test(text) && st.cash === cash0 && st.phase === 0 && !st.caravan, JSON.stringify(st));
+    await clickText('结束帮工'); await sleep(400); st = await state(); text = await visibleText();
+    check('C 结束帮工（试玩，唯一按钮）→ 营生列表；钱 / 时段不变、无会话', /进入货栈/.test(text) && st.cash === cash0 && st.phase === 0 && !st.caravan, JSON.stringify(st));
     // ---------------- D. formal run: NOT PASS → rearrange → 3 batches → 22 钱, +2 ticks, lodging
     await clickText('进入货栈'); await sleep(300); await waitFor('(()=>{const u=Silk.caravanUI.test.ui;return u.game&&!u.preparing&&u.prepared})()', 15000); await sleep(150);
     await clickText('开始装货'); await sleep(300); await confirmRisk(); await waitFor('(()=>{const d=Silk.caravanUI.test.data();return d&&d.state==="GAMEPLAY"&&Silk.caravanUI.test.ui.kind==="formal"})()', 15000); await sleep(200);
@@ -89,10 +89,10 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
     const finished = await waitFor('(()=>{const p=Silk.app.state.progress;const s=p.work&&p.work.caravan;return s&&s.phase==="FINISHED"&&s.result&&!s.settled})()', 8000); await sleep(300);
     st = await state(); text = await visibleText();
     check('D 收工记录写入主游戏（CARAVAN_FINISH）: 3 批、22 钱，尚未结算、钱未变', finished && st.caravan.completed === 3 && st.caravan.wage === 22 && st.caravan.settled === false && st.cash === cash0, JSON.stringify(st));
-    check('D 结算页: 驼队装货完成 / 今日所得 22 钱 / 返回营生 / 退出营生', /驼队装货完成/.test(text) && /今日所得/.test(text) && /22 钱/.test(text) && /退出营生/.test(text), text.slice(0, 220)); await shot('formal-settlement');
+    check('D 结算页（art）: 帮工完成 / 本次帮工：一日 / 所得工钱 22 钱 / 唯一按钮 结束帮工', /帮工完成/.test(text) && /本次帮工：一日/.test(text) && /所得工钱/.test(text) && /22 钱/.test(text) && /结束帮工/.test(text) && !/返回营生|退出营生/.test(text), text.slice(0, 220)); await shot('formal-settlement');
     const xHidden = await ev(`(()=>{const b=document.querySelector('[data-panel-id="caravan"] .close-button');return !(b&&b.offsetParent!==null)})()`); check('D 结算未完成时关闭按钮隐藏', xHidden);
-    await clickText('退出营生'); await busyWait(); await sleep(500); st = await state(); text = await visibleText();
-    check('D 退出营生 → 结算一次: 钱 +22、+2 时段落在暮、journal 1 条', st.cash === cash0 + 22 && st.phase === 2 && st.caravan.settled === true && st.journal === 1, JSON.stringify(st));
+    await clickText('结束帮工'); await busyWait(); await sleep(500); st = await state(); text = await visibleText();
+    check('D 结束帮工 → 结算一次: 钱 +22、+2 时段落在暮、journal 1 条', st.cash === cash0 + 22 && st.phase === 2 && st.caravan.settled === true && st.journal === 1, JSON.stringify(st));
     check('D 暮 → 进入客舍住宿流程（主游戏 modal hierarchy）', /客舍|住宿|歇息/.test(text), text.slice(0, 120)); await shot('after-settlement-inn');
     const hud = await ev('document.body.innerText.includes(String(Silk.app.state.progress.cash))'); check('D HUD 显示新的钱数', hud);
     // ---------------- E. timeout after one batch (next morning)
@@ -101,9 +101,9 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
     ref = await reference(); await place(ref.left, ref.right); check('E B1 PASS', await submitAndWait(2));
     await ev('Silk.caravanUI.test.warp(80)'); await sleep(400); await waitFor('(()=>{const d=Silk.caravanUI.test.data();return !d||d.state==="SETTLEMENT"||!Silk.caravanUI.test.game()})()', 6000); await sleep(400);
     const timedOut = await waitFor('(()=>{const p=Silk.app.state.progress;const s=p.work&&p.work.caravan;return s&&s.phase==="FINISHED"&&s.result&&!s.settled})()', 8000); st = await state(); text = await visibleText();
-    check('E 时辰到: 保留已完成 1 批（TIMEOUT）、驼队装货结束、工钱 = 引擎 payout([tier])', timedOut && st.caravan.completed === 1 && st.caravan.wage >= 11 && st.caravan.wage <= 12 && /驼队装货结束/.test(text), JSON.stringify(st.caravan)); await shot('timeout-settlement');
-    const wage1 = st.caravan.wage; await clickText('返回营生'); await busyWait(); await sleep(400); st = await state();
-    check('E 返回营生（暮）→ 结算 + 客舍流程', st.cash === cash1 + wage1 && st.phase === 2 && st.caravan.settled, JSON.stringify(st));
+    check('E 时辰到: 保留已完成 1 批（TIMEOUT）、帮工完成 + 未完成批次、工钱 = 引擎 payout([tier])', timedOut && st.caravan.completed === 1 && st.caravan.wage >= 11 && st.caravan.wage <= 12 && /帮工完成/.test(text) && /未完成/.test(text) && !/退出营生/.test(text), JSON.stringify(st.caravan)); await shot('timeout-settlement');
+    const wage1 = st.caravan.wage; await clickText('结束帮工'); await busyWait(); await sleep(400); st = await state();
+    check('E 结束帮工（暮）→ 结算 + 客舍流程', st.cash === cash1 + wage1 && st.phase === 2 && st.caravan.settled, JSON.stringify(st));
     // ---------------- F. abort via the host close button
     await nextMorning(); st = await state(); const cash2 = st.cash;
     await openStore(); await clickText('开始装货'); await sleep(300); await confirmRisk(); await waitFor('(()=>{const d=Silk.caravanUI.test.data();return d&&d.state==="GAMEPLAY"&&Silk.caravanUI.test.ui.kind==="formal"})()', 15000); await sleep(200);
@@ -115,7 +115,7 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
     // ---------------- G. reload during a formal run → recovery abort without cost
     await openStore(); await clickText('开始装货'); await sleep(300); await confirmRisk(); await waitFor('(()=>{const d=Silk.caravanUI.test.data();return d&&d.state==="GAMEPLAY"&&Silk.caravanUI.test.ui.kind==="formal"})()', 15000); await sleep(200);
     await c.navigate('http://127.0.0.1:' + port + '/'); await sleep(1200); await ev('new Promise(r=>{const t=setInterval(()=>{if(window.Silk&&Silk.app&&Silk.app.state&&Silk.app.state.progress){clearInterval(t);r()}},100)})'); await waitFor('!Silk.app.busy', 10000); await sleep(500); st = await state(); text = await visibleText();
-    check('G 重载: 进行中的正式装货按中止恢复（不计时、不付钱），无残留面板', st.caravan && st.caravan.phase === 'ABORTED' && st.cash === cash2 && st.phase === 0 && !/驼队待发|第1批/.test(text), JSON.stringify({ st, text: text.slice(0, 60) })); await shot('after-reload');
+    check('G 重载: 进行中的正式装货按中止恢复（不计时、不付钱），无残留面板', st.caravan && st.caravan.phase === 'ABORTED' && st.cash === cash2 && st.phase === 0 && !/开始装货|第1批/.test(text), JSON.stringify({ st, text: text.slice(0, 60) })); await shot('after-reload');
     // ---------------- H. trial abort via close
     await openStore(); await clickText('试玩'); await sleep(400); await ev(`document.querySelector('[data-panel-id="caravan"] .close-button').click()`); await sleep(300); m = await modalText(); await clickText('结束装货'); await sleep(400); st = await state(); text = await visibleText();
     check('H 试玩中点关闭 → 同一确认 → 回营生列表，世界不变', /要结束这次装货吗/.test(m) && /进入货栈/.test(text) && st.cash === cash2 && st.phase === 0, JSON.stringify(st));
