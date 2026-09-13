@@ -15,6 +15,48 @@
     const rel = p.merchant?.suppliers?.[id] || p.merchant?.supplyRelations?.[id];
     return Boolean(rel && (rel.established || rel.level >= 1 || rel.status === 'established' || rel.status === 'deepened' || ['established', 'deepened'].includes(rel.stage)));
   }
+  // ---- WEIGHTED_AVERAGE_INVENTORY_COST_PATCH v1.0 (2026-09-13) ----
+  // One cost per productId: every lot of the same good that the player owns (carried or in a 商号 cabinet; marketable, not destroyed)
+  // carries the same integer `avgCost` = the product's single 持仓均价. Lots stay only as provenance records (city / day / turnover /
+  // condition / actual purchase price for the existing supplier-discount resale cap); they are never a cost basis again.
+  // On every acquisition: avg = roundMoney((oldQty × oldAvg + newQty × newUnitCost) / (oldQty + newQty)) with the game's global
+  // S.money.round (fraction > .5 rounds up, ≤ .5 down); the integer is written to every pool lot at once and nothing else is kept —
+  // no exact / hidden average anywhere. Partial removals (sale, delivery, loss, damage) leave avgCost untouched; when the last unit
+  // goes the value is gone with the lots (nothing stored), and the next purchase from zero starts at its own integer unit price.
+  function poolable(lot) { return lot.ownership === 'playerOwned' && !lot.nonMarketable && lot.condition !== 'destroyed' && lot.quantity > 0 && typeof lot.goodId === 'string'; }
+  function costPool(p, goodId) { return [...p.inventory.lots, ...(p.merchant?.cabinets || []).flatMap(c => c.lots)].filter(l => l.goodId === goodId && poolable(l)); }
+  function avgCost(p, goodId) { const pool = costPool(p, goodId); return pool.length ? pool[0].avgCost : null; }
+  function mergeCost(p, lot) {
+    const others = costPool(p, lot.goodId).filter(l => l !== lot), oldQty = others.reduce((n, l) => n + l.quantity, 0);
+    let avg = lot.acquisitionPrice;
+    if (oldQty > 0) {
+      const oldAvg = others[0].avgCost; ensure(integer(oldAvg) && others.every(l => l.avgCost === oldAvg), 'INVALID_COST_BASIS');
+      avg = S.money.round((oldQty * oldAvg + lot.quantity * lot.acquisitionPrice) / (oldQty + lot.quantity));
+    }
+    for (const l of [lot, ...others]) l.avgCost = avg;
+    return avg;
+  }
+  // Save compatibility (one-time fold, idempotent): lots saved before this rule carry only their batch price; the batches of one good are
+  // folded once into a single integer avgCost by the same formula, after which the batch prices are never read as cost again.
+  function migrateCost(p) {
+    const lots = [...p.inventory.lots, ...(p.merchant?.cabinets || []).flatMap(c => c.lots)].filter(poolable), byGood = new Map();
+    for (const l of lots) byGood.set(l.goodId, [...(byGood.get(l.goodId) || []), l]);
+    for (const pool of byGood.values()) {
+      if (pool.every(l => integer(l.avgCost) && l.avgCost === pool[0].avgCost)) continue;
+      const basis = l => integer(l.avgCost) ? l.avgCost : l.acquisitionPrice, quantity = pool.reduce((n, l) => n + l.quantity, 0);
+      const avg = S.money.round(pool.reduce((n, l) => n + l.quantity * basis(l), 0) / quantity);
+      for (const l of pool) l.avgCost = avg;
+    }
+  }
+  function validateCost(p) {
+    const seen = new Map();
+    for (const l of [...p.inventory.lots, ...(p.merchant?.cabinets || []).flatMap(c => c.lots)]) {
+      if (!poolable(l)) continue;
+      ensure(integer(l.avgCost), 'INVALID_COST_BASIS');
+      if (seen.has(l.goodId)) ensure(seen.get(l.goodId) === l.avgCost, 'INVALID_COST_BASIS'); else seen.set(l.goodId, l.avgCost);
+    }
+    return true;
+  }
   function add(p, input) {
     const item = input.nonMarketable ? { slotCost: input.slotCost, fragile: Boolean(input.fragile) } : good(input.goodId);
     ensure(integer(input.quantity, 1) && integer(input.acquisitionPrice), 'INVALID_LOT');
@@ -30,7 +72,7 @@
       hasLeftAcquisitionCity: Boolean(input.hasLeftAcquisitionCity)
     };
     ensure(!Object.hasOwn(lot, 'quality'), 'DELETED_QUALITY');
-    p.inventory.lots.push(lot); return lot;
+    p.inventory.lots.push(lot); if (poolable(lot)) mergeCost(p, lot); return lot;
   }
   // A lot qualifies as transported cargo for the city it is judged in when it was bought elsewhere or has left its purchase city.
   function transportQualified(lot, city) { return lot.acquisitionCity !== city || lot.hasLeftAcquisitionCity === true; }
@@ -66,5 +108,5 @@
   }
   function transported(p, city) { for (const lot of p.inventory.lots) if (lot.acquisitionCity !== city) { lot.hasTransportedToOtherCity = true; lot.hasLeftAcquisitionCity = true; } }
   function lose(p,id,quantity=1,options={}){if(S.stories?.lose){const result=S.stories.lose(p,id,{...options,quantity});if(result!==null&&result!==undefined)return result;}return take(p,id,quantity);}
-  S.inventory = { goods, good, capacity, used, available, unlocked, add, take, damage, lose, transported, transportQualified, departed, migrate };
+  S.inventory = { goods, good, capacity, used, available, unlocked, add, take, damage, lose, transported, transportQualified, departed, migrate, costPool, avgCost, migrateCost, validateCost };
 })(globalThis.Silk = globalThis.Silk || {});

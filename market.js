@@ -104,8 +104,8 @@
     lot.purchaseTurnoverId=lot.id;lot.purchaseTurnoverPending=true;
     purchaseRecords(p)[lot.id]={purchaseId:lot.id,city:p.world.city,worldDay:S.time.day(p),unitPrice,originalQuantity:lot.quantity,pendingQuantity:lot.quantity,confirmedQuantity:0,cancelledQuantity:0};pendingTotal(p);
     const reputation = {amount:0,gained:0,remainder:p.reputation.turnover,pendingAmount:total};
-    p.journal.push({ type: 'marketBuy', lotId: lot.id, goodId: row.id, quantity: lot.quantity, unitPrice, total, city: p.world.city, tick: p.world.tick, tripId: p.trip?.id || null });
-    return { kind: 'marketBuy', goodId: row.id, quantity: payload.quantity, unitPrice, total, cashDelta: -total, reputation, lotId: lot.id };
+    p.journal.push({ type: 'marketBuy', lotId: lot.id, goodId: row.id, quantity: lot.quantity, unitPrice, total, avgCost: lot.avgCost, city: p.world.city, tick: p.world.tick, tripId: p.trip?.id || null });
+    return { kind: 'marketBuy', goodId: row.id, quantity: payload.quantity, unitPrice, total, avgCost: lot.avgCost, cashDelta: -total, reputation, lotId: lot.id };
   }
   function sellLot(p, v, lot, quantity, ctx) {
     ensure(integer(quantity, 1, lot.quantity), 'INVALID_QUANTITY', '出售件数无效');
@@ -119,27 +119,23 @@
     const cancelledPurchaseTurnover=transported?0:cancelResale(p,lot,quantity);
     const sold = S.inventory.take(p, lot.id, quantity); p.cash += total; v.hadActivity = true;
     const reputation = S.reputation.addTurnover(p, transported ? total : 0, { type: 'marketSell', lotId: sold.id });
-    const cost = sold.acquisitionPrice * sold.quantity;
-    const entry = { type: 'marketSell', goodId: sold.goodId, lotId: sold.id, quantity: sold.quantity, unitPrice, total, cost, profit: total - cost, city: p.world.city, acquisitionCity:sold.acquisitionCity,crossCity:sold.acquisitionCity!==p.world.city, transportQualified: transported, tick: p.world.tick, tripId: p.trip?.id || null };
+    // WEIGHTED_AVERAGE_INVENTORY_COST_PATCH v1.0: the cost of a sale is the product's single integer 持仓均价 × quantity, never the batch price.
+    ensure(integer(sold.avgCost), 'INVALID_COST_BASIS'); const cost = sold.avgCost * sold.quantity;
+    const entry = { type: 'marketSell', goodId: sold.goodId, lotId: sold.id, quantity: sold.quantity, unitPrice, total, avgCost: sold.avgCost, cost, profit: total - cost, city: p.world.city, acquisitionCity:sold.acquisitionCity,crossCity:sold.acquisitionCity!==p.world.city, transportQualified: transported, tick: p.world.tick, tripId: p.trip?.id || null };
     p.journal.push(entry);
     return { kind: 'marketSell', ...entry, cashDelta: total, reputation, cancelledPurchaseTurnover };
   }
   function marketableLots(p, goodId) { return p.inventory.lots.filter(l => l.goodId === goodId && l.ownership === 'playerOwned' && !l.nonMarketable && l.condition !== 'destroyed' && l.quantity > 0); }
   // InventoryLot contract (2026-09-13): the market UI submits goodId + quantity and never exposes lots.
-  // Backend consumption stays what it was: one lot (whole or part), or every lot of the good in full (一键出售 semantics).
-  // Lots whose every gameplay-relevant attribute is identical are "outcome-equivalent": whichever of them is consumed first, cash,
-  // journal cost / profit, sale price caps, transport provenance and turnover totals come out the same, so a partial quantity over
-  // such lots is taken in inventory order without any policy choice. A partial quantity over NON-equivalent lots (different cost,
-  // city or provenance) would need the lot-consumption rule (FIFO / LIFO / weighted …) that the gameplay authority has not closed;
-  // sellPlan() reports that as unavailable and the engine refuses it (LOT_POLICY_PENDING) — no rule invented, nothing player-facing.
-  const EQUIVALENCE_KEYS = ['acquisitionPrice', 'acquisitionCity', 'condition', 'discountOriginCity', 'supplierDiscountRate', 'hasTransportedToOtherCity', 'hasLeftAcquisitionCity', 'purchaseTurnoverPending', 'slotCost'];
-  function outcomeEquivalent(lots) { const key = l => JSON.stringify(EQUIVALENCE_KEYS.map(k => l[k] ?? null)); const first = key(lots[0]); return lots.every(l => key(l) === first); }
+  // WEIGHTED_AVERAGE_INVENTORY_COST_PATCH v1.0 (2026-09-13): the cost of every unit of a good is the product's single integer 持仓均价
+  // (S.inventory.avgCost), so there is no batch to choose at sale time and no cost-depletion policy: any valid quantity is committed and the
+  // physical units are taken from the lots in inventory order (oldest first). That order can only touch provenance-dependent rules that
+  // this patch leaves as they are (purchase-turnover confirmation / cancellation, the supplier-discount resale cap) — never the cost.
   function sellPlan(p, goodId, quantity) {
     const lots = marketableLots(p, goodId), held = lots.reduce((n, l) => n + l.quantity, 0);
     if (!lots.length) return { ok: false, code: 'NOT_MARKETABLE', lots, held };
     if (!integer(quantity, 1, held)) return { ok: false, code: 'INVALID_QUANTITY', lots, held };
-    if (lots.length === 1 || quantity === held || outcomeEquivalent(lots)) return { ok: true, lots, held, spansLots: lots.length > 1 && quantity < held };
-    return { ok: false, code: 'LOT_POLICY_PENDING', lots, held };
+    return { ok: true, lots, held, avgCost: lots[0].avgCost, spansLots: quantity > lots[0].quantity };
   }
   function sell(p, payload, ctx) {
     const v = visit(p, payload);
@@ -150,13 +146,12 @@
     }
     const plan = sellPlan(p, payload.goodId, payload.quantity);
     ensure(plan.code !== 'NOT_MARKETABLE', 'NOT_MARKETABLE', '这批货物不能出售');
-    ensure(plan.code !== 'INVALID_QUANTITY', 'INVALID_QUANTITY', '出售件数无效');
-    ensure(plan.ok, 'LOT_POLICY_PENDING', '出售规则尚未确定');
+    ensure(plan.code !== 'INVALID_QUANTITY' && plan.ok, 'INVALID_QUANTITY', '出售件数无效');
     if (plan.lots.length === 1) return sellLot(p, v, plan.lots[0], payload.quantity, ctx);
     let remaining = payload.quantity; const items = [];
     for (const lot of plan.lots) { if (!remaining) break; const q = Math.min(remaining, lot.quantity); items.push(sellLot(p, v, lot, q, ctx)); remaining -= q; }
     const sum = k => items.reduce((n, r) => n + r[k], 0);
-    return { kind: 'marketSell', goodId: payload.goodId, quantity: sum('quantity'), unitPrice: S.money.round(sum('total') / sum('quantity')), total: sum('total'), cost: sum('cost'), profit: sum('profit'), city: p.world.city, cashDelta: sum('cashDelta'), items, cancelledPurchaseTurnover: sum('cancelledPurchaseTurnover') };
+    return { kind: 'marketSell', goodId: payload.goodId, quantity: sum('quantity'), unitPrice: S.money.round(sum('total') / sum('quantity')), total: sum('total'), avgCost: plan.avgCost, cost: sum('cost'), profit: sum('profit'), city: p.world.city, cashDelta: sum('cashDelta'), items, cancelledPurchaseTurnover: sum('cancelledPurchaseTurnover') };
   }
   function sellAll(p, payload, ctx) {
     visit(p, payload);
@@ -185,7 +180,7 @@
     return '';
   }
   const reducers = { 'market.enter': enter, 'market.leave': leave, 'market.buy': buy, 'market.sell': sell, 'market.sellAll': sellAll, 'market.provisions': provisions };
-  S.market = { price, quote:(p,city,id)=>S.pricing.quote(p,city,id), buyQuote, sellUnitPrice, enter, leave, summaryPreview, blockReason, marketableLots, sellPlan, outcomeEquivalent, buy, sell, sellAll, provisions, settlePurchaseTurnover, validate };
+  S.market = { price, quote:(p,city,id)=>S.pricing.quote(p,city,id), buyQuote, sellUnitPrice, enter, leave, summaryPreview, blockReason, marketableLots, sellPlan, buy, sell, sellAll, provisions, settlePurchaseTurnover, validate };
   for (const [type, fn] of Object.entries(reducers)) S.commands.register(type, fn);
   S.time.register('purchaseTurnover',{dayStart:settlePurchaseTurnover});
 })(globalThis.Silk = globalThis.Silk || {});

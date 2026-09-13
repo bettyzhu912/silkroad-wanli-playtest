@@ -73,15 +73,16 @@
     longStories30Runtime: 'BLOCK', npcAffinity: 'BLOCK', futureCities: 'BLOCK', goodsQuality: 'DELETED', legacyProject: 'REFERENCE_ONLY'
   });
   S.core = {
-    versions: Object.freeze({ releaseVersion: 'v0.3.0-competition-rc3', schemaVersion: 2, balanceVersion: '2026-09-11-rc3-logic-patch' }),
+    versions: Object.freeze({ releaseVersion: 'v0.3.0-competition-rc3', schemaVersion: 2, balanceVersion: '2026-09-13-weighted-avg-cost' }),
     emptyEnvelope() { return { meta: { ...S.core.versions, generation: 0, revision: 0 }, preferences: { tutorialEnabled: true, soundEnabled: true }, progress: null, ledger: {}, pending: null, results: {} }; },
     upgradeEnvelope(envelope) {
       S.core.validate(envelope);
       if(S.core.isCurrent(envelope))return {state:clone(envelope),changed:false};
-      ensure(['2026-09-09-effective','2026-09-10-g01-g05'].includes(envelope.meta.balanceVersion),'BALANCE_UNSUPPORTED','此存档来自另一套规则版本，原记录已保留');
+      const fromRC2=['2026-09-09-effective','2026-09-10-g01-g05'].includes(envelope.meta.balanceVersion);
+      ensure(fromRC2||envelope.meta.balanceVersion==='2026-09-11-rc3-logic-patch','BALANCE_UNSUPPORTED','此存档来自另一套规则版本，原记录已保留');
       ensure(!envelope.pending,'TRANSACTION_PENDING','请先恢复上次尚未保存的操作');
       const next=clone(envelope),p=next.progress;
-      if(p){
+      if(p&&fromRC2){
         p.market.purchaseTurnoverLots=p.market.purchaseTurnoverLots||{};
         p.market.pendingPurchaseTurnover=p.market.pendingPurchaseTurnover||0;
         // Legacy purchases were credited under the old rule. Do not credit them a second time.
@@ -94,6 +95,8 @@
         if(S.events?.migrate)S.events.migrate(p);
         if(S.commissions?.migrate)S.commissions.migrate(p);
       }
+      // WEIGHTED_AVERAGE_INVENTORY_COST_PATCH v1.0 (RC2 and RC3-logic-patch saves): fold the batches of each good once into one integer 持仓均价.
+      if(p&&S.inventory?.migrateCost)S.inventory.migrateCost(p);
       next.meta.migrations=[...(next.meta.migrations||[]),{from:envelope.meta.balanceVersion,to:S.core.versions.balanceVersion,atRevision:envelope.meta.revision}];
       Object.assign(next.meta,S.core.versions);next.meta.revision++;
       S.core.validate(next);return {state:next,changed:true};
@@ -138,6 +141,8 @@
         ensure(['intact', 'damaged', 'destroyed'].includes(lot.condition), 'INVALID_CONDITION');
         ensure(!Object.hasOwn(lot, 'quality'), 'DELETED_QUALITY');
       }
+      // WEIGHTED_AVERAGE_INVENTORY_COST_PATCH v1.0: on a current save every pool lot carries the integer 持仓均价 of its good, one value per good (carried + cabinets).
+      if(S.core.isCurrent(envelope)&&S.inventory?.validateCost)S.inventory.validateCost(p);
       if(S.inventory?.available)ensure(S.inventory.available(p)>=0,'CAPACITY_EXCEEDED','存档中的货物超过实际货位');
       if (S.finance?.validate) S.finance.validate(p);
       if (S.trip?.validate) S.trip.validate(p);

@@ -37,6 +37,9 @@ for (let i = 0; i < SEEDS; i++) {
     if (p.reputation.value !== before.rep || p.reputation.turnover !== before.turnover) throw new Error('migration changed reputation (BUG-07: pending purchases must not be batch-confirmed)');
     if (!p.trip && p.commissions.active.some(c => ['completed', 'failed'].includes(c.status))) throw new Error('terminal commissions still in active after migration');
     for (const l of [...p.inventory.lots, ...p.merchant.cabinets.flatMap(c => c.lots)]) if (typeof l.hasLeftAcquisitionCity !== 'boolean') throw new Error('lot without transport flag');
+    // WEIGHTED_AVERAGE_INVENTORY_COST_PATCH v1.0: the batches of each good (carried + cabinets) are folded once into one integer 持仓均价
+    NEW.inventory.validateCost(p);
+    for (const l of [...p.inventory.lots, ...p.merchant.cabinets.flatMap(c => c.lots)]) if (l.ownership === 'playerOwned' && !l.nonMarketable && l.condition !== 'destroyed' && !Number.isInteger(l.avgCost)) throw new Error('pool lot without integer avgCost after migration');
     for (const l of p.inventory.lots) if (l.ownership === 'storyOwned' && ['QY01_SAMPLE', 'QY02_TRIAL'].includes(l.storyCargoKind) && l.condition === 'destroyed') throw new Error('destroyed initial sample survived migration');
     if (!p.events || typeof p.events.cityRollDays !== 'object') throw new Error('city roll state missing');
     if (p.departureDraft !== null) throw new Error('draft must be null after migration');

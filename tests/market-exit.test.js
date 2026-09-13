@@ -47,28 +47,33 @@ test('blocking-reason priority helper: 未解锁 → 货位不足 → 铜钱不�
   assert.strictEqual(ui.blockReason('provisions', { valid: true, n: 5, needsSlot: false, available: 0, cash: 3, unit: 1 }), '随身铜钱不足');
   assert.strictEqual(ui.blockReason('provisions', { valid: false, n: 0, needsSlot: false, available: 0, cash: 3, unit: 1 }), '请输入正整数日份');
 });
-test('sell by goodId (InventoryLot never exposed): single lot; partial over outcome-equivalent lots; all lots in full; partial over non-equivalent lots refused (no rule invented, no player copy)', () => {
+test('sell by goodId (InventoryLot never exposed): single lot; partial over several lots; lots of different purchase prices share one integer 持仓均价 and sell without any batch selection or policy gate', () => {
   const d = fresh(204); d.run('market.enter'); const v = d.p.market.visit;
   d.run('market.buy', { visitId: v.id, goodId: '绢帛', quantity: 2 }); d.ack();
   const one = d.run('market.sell', { visitId: v.id, goodId: '绢帛', quantity: 1 }); d.ack();
   assert.ok(one.kind === 'marketSell' && one.quantity === 1 && one.goodId === '绢帛', 'single lot: partial sell by goodId ok');
   d.run('market.buy', { visitId: v.id, goodId: '绢帛', quantity: 3 }); d.ack();
-  let lots = S.market.marketableLots(d.p, '绢帛'); assert.strictEqual(lots.length, 2, 'two backend lots kept (no merge)');
-  assert.ok(S.market.outcomeEquivalent(lots), 'same city / day / price / provenance → outcome-equivalent');
+  let lots = S.market.marketableLots(d.p, '绢帛'); assert.strictEqual(lots.length, 2, 'two backend lots kept as provenance records (no merge of lots)');
+  assert.ok(lots.every(l => l.avgCost === lots[0].avgCost), 'one integer 持仓均价 on every lot');
   assert.deepStrictEqual(S.market.sellPlan(d.p, '绢帛', 2).ok, true);
   const before = d.p.cash; const two = d.run('market.sell', { visitId: v.id, goodId: '绢帛', quantity: 2 }); d.ack();
-  assert.ok(two.kind === 'marketSell' && two.quantity === 2 && two.items.length === 2 && d.p.cash === before + two.total, 'partial over equivalent lots commits (1 from the first lot, 1 from the second)');
+  assert.ok(two.kind === 'marketSell' && two.quantity === 2 && two.items.length === 2 && d.p.cash === before + two.total, 'partial over two lots commits (1 from the first lot, 1 from the second)');
   lots = S.market.marketableLots(d.p, '绢帛'); assert.strictEqual(lots.length, 1, 'the first lot was consumed in inventory order, one lot of 2 remains'); assert.strictEqual(lots[0].quantity, 2);
   d.run('market.buy', { visitId: v.id, goodId: '绢帛', quantity: 2 }); d.ack(); lots = S.market.marketableLots(d.p, '绢帛'); assert.strictEqual(lots.length, 2);
-  // make the lots non-equivalent (a different cost) → the undecided case
-  lots[0].acquisitionPrice += 1; assert.ok(!S.market.outcomeEquivalent(lots));
-  const plan = S.market.sellPlan(d.p, '绢帛', 1); assert.ok(!plan.ok && plan.code === 'LOT_POLICY_PENDING', 'partial over non-equivalent lots is not committed');
-  const partial = d.tryRun('market.sell', { visitId: v.id, goodId: '绢帛', quantity: 1 }); assert.ok(!partial.ok && partial.code === 'LOT_POLICY_PENDING');
-  assert.strictEqual(S.market.blockReason('sell', { valid: true, n: 1, held: 4, lots: 2 }), '', 'no player-facing copy for the undecided case');
-  const over = d.tryRun('market.sell', { visitId: v.id, goodId: '绢帛', quantity: 5 }); assert.ok(!over.ok && over.code === 'INVALID_QUANTITY');
-  const cash2 = d.p.cash; const all = d.run('market.sell', { visitId: v.id, goodId: '绢帛', quantity: 4 }); d.ack();
-  assert.ok(all.kind === 'marketSell' && all.quantity === 4 && all.items.length === 2 && d.p.cash === cash2 + all.total, 'all lots in full still works (existing 一键出售 semantics per good)');
-  assert.strictEqual(S.market.marketableLots(d.p, '绢帛').length, 0);
+  // WEIGHTED_AVERAGE_INVENTORY_COST_PATCH v1.0: a batch bought elsewhere at another price is the same product — one cost, no batch to choose
+  S.inventory.add(d.p, { goodId: '绢帛', quantity: 1, acquisitionPrice: lots[0].acquisitionPrice + 10, acquisitionCity: 'dunhuang', hasLeftAcquisitionCity: true }); // 5 units + the provisions slot = the 6 slots of one camel
+  lots = S.market.marketableLots(d.p, '绢帛'); const held = lots.reduce((n, l) => n + l.quantity, 0);
+  const expected = S.money.round(lots.reduce((n, l) => n + l.quantity * l.acquisitionPrice, 0) / held);
+  assert.ok(lots.length === 3 && new Set(lots.map(l => l.acquisitionPrice)).size === 2 && lots.every(l => l.avgCost === expected), 'three lots, two purchase prices, one integer 均价 = roundMoney of the weighted average');
+  const plan = S.market.sellPlan(d.p, '绢帛', 1); assert.ok(plan.ok && plan.avgCost === expected, 'partial over lots of different prices is a normal sale');
+  const partial = d.run('market.sell', { visitId: v.id, goodId: '绢帛', quantity: 1 }); d.ack();
+  assert.ok(partial.kind === 'marketSell' && partial.cost === expected && partial.avgCost === expected, 'cost = 1 × 均价');
+  assert.strictEqual(S.inventory.avgCost(d.p, '绢帛'), expected, '部分卖出后均价不变');
+  assert.strictEqual(S.market.blockReason('sell', { valid: true, n: 1, held: 5, lots: 3 }), '', 'no player-facing copy about batches');
+  const over = d.tryRun('market.sell', { visitId: v.id, goodId: '绢帛', quantity: 99 }); assert.ok(!over.ok && over.code === 'INVALID_QUANTITY');
+  const cash2 = d.p.cash; const all = d.run('market.sell', { visitId: v.id, goodId: '绢帛', quantity: held - 1 }); d.ack();
+  assert.ok(all.kind === 'marketSell' && all.quantity === held - 1 && all.cost === (held - 1) * expected && d.p.cash === cash2 + all.total, 'all remaining units in one sale');
+  assert.strictEqual(S.market.marketableLots(d.p, '绢帛').length, 0); assert.strictEqual(S.inventory.avgCost(d.p, '绢帛'), null, 'sold out: no 均价 kept');
   assert.strictEqual(S.market.blockReason('sell', { valid: true, n: 5, held: 4, lots: 1 }), '出售件数无效');
   assert.strictEqual(S.market.blockReason('buy', { valid: true, n: 3, unlocked: true, slotCost: 2, available: 4, cash: 999, unit: 10 }), '货位不足，还需 2 个货位');
   assert.strictEqual(S.market.blockReason('buy', { valid: true, n: 3, unlocked: true, slotCost: 1, available: 6, cash: 5, unit: 10 }), '随身铜钱不足');

@@ -61,8 +61,8 @@
     const judgement=latestReport?.productJudgements?.[good.id];
     statLine(c,infoBox,[['当前价格',c.formatMoney(price)],['货位',good.slotCost+'/件']],'market-stat-line market-row-1');
     statLine(c,infoBox,[['持有',String(held)],['商报',latestReport?(judgement?.label||'—'):'未购买','report-'+reportSt]],'market-stat-line market-row-2');
-    // Aggregated by goodId (InventoryLot never shown): total cost = weighted average acquisition cost × held; value and profit use the existing calculation.
-    let cost=0,value=0;if(held){cost=lots.reduce((n,l)=>n+l.acquisitionPrice*l.quantity,0);value=lots.reduce((n,l)=>n+S.market.sellUnitPrice(p,l,price)*l.quantity,0);}
+    // Aggregated by goodId (InventoryLot never shown). WEIGHTED_AVERAGE_INVENTORY_COST_PATCH v1.0: 持有成本 = 持有 × the product's single integer 持仓均价 (S.inventory.avgCost); value keeps the existing sale-price calculation.
+    let cost=0,value=0;if(held){cost=held*S.inventory.avgCost(p,good.id);value=lots.reduce((n,l)=>n+S.market.sellUnitPrice(p,l,price)*l.quantity,0);}
     const lockedReason=!unlocked?'尚未打通此货货源。请达到相应商誉并建立供应往来。':'';
     if(lockedReason){const note=c.el('p','form-hint locked-reason',lockedReason);note.setAttribute('role','note');infoBox.append(note);}
     card.append(infoBox);
