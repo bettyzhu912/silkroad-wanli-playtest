@@ -130,7 +130,7 @@ const IDS = ['red', 'white', 'teal', 'yellow', 'purple'];
     check('E 收工记录写入主游戏（PATTERN_FINISH）：分数 / 工钱 = TEMP 映射，尚未结算、钱未变', finished && st.pattern.score === r.score && st.pattern.wage === expectWage && st.pattern.settled === false && st.cash === cash0, JSON.stringify(st.pattern));
     await waitFor('(()=>{const im=Silk.patternChainUI.test.node("revealFullImg");return !im.hidden})()', 7000);
     const frows = await ev('[...document.querySelectorAll(".pc-shell .stats li")].map(li=>li.querySelector(".lbl").textContent+"="+li.querySelector(".val").textContent)'); const fbtn = await ev('[...document.querySelectorAll(".pc-shell .settle-buttons button")].map(b=>b.textContent+":"+b.disabled).join("|")');
-    check('E 正式结算页：所得工钱 = ' + expectWage + ' 钱（基础 5 + 额外），唯一按钮 结束帮工', frows[4] === '所得工钱=' + expectWage + ' 钱（基础 5 + 额外 ' + (expectWage - 5) + '）' && fbtn === '结束帮工:false', JSON.stringify({ frows, fbtn })); await shot('pc-formal-settle');
+    check('E 正式结算页：所得工钱 = ' + expectWage + ' 钱（基础 5 + 额外，单行），唯一按钮 结束帮工', frows[4] === '所得工钱=' + expectWage + ' 钱（5+' + (expectWage - 5) + '）' && fbtn === '结束帮工:false', JSON.stringify({ frows, fbtn })); await shot('pc-formal-settle');
     const xIgnored = await ev('(()=>{Silk.ui.closePanel();return Silk.ui.getState().primary})()'); check('E 结算未完成时宿主关闭被忽略（面板仍是 pattern-chain）', xIgnored === 'pattern-chain', xIgnored);
     await clickText('结束帮工'); await busyWait(); await sleep(500); st = await state(); text = await visibleText();
     check('E 结束帮工 → 结算一次：钱 +' + expectWage + '、+1 时段落在午、journal 1 条，回到营生列表', st.cash === cash0 + expectWage && st.phase === 1 && st.pattern.settled === true && st.journalP === 1 && /进入纹坊/.test(text), JSON.stringify(st)); await shot('pc-after-settle-list');

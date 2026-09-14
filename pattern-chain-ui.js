@@ -233,7 +233,7 @@
     n.stats.innerHTML = '';
     n.stats.append(statRow('score', '总得分', data.score), statRow('chain', '最长连缀', data.longestChain), statRow('brush', '有效落笔数', data.validStrokes), statRow('star', '生成万能图样次数', data.wildcardsGenerated));
     if (mode === 'trial') n.stats.append(statRow('coin', '收益', '试玩模式 · 不获得实际收益', true));
-    else if (opt.host) n.stats.append(statRow('coin', '所得工钱', opt.host.totalWage + ' 钱' + (opt.host.totalWage ? '（基础 ' + opt.host.baseWage + ' + 额外 ' + opt.host.extraWage + '）' : '（未有效落笔）'), false));
+    else if (opt.host) n.stats.append(statRow('coin', '所得工钱', opt.host.totalWage + ' 钱' + (opt.host.totalWage ? '（' + opt.host.baseWage + '+' + opt.host.extraWage + '）' : '（未有效落笔）'), false));
     else n.stats.append(statRow('coin', '所得工钱', opt.pending ? '正在记账…' : '待记账', true));
     n.settleButtons.innerHTML = '';
     if (mode === 'trial') n.settleButtons.append(button('再试一次', 'btn btn-teal small', null, { op: 'trial-again' }), button('退出试玩', 'btn btn-secondary small', null, { op: 'trial-quit' }));
