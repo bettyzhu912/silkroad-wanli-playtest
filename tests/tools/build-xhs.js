@@ -37,8 +37,21 @@ else warn('acorn not available: ES2017 syntax verified by tsc target only (set A
 const residual = jsFiles.filter(f => /\?\.|\?\?|\|\|=|&&=|\?\?=/.test(fs.readFileSync(path.join(stage, path.basename(f)), 'utf8').replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g, '""')));
 if (residual.length) fail('post-ES2017 operators remain in: ' + residual.join(', '));
 
-// 2. styles + images
-for (const f of tracked.filter(f => f.endsWith('.css'))) fs.copyFileSync(path.join(root, f), path.join(stage, path.basename(f)));
+// 2. styles (Chrome 61 baseline pass: see tests/tools/css-baseline.js) + images
+const cssBaseline = require('./css-baseline');
+const aspectRules = (() => { const m = fs.readFileSync(path.join(root, 'compat.js'), 'utf8').match(/var ASPECT_RULES = \[([\s\S]*?)\n\s*\];/); return m ? JSON.parse('[' + m[1].replace(/'/g, '"') + ']') : null; })();
+if (!aspectRules) fail('compat.js: ASPECT_RULES list not found');
+{ const totals = {}, cssWarnings = [];
+  for (const f of tracked.filter(f => f.endsWith('.css'))) {
+    const source = fs.readFileSync(path.join(root, f), 'utf8'), out = cssBaseline.transform(source);
+    fs.writeFileSync(path.join(stage, path.basename(f)), out.css);
+    for (const [k, v] of Object.entries(out.stats)) totals[k] = (totals[k] || 0) + v;
+    cssWarnings.push(...out.warnings.map(w => path.basename(f) + ': ' + w));
+    const l = cssBaseline.lint(out.css, { aspectRules }); for (const i of l.issues) fail(path.basename(f) + ' (staged): ' + i);
+    const expected = cssBaseline.extractAspectRules(source); for (const r of expected) if (!aspectRules.some(a => cssBaseline.norm(a[0]) === cssBaseline.norm(r[0]) && a[1] === r[1] && a[2] === r[2] && a[3] === r[3])) fail(path.basename(f) + ': aspect-ratio rule not mirrored in compat.js ASPECT_RULES: ' + JSON.stringify(r));
+  }
+  report.cssBaseline = { stats: totals, warnings: cssWarnings };
+  step('CSS Chrome 61 baseline', Object.entries(totals).map(([k, v]) => k + ' ' + v).join(', ') + (cssWarnings.length ? '; ' + cssWarnings.length + ' approximation(s) noted in XHS_BUILD_INFO.json' : '')); }
 for (const f of tracked.filter(f => /\.woff2?$/i.test(f))) fs.copyFileSync(path.join(root, f), path.join(stage, path.basename(f)));   // R32: self-hosted OFL font subsets of 缀纹成章 (referenced from pattern-chain.css)
 // R34 GLOBAL_AUDIO_SYSTEM_v0.1: audio is staged as-is, except that a tracked `<name>.mp3` with a tracked `<name>_pkg.m4a` sibling ships only the compact package
 // variant (the 10 MiB hard limit cannot carry the 192 kbps master); every script reference to the mp3 name is rewritten to the m4a name below.
@@ -75,6 +88,7 @@ step('index.html', 'query strings stripped, ' + (renamed.size ? 'image reference
 const staged = new Set(fs.readdirSync(stage));
 const allowed = /\.(html|css|js|png|jpe?g|gif|webp|svg|woff2?|json|mp3|m4a|wav)$/i;   // R34: packaged media (<audio>) is allowed by the container spec
 for (const name of staged) { if (!allowed.test(name)) fail('unsupported file type in package: ' + name); if (/\.(map|DS_Store)$/.test(name) || name === 'node_modules') fail('development artifact in package: ' + name); }
+{ const media = [...staged].filter(n => /\.(mp3|m4a|wav)$/i.test(n)); if (media.length) warn('packaged <audio> media (' + media.join(', ') + '): allowed by zip-artifact-spec §3 (音视频 → 包内媒体文件) but absent from the §2 file-type table — confirm in the container'); }
 if (!staged.has('index.html')) fail('index.html missing at package root');
 if ([...staged].filter(n => n.endsWith('.html')).length !== 1) fail('exactly one .html entry expected');
 for (const m of html.matchAll(/(?:src|href)="([^"]+)"/g)) { const ref = m[1]; if (/^(https?:)?\/\//.test(ref) || ref.startsWith('/')) fail('index.html absolute/external reference: ' + ref); else if (!staged.has(ref)) fail('index.html references a missing file: ' + ref); }
