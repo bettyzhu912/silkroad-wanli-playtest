@@ -8,7 +8,8 @@ const results = [];
 function test(id, title, fn) { try { const d = fn() || []; results.push({ id, title, pass: true, details: d }); } catch (e) { results.push({ id, title, pass: false, details: [String(e && e.stack || e)] }); } }
 function assert(c, m) { if (!c) throw new Error('ASSERT: ' + m); }
 test('AU-1', 'registry: one BGM + two SFX, files present in the repo (BGM master + package variant)', () => {
-  assert(A.ASSETS.bgm_main === 'audio_bgm_main_v01.mp3' && A.ASSETS.ui_confirm === 'sfx_ui_confirm_v01.wav' && A.ASSETS.coin_gain === 'sfx_coin_gain_v01.wav', 'registry');
+  const bgmName = process.env.SILK_ROOT ? 'audio_bgm_main_v01_pkg.m4a' : 'audio_bgm_main_v01.mp3';   // the XHS build ships the compact package variant and rewrites the registry
+  assert(A.ASSETS.bgm_main === bgmName && A.ASSETS.ui_confirm === 'sfx_ui_confirm_v01.wav' && A.ASSETS.coin_gain === 'sfx_coin_gain_v01.wav', 'registry ' + A.ASSETS.bgm_main);
   for (const f of [...Object.values(A.ASSETS), 'audio_bgm_main_v01_pkg.m4a']) assert(fs.existsSync(path.join(ROOT, f)), 'missing ' + f);
   assert(A.SFX.length === 2, 'exactly two sfx');
   return Object.values(A.ASSETS);

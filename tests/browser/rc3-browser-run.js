@@ -202,7 +202,8 @@ const STATE = `(() => { try { const s = Silk.app.state, p = s.progress; if (!p |
     await click('柜坊', { scope: 'page' }); await sleep(300); await shot('guifang'); await closePrimary();
     check(mode + ': no horizontal overflow at end', (await overflow()) <= 0, await overflow());
     const errors = c.console.filter(m => m.type === 'error' || m.type === 'exception'), warns = c.console.filter(m => m.type === 'warning' || m.type === 'warn');
-    const bad = c.network.filter(n => n.status !== 200 && n.status !== 304);
+    // R34: a media (BGM) fetch that the browser aborts because the page navigates away mid-download (net::ERR_ABORTED, type Media) is not a failed resource
+    const bad = c.network.filter(n => n.status !== 200 && n.status !== 304 && n.status !== 206 && !(n.status === 'FAILED' && n.type === 'Media' && n.error === 'net::ERR_ABORTED'));
     check('no console errors/exceptions', errors.length === 0, errors.slice(0, 5)); check('no failed/404 resource requests', bad.length === 0, bad.slice(0, 5));
     check('static server logged no 404', !/404/.test(srv.log), srv.log.split('\n').filter(l => /404/.test(l)).slice(0, 5));
     const final = await note('final');
