@@ -328,7 +328,7 @@
     runRenderHooks();
   }
   function render(state) {
-    if(!ui.mounted)return;captureInputs();ui.state=state||ui.app.state;
+    if(!ui.mounted)return;captureInputs();ui.state=state||ui.app.state;if(S.audio)S.audio.sync(ui.state);
     const routeId=p()?.world.route?.id||null;
     if(lastRouteId&&!routeId){ui.primary=null;ui.secondary=null;ui.back=[];ui.modals=[];ui.error='';ui.sceneCity=null;}
     lastRouteId=routeId;
@@ -383,6 +383,7 @@
     for(const key of ['primary','secondary','result','modal']){const parts=makePanel(key);nodes[key+'Parts']=parts;nodes[key]=parts.layer;nodes[key+'Body']=parts.body;stage.append(parts.layer);}
     nodes.notice=el('aside','notice-card paper-panel');nodes.notice.hidden=true;stage.append(nodes.notice);nodes.root.append(stage,rotateHint);
     document.addEventListener('keydown',keyboardHandler);document.addEventListener('focusin',viewportChanged);document.addEventListener('focusout',()=>setTimeout(viewportChanged,0));window.addEventListener('resize',viewportChanged);if(window.visualViewport){window.visualViewport.addEventListener('resize',viewportChanged);window.visualViewport.addEventListener('scroll',viewportChanged);}
+    if(S.audio)S.audio.mount(app.state&&app.state.preferences);   // GLOBAL_AUDIO_SYSTEM_v0.1: persisted settings are already loaded here → no flash of audio
     ui.mounted=true;viewportChanged();render(app.state);
   }
   function registerPanel(id,spec) {panels.set(id,spec);if(ui.mounted&&(ui.primary&&ui.primary.id===id||ui.secondary&&ui.secondary.id===id))renderPanels();}

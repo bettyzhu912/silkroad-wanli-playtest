@@ -27,7 +27,10 @@
       runningKey=requestedKey;
       running=(async()=>{
         try{
-          const outcome=await store.execute(command);app.state=outcome.state;S.ui.render(app.state);return outcome;
+          const before=app.state;const outcome=await store.execute(command);app.state=outcome.state;
+          // GLOBAL_AUDIO_SYSTEM_v0.1: every committed command is reported to the audio authority (semantic trigger map lives in audio.js)
+          if(S.audio&&outcome&&outcome.result!==undefined){try{S.audio.onCommitted(command,outcome.result,before,outcome.state,Boolean(outcome.replayed));}catch(e){console.error(e);}}
+          S.ui.render(app.state);return outcome;
         }catch(error){
           try{app.state=error.state||await store.load();S.ui.render(app.state);}catch(_){}
           throw error;

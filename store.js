@@ -79,7 +79,7 @@
               set({ pending: clone(current.pending) }); return;
             }
             ensure(command.revision === current.meta.revision, 'STALE_REVISION', '进度已在另一处更新，请重新载入');
-            ensure(current.progress || command.type === 'game.start' || command.type === 'game.reset', 'NO_GAME');
+            ensure(current.progress || command.type === 'game.start' || command.type === 'game.reset' || command.type === 'settings.update', 'NO_GAME');   // settings live in the envelope: editable from the home screen too
             current.pending = { key, fingerprint: fingerprint(command), command: clone(command), baseRevision: current.meta.revision, status: 'pending' };
             store.put(current, 'current'); set({ pending: clone(current.pending) });
           } catch (error) { fail(error); }
@@ -115,7 +115,8 @@
                 result = { kind: 'gameReset', modal: false };
               } else if (command.type === 'settings.update') {
                 const {key,value}=command.payload;
-                ensure(['tutorialEnabled','soundEnabled'].includes(key) && typeof value==='boolean','INVALID_SETTING');
+                // GLOBAL_AUDIO_SYSTEM_v0.1: musicEnabled / sfxEnabled (boolean) and musicVolume / sfxVolume (0..1) live in the same persisted preferences
+                ensure((['tutorialEnabled','soundEnabled','musicEnabled','sfxEnabled'].includes(key) && typeof value==='boolean')||(['musicVolume','sfxVolume'].includes(key)&&typeof value==='number'&&Number.isFinite(value)&&value>=0&&value<=1),'INVALID_SETTING');
                 draft.preferences[key]=value;
                 if(key==='tutorialEnabled')draft.progress.presentation.tutorialEnabled=value;
                 result={kind:'settingsUpdated',modal:false};
@@ -192,7 +193,7 @@
           const current=r.result;
           ensure(current?.meta?.generation===expectedGeneration&&current.meta.revision===expectedRevision,'STALE_REVISION');
           const next=S.core.emptyEnvelope();next.meta.generation=expectedGeneration+1;next.meta.revision=expectedRevision+1;
-          for(const key of ['soundEnabled','tutorialEnabled'])if(typeof current.preferences?.[key]==='boolean')next.preferences[key]=current.preferences[key];
+          for(const key of ['soundEnabled','tutorialEnabled','musicEnabled','sfxEnabled','musicVolume','sfxVolume'])if(['boolean','number'].includes(typeof current.preferences?.[key]))next.preferences[key]=current.preferences[key];
           S.core.validate(next);store.put(next,'current');store.delete('backup');store.delete('recovery-source');set(clone(next));
         }catch(e){fail(e);}};r.onerror=()=>fail(r.error);
       });

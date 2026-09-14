@@ -191,8 +191,26 @@
     }
     if(view.ready)info(c,b,'返程事务已处理完毕，可查看本趟商旅总结。');
   },footer(c,f){if(c.p.trip?.phase==='return_tasks')f.append(c.button('结束本次商旅',()=>endTrip(c),{disabled:!S.trip.returnView(c.p).ready}));}});
+  // GLOBAL_AUDIO_SYSTEM_v0.1: the one Audio Settings block (home 设置 and in-game 更多 → 设置 render this same panel over the same persisted
+  // preferences): 音乐 开/关 + 音量, 音效 开/关 + 音量. The retired single 声音 switch is gone. Music volume applies live while dragging; the sfx
+  // slider previews one ui_confirm only on release; Enabled and Volume are independent (volume 0 never flips Enabled).
+  function audioSlider(c,parent,o){
+    const field=c.el('label','form-field audio-field');field.append(c.el('span','field-label',o.label));
+    const wrap=c.el('div','audio-slider-row'),input=c.el('input','audio-slider');input.type='range';input.min='0';input.max='100';input.step='1';input.name=o.name;input.value=String(o.value);input.setAttribute('aria-label',o.label);
+    const val=c.el('span','audio-slider-value',o.value+'%');
+    input.addEventListener('input',()=>{val.textContent=input.value+'%';o.onInput(Number(input.value)/100);});
+    input.addEventListener('change',()=>o.onChange(Number(input.value)/100));
+    wrap.append(input,val);field.append(wrap);parent.append(field);
+  }
   S.ui.registerPanel('settings-controls',{render(c,b){
-    for(const [key,label]of [['soundEnabled','声音']]){c.row(label,c.state.preferences[key]?'开启':'关闭',b,()=>c.dispatch('settings.update',{key,value:!c.state.preferences[key]}));}
+    const A=S.audio,prefs=A?A.normalize(c.state.preferences):c.state.preferences,pct=v=>Math.round(v*100);
+    const section=title=>{const s=c.el('section','audio-section');s.append(c.el('h3','',title));b.append(s);return s;};
+    const music=section('音乐');
+    c.row('音乐',prefs.musicEnabled?'开启':'关闭',music,()=>c.dispatch('settings.update',{key:'musicEnabled',value:!prefs.musicEnabled}));
+    audioSlider(c,music,{name:'music-volume',label:'音乐音量',value:pct(prefs.musicVolume),onInput:v=>{if(A)A.setMusicVolume(v);},onChange:v=>{if(A)A.setMusicVolume(v);c.dispatch('settings.update',{key:'musicVolume',value:v});}});
+    const sfx=section('音效');
+    c.row('音效',prefs.sfxEnabled?'开启':'关闭',sfx,()=>c.dispatch('settings.update',{key:'sfxEnabled',value:!prefs.sfxEnabled}));
+    audioSlider(c,sfx,{name:'sfx-volume',label:'音效音量',value:pct(prefs.sfxVolume),onInput:v=>{if(A)A.setSfxVolume(v);},onChange:v=>{if(A)A.setSfxVolume(v);Promise.resolve(c.dispatch('settings.update',{key:'sfxVolume',value:v})).then(()=>{if(A)A.preview();});}});
   }});
   S.ui.registerPanel('help',{title:'玩法说明',render(c,b){
     for(const line of S.content.helpText.split('\n'))if(line.trim())c.paragraph(b,line);

@@ -77,7 +77,7 @@
   });
   S.core = {
     versions: Object.freeze({ releaseVersion: 'v0.3.0-competition-rc3', schemaVersion: 2, balanceVersion: '2026-09-13-commission-master-v3-1' }),
-    emptyEnvelope() { return { meta: { ...S.core.versions, generation: 0, revision: 0 }, preferences: { tutorialEnabled: true, soundEnabled: true }, progress: null, ledger: {}, pending: null, results: {} }; },
+    emptyEnvelope() { return { meta: { ...S.core.versions, generation: 0, revision: 0 }, preferences: { tutorialEnabled: true, soundEnabled: true, musicEnabled: true, musicVolume: 0.35, sfxEnabled: true, sfxVolume: 0.7 }, progress: null, ledger: {}, pending: null, results: {} }; },
     upgradeEnvelope(envelope) {
       S.core.validate(envelope);
       if(S.core.isCurrent(envelope))return {state:clone(envelope),changed:false};

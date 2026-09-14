@@ -40,6 +40,11 @@ if (residual.length) fail('post-ES2017 operators remain in: ' + residual.join(',
 // 2. styles + images
 for (const f of tracked.filter(f => f.endsWith('.css'))) fs.copyFileSync(path.join(root, f), path.join(stage, path.basename(f)));
 for (const f of tracked.filter(f => /\.woff2?$/i.test(f))) fs.copyFileSync(path.join(root, f), path.join(stage, path.basename(f)));   // R32: self-hosted OFL font subsets of 缀纹成章 (referenced from pattern-chain.css)
+// R34 GLOBAL_AUDIO_SYSTEM_v0.1: audio is staged as-is, except that a tracked `<name>.mp3` with a tracked `<name>_pkg.m4a` sibling ships only the compact package
+// variant (the 10 MiB hard limit cannot carry the 192 kbps master); every script reference to the mp3 name is rewritten to the m4a name below.
+const audioRenamed = new Map();
+for (const f of tracked.filter(f => /\.(mp3|m4a|wav|ogg)$/i.test(f))) { const name = path.basename(f); if (/\.mp3$/i.test(name) && tracked.includes(f.replace(/\.mp3$/i, '_pkg.m4a'))) { audioRenamed.set(name, name.replace(/\.mp3$/i, '_pkg.m4a')); continue; } fs.copyFileSync(path.join(root, f), path.join(stage, name)); }
+if (audioRenamed.size) step('audio → package variants', [...audioRenamed].map(([a, b]) => a + ' → ' + b).join(', '));
 const images = tracked.filter(f => /\.(png|jpe?g)$/i.test(f));
 for (const f of tracked.filter(f => /\.webp$/i.test(f))) fs.copyFileSync(path.join(root, f), path.join(stage, path.basename(f))); // already-WebP sources are staged as-is
 const cwebp = noWebp ? null : which('cwebp');
@@ -63,11 +68,12 @@ if (/\son[a-z]+="/i.test(html)) fail('index.html: inline event handler attribute
 const rewrite = (text, file) => { if (!renamed.size) return text; if (file === 'assets.js') return text.replace(/(:\s*")([^"]+?)\.(png|jpe?g)"/g, (m, pre, name, ext) => renamed.has(name + '.' + ext) ? pre + renamed.get(name + '.' + ext) + '"' : m); let out = text; for (const [from, to] of renamed) out = out.split(from).join(to); return out; };
 html = rewrite(html, 'index.html'); fs.writeFileSync(path.join(stage, 'index.html'), html);
 for (const name of fs.readdirSync(stage)) { if (/\.(js|css)$/.test(name)) { const p = path.join(stage, name); fs.writeFileSync(p, rewrite(fs.readFileSync(p, 'utf8'), name)); } }
+if (audioRenamed.size) for (const name of fs.readdirSync(stage)) { if (/\.js$/.test(name)) { const p = path.join(stage, name); let t = fs.readFileSync(p, 'utf8'); for (const [a, b] of audioRenamed) t = t.split(a).join(b); fs.writeFileSync(p, t); } }
 step('index.html', 'query strings stripped, ' + (renamed.size ? 'image references rewritten to WebP' : 'original image names kept'));
 
 // 5. verification against the container rules
 const staged = new Set(fs.readdirSync(stage));
-const allowed = /\.(html|css|js|png|jpe?g|gif|webp|svg|woff2?|json)$/i;
+const allowed = /\.(html|css|js|png|jpe?g|gif|webp|svg|woff2?|json|mp3|m4a|wav)$/i;   // R34: packaged media (<audio>) is allowed by the container spec
 for (const name of staged) { if (!allowed.test(name)) fail('unsupported file type in package: ' + name); if (/\.(map|DS_Store)$/.test(name) || name === 'node_modules') fail('development artifact in package: ' + name); }
 if (!staged.has('index.html')) fail('index.html missing at package root');
 if ([...staged].filter(n => n.endsWith('.html')).length !== 1) fail('exactly one .html entry expected');

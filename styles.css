@@ -211,3 +211,5 @@
 .story-finale-detail-title{font-size:1rem;font-weight:600;margin:0 0 6px}.story-finale-body p{white-space:pre-wrap}.story-finale-body p+p{margin-top:.5rem}
 .story-gains .info-row{padding:6px 0}.story-gains-footer{color:var(--muted);font-size:.85rem;margin-top:10px}
 .story-chapter-title{font-weight:600}.story-chapter-text{white-space:pre-wrap;margin:6px 0 10px}
+/* GLOBAL_AUDIO_SYSTEM_v0.1: Audio Settings block (home 设置 and 更多 → 设置 share it) */
+.audio-section{padding:10px 0;border-bottom:1px solid #bea66f80}.audio-section h3{margin:0 0 4px}.audio-field{display:block;margin:6px 0}.audio-slider-row{display:flex;align-items:center;gap:10px}.audio-slider{flex:1;min-width:0;min-height:28px;accent-color:var(--teal)}.audio-slider-value{min-width:3.2em;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}

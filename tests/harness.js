@@ -4,7 +4,7 @@ const vm = require('vm');
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
-const ORDER = ['assets.js', 'data.js', 'inn-data.js', 'commission-data.js', 'help-data.js', 'story-copy.js', 'model.js', 'time.js', 'reputation.js', 'store.js', 'inventory.js', 'pricing.js', 'market.js', 'finance.js', 'merchant.js', 'minigames.js', 'caravan-engine.js', 'caravan.js', 'pattern-chain-engine.js', 'pattern-chain.js', 'weaving-engine.js', 'weaving.js', 'tavern.js', 'events.js', 'inn.js', 'commissions.js', 'stories.js', 'observations.js', 'trip.js', 'time-risk.js', 'newspapers.js', 'tutorial.js', 'guide.js', 'journey-controller.js'];
+const ORDER = ['assets.js', 'audio.js', 'data.js', 'inn-data.js', 'commission-data.js', 'help-data.js', 'story-copy.js', 'model.js', 'time.js', 'reputation.js', 'store.js', 'inventory.js', 'pricing.js', 'market.js', 'finance.js', 'merchant.js', 'minigames.js', 'caravan-engine.js', 'caravan.js', 'pattern-chain-engine.js', 'pattern-chain.js', 'weaving-engine.js', 'weaving.js', 'tavern.js', 'events.js', 'inn.js', 'commissions.js', 'stories.js', 'observations.js', 'trip.js', 'time-risk.js', 'newspapers.js', 'tutorial.js', 'guide.js', 'journey-controller.js'];
 // SILK_ROOT lets the same suites run against a build output directory (e.g. the ES2017 mini-tool build); SILK_LEGACY_RUNTIME=1 removes post-Chrome-61 runtime APIs from the vm realm so the compat shims must carry the engine.
 function load(options = {}) {
   const root = options.root || process.env.SILK_ROOT || ROOT, legacy = options.legacy ?? process.env.SILK_LEGACY_RUNTIME === '1';
