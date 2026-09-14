@@ -179,7 +179,7 @@
     n.stats.innerHTML = '';
     n.stats.append(statRow('score', '总得分', pm.score), statRow('chain', '最长连缀', pm.longestChain), statRow('brush', '有效落笔数', pm.validStrokes), statRow('star', '生成万能图样次数', pm.wildcardsGenerated));
     if (mode === 'TRIAL') n.stats.append(statRow('coin', '收益', '试玩模式 · 不获得实际收益', true));
-    else n.stats.append(statRow('coin', '所得（原型映射）', H.scoreToCash(result) + ' 钱', false)); // TEMP_PROTOTYPE_SCORE_TO_CASH_MAPPING（用户 2026-09-14 确认为 standalone 原型映射；非最终主游戏经济）
+    else n.stats.append(statRow('coin', '所得', H.scoreToCash(result) + ' 钱', false)); // ZHUWEN_CHENGZHANG_SCORE_TO_CASH_MAPPING（用户 2026-09-14 冻结；定义在引擎 scoreToCash）
     n.settleButtons.innerHTML = '';
     if (mode === 'TRIAL') {
       const again = button('再试一次', 'btn btn-teal small', () => startRun('TRIAL')); const quit = button('退出试玩', 'btn btn-secondary small', () => { if (ui.reveal) ui.reveal.cancel(); showReady(); });
@@ -188,7 +188,7 @@
       const fin = button('结束帮工', 'btn btn-teal', () => { // 提交正式结果 → 写记录（cash 待结算）→ advanceTime(1) → 返回城市
         if (fixture) { showReady(); return; }
         const rec = H.commitFormal(result); if (ui.reveal) ui.reveal.cancel(); closeModal(); showReady();
-        toast('帮工记录已写入（模拟）· 世界时间 +1 → ' + H.timeLabel() + ' · 原型映射所得 ' + rec.cash + ' 钱'); renderDebug();
+        toast('帮工记录已写入（模拟）· 世界时间 +1 → ' + H.timeLabel() + ' · 所得 ' + rec.cash + ' 钱'); renderDebug();
       }); fin.id = 'btn-finish'; n.settleButtons.append(fin);
     }
     showPage('settle');
@@ -210,7 +210,7 @@
   // ---------- debug (mock host) ----------
   function renderDebug() {
     const s = H.state; const d = n.debug; d.innerHTML = '';
-    const info = document.createElement('span'); info.innerHTML = '<b>' + H.kind + '</b> · 世界时间 <b>' + H.timeLabel() + '</b>（tick ' + s.tick + '）· 模拟现金 <b>' + s.cash + ' 钱</b>（原型映射累计）· 正式记录 <b>' + s.records.length + '</b> 条 · 试玩 ' + s.trials + ' 次 · 中止 ' + s.aborted + ' 次';
+    const info = document.createElement('span'); info.innerHTML = '<b>' + H.kind + '</b> · 世界时间 <b>' + H.timeLabel() + '</b>（tick ' + s.tick + '）· 模拟现金 <b>' + s.cash + ' 钱</b>（累计）· 正式记录 <b>' + s.records.length + '</b> 条 · 试玩 ' + s.trials + ' 次 · 中止 ' + s.aborted + ' 次';
     d.append(info);
     for (let i = 0; i < 3; i++) d.append(button('设为' + H.phases[i], '', () => { H.setPhase(i); renderDebug(); cityHud(); if (ui.page === 'ready') showReady(); }));
     d.append(button('推进 1 tick', '', () => { H.advanceTime(1); renderDebug(); cityHud(); if (ui.page === 'ready') showReady(); }));

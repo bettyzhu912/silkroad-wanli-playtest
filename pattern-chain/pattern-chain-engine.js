@@ -38,7 +38,12 @@
     zeroClear: 'TEMP_DEV_DECISION: 零有效清除局无代表纹样（representativeMotif = null），结算页不虚构「本轮最多」',
     refillDistribution: 'TEMP_DEV_DECISION: 初盘与顶部补充在本局 5 种普通纹样中均匀随机；初盘与补充不产生 wildcard（唯一来源为 8+ 有效长链）'
   });
-  const UNFROZEN = Object.freeze(['jobId', 'performanceTier', 'cashMapping', 'revealDuration', 'shuffleAlgorithmFinal']);
+  const UNFROZEN = Object.freeze(['jobId', 'performanceTier', 'revealDuration', 'shuffleAlgorithmFinal']);
+  // ZHUWEN_CHENGZHANG_SCORE_TO_CASH_MAPPING（用户冻结 2026-09-14）：validStrokes == 0 → 0 cash；否则 cash = min(15, 6 + floor((score − 1) / 15))。
+  // 正式完成局付 6–15 钱；TRIAL / ABORTED 恒为 0。本映射按当前 60 s / 10 笔 prototype baseline 平衡：若日后改动局时长或笔数，须重新验证经济分布，
+  // 但不得悄悄改动本公式（baseline 记录在下，主游戏的 tests/livelihood.test.js 在 baseline 变化时会失败提醒）。
+  const SCORE_TO_CASH = Object.freeze({ id: 'ZHUWEN_CHENGZHANG_SCORE_TO_CASH_MAPPING', minCash: 6, maxCash: 15, scoreStep: 15, baseline: Object.freeze({ timerMs: 60000, strokes: 10 }) });
+  function scoreToCash(score, validStrokes) { if (!(validStrokes > 0)) return 0; return Math.min(SCORE_TO_CASH.maxCash, SCORE_TO_CASH.minCash + Math.floor((Math.max(0, score) - 1) / SCORE_TO_CASH.scoreStep)); }
 
   // ---- 随机数（mulberry32，可复现）----
   function rngCreate(seed) { return { state: (seed >>> 0) || 0x9e3779b9 }; }
@@ -301,12 +306,12 @@
       strokes: run.strokes.map(s => Object.assign({}, s, { cells: s.cells.slice() })),
       prototype: { timerMs: CONFIG.timerMs, strokes: CONFIG.strokes, board: CONFIG.cols + 'x' + CONFIG.rows, seed: run.seed },
       policies: POLICIES, unfrozen: UNFROZEN,
-      economy: { cash: completionStatus === 'ABORTED' || run.mode === 'TRIAL' ? 0 : null, cashNote: run.mode === 'TRIAL' ? '试玩模式 · 不获得实际收益' : completionStatus === 'ABORTED' ? 'ABORTED：0 cash' : '待结算（score → cash mapping 未冻结）', timeCostTicks: run.mode === 'FORMAL' && completionStatus === 'COMPLETED' ? CONFIG.timeCostTicks : 0 }
+      economy: { cash: completionStatus === 'ABORTED' || run.mode === 'TRIAL' ? 0 : scoreToCash(run.score, run.validStrokes), cashMapping: SCORE_TO_CASH.id, cashNote: run.mode === 'TRIAL' ? '试玩模式 · 不获得实际收益' : completionStatus === 'ABORTED' ? 'ABORTED：0 cash' : 'ZHUWEN_CHENGZHANG_SCORE_TO_CASH_MAPPING：min(15, 6 + ⌊(score − 1) / 15⌋)，无有效落笔 0', timeCostTicks: run.mode === 'FORMAL' && completionStatus === 'COMPLETED' ? CONFIG.timeCostTicks : 0 }
     };
   }
 
   return Object.freeze({
-    MINIGAME_ID, DISPLAY_NAME, MOTIFS, WILDCARD, CONFIG, POLICIES, UNFROZEN,
+    MINIGAME_ID, DISPLAY_NAME, MOTIFS, WILDCARD, CONFIG, POLICIES, UNFROZEN, SCORE_TO_CASH, scoreToCash,
     createRun, pathStart, pathExtend, pathRelease, pathCancel, preview, resolveDone, tick, pause, resume, abort, shuffleBoard, buildResult,
     scoreFor, validatePath, findPath, hasValidPath, hasPathOfLength, representativeOf, emptyStats, adjacent, neighbors, snapshotBoard, rngCreate, rngNext
   });

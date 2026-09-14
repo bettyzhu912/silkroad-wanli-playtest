@@ -29,4 +29,4 @@
 - 页面右上「模拟 host」：查看 / 设置世界时间、查看最近结果 JSON
 
 ## mock 边界
-standalone 不连接真实经济、存档、旅途统计、B7 入口或主游戏路由。正式模式「所得（原型映射）」按 TEMP_PROTOTYPE_SCORE_TO_CASH_MAPPING 显示（用户 2026-09-14 确认，仅 standalone 原型：0 有效笔 → 0，否则 clamp(5 + ⌊score/6⌋, 6, 15)；不是最终主游戏经济映射，接入主游戏前须再确认），模拟现金随之累加；`advanceTime(1)` 只作用于 mock 世界时间。
+standalone 不连接真实经济、存档、旅途统计、B7 入口或主游戏路由。正式模式「所得」按已冻结的 ZHUWEN_CHENGZHANG_SCORE_TO_CASH_MAPPING 显示（用户 2026-09-14 冻结：0 有效笔 → 0，否则 min(15, 6 + ⌊(score − 1)/15⌋)，正式完成局 6–15 钱；定义在 `pattern-chain-engine.js` `scoreToCash`，按 60 s / 10 笔 baseline 平衡，改局时长或笔数须重新验证经济分布但不得悄悄改公式），模拟现金随之累加；`advanceTime(1)` 只作用于 mock 世界时间。

@@ -199,13 +199,13 @@ test('strokes: game ends after the 10th valid commit (STROKES); invalid/cancel n
   const by = run.result.secondaryMetrics.byMotif; assert.strictEqual(Object.values(by).reduce((s, x) => s + x.scoreContribution, 0), run.score);
   assert.ok(MOTIFS.includes(run.result.secondaryMetrics.representativeMotif));
 });
-test('results: TRIAL 0 cash/0 ticks; FORMAL completed → cash null (待结算) + 1 tick; ABORTED → 0 cash, 0 ticks, no tier; jobId stays null', () => {
+test('results: TRIAL 0 cash/0 ticks; FORMAL completed → cash by the frozen ZHUWEN_CHENGZHANG_SCORE_TO_CASH_MAPPING + 1 tick; ABORTED → 0 cash, 0 ticks, no tier; jobId stays null', () => {
   const t = E.createRun({ seed: 1, mode: 'TRIAL' }); E.tick(t, 60000); assert.strictEqual(t.result.economy.cash, 0); assert.strictEqual(t.result.economy.timeCostTicks, 0); assert.strictEqual(t.result.performanceTier, null); assert.strictEqual(t.result.jobId, null);
-  const f = E.createRun({ seed: 1, mode: 'FORMAL' }); E.tick(f, 60000); assert.strictEqual(f.result.economy.cash, null); assert.strictEqual(f.result.economy.timeCostTicks, 1); assert.ok(/待结算/.test(f.result.economy.cashNote));
+  const f = E.createRun({ seed: 1, mode: 'FORMAL' }); E.tick(f, 60000); assert.strictEqual(f.result.economy.cash, E.scoreToCash(f.score, f.validStrokes)); assert.strictEqual(f.result.economy.cashMapping, 'ZHUWEN_CHENGZHANG_SCORE_TO_CASH_MAPPING'); assert.strictEqual(f.result.economy.timeCostTicks, 1); assert.ok(/ZHUWEN_CHENGZHANG_SCORE_TO_CASH_MAPPING/.test(f.result.economy.cashNote));
   const a = E.createRun({ seed: 1, mode: 'FORMAL' }); const p = E.findPath(a.board, 6, 7, 3); E.pathStart(a, p[0]); const res = E.abort(a);
   assert.strictEqual(res.completionStatus, 'ABORTED'); assert.strictEqual(res.economy.cash, 0); assert.strictEqual(res.economy.timeCostTicks, 0); assert.strictEqual(res.performanceTier, null); assert.strictEqual(a.phase, 'ABORTED'); assert.deepStrictEqual(a.path, []);
   assert.strictEqual(E.pathStart(a, 0).reason, 'NOT_PLAYING'); assert.strictEqual(E.abort(a), res);
-  assert.deepStrictEqual(res.unfrozen, ['jobId', 'performanceTier', 'cashMapping', 'revealDuration', 'shuffleAlgorithmFinal']);
+  assert.deepStrictEqual(res.unfrozen, ['jobId', 'performanceTier', 'revealDuration', 'shuffleAlgorithmFinal']);
 });
 test('fuzz: 150 seeds of random play keep invariants (full board, unique ids, no double commit, score/stroke consistency, ends by STROKES or TIME)', () => {
   const rng = E.rngCreate(99);
@@ -226,3 +226,12 @@ test('fuzz: 150 seeds of random play keep invariants (full board, unique ids, no
 });
 console.log(`\n${passed} passed, ${failed.length} failed${failed.length ? ': ' + failed.join(', ') : ''}`);
 process.exit(failed.length ? 1 : 0);
+
+test('ZHUWEN_CHENGZHANG_SCORE_TO_CASH_MAPPING (frozen): 0 strokes → 0; else min(15, 6 + floor((score-1)/15)); baseline 60 s / 10 strokes', () => {
+  assert.strictEqual(E.scoreToCash(0, 0), 0); assert.strictEqual(E.scoreToCash(40, 0), 0);
+  assert.strictEqual(E.scoreToCash(3, 1), 6); assert.strictEqual(E.scoreToCash(15, 5), 6); assert.strictEqual(E.scoreToCash(16, 5), 7); assert.strictEqual(E.scoreToCash(30, 10), 7); assert.strictEqual(E.scoreToCash(31, 10), 8);
+  assert.strictEqual(E.scoreToCash(60, 10), 9); assert.strictEqual(E.scoreToCash(135, 10), 14); assert.strictEqual(E.scoreToCash(136, 10), 15); assert.strictEqual(E.scoreToCash(800, 10), 15);
+  for (let s = 1; s <= 900; s++) { const c = E.scoreToCash(s, 1); assert.ok(c >= 6 && c <= 15, 'bounds at ' + s); }
+  assert.deepStrictEqual(E.SCORE_TO_CASH.baseline, { timerMs: 60000, strokes: 10 }); assert.strictEqual(CONFIG.timerMs, E.SCORE_TO_CASH.baseline.timerMs); assert.strictEqual(CONFIG.strokes, E.SCORE_TO_CASH.baseline.strokes);
+  const a = E.createRun({ seed: 9, mode: 'FORMAL' }); E.abort(a); assert.strictEqual(a.result.economy.cash, 0);
+});

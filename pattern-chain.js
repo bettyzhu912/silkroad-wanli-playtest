@@ -9,11 +9,12 @@
   const ensure = (...args) => S.util.ensure(...args);
   const clone = value => S.util.clone(value);
   const E = () => S.patternChainEngine || (S.patternChainEngine = (typeof PatternChainEngine !== 'undefined' ? PatternChainEngine : null));
-  // TEMP_PROTOTYPE_SCORE_TO_CASH_MAPPING (user decision 2026-09-14, R33): the score → cash mapping is confirmed as a PROTOTYPE mapping only —
-  // validStrokes == 0 → 0 cash, otherwise clamp(5 + floor(score / 6), 6, 15) (base 5 + extra, inside the frozen HALF_DAY bounds of Master §2.2).
-  // It is NOT the final main-game economy mapping: the main game pays by it provisionally so that the wallet integration works, and the
-  // final mapping must be re-confirmed (only this table changes then). No tiers (performanceTier stays unfrozen / null).
-  const RULES = Object.freeze({ ticks: 1, seconds: 60, strokes: 10, baseWage: 5, minWage: 6, cashCap: 15, scorePerCoin: 6, minigameId: 'DUNHUANG_PATTERN_CHAIN', version: 'v0.1', cashMapping: 'TEMP_PROTOTYPE_SCORE_TO_CASH_MAPPING' });
+  // ZHUWEN_CHENGZHANG_SCORE_TO_CASH_MAPPING (frozen by the user 2026-09-14, R35 — authoritative for the main game): validStrokes == 0 → 0 cash,
+  // otherwise cash = min(15, 6 + floor((score − 1) / 15)) → a formal completed run pays 6–15 钱 (shown as 基础 6 + 额外); TRIAL / ABORTED stay 0.
+  // The mapping is defined once in the engine (pattern-chain-engine.js scoreToCash) and balanced against the 60 s / 10-stroke prototype baseline:
+  // if the round duration or the stroke limit ever changes, the economy distribution must be revalidated — the formula is never altered silently
+  // (RULES.baseline is checked against the engine CONFIG by tests/livelihood.test.js). No tiers (performanceTier stays unfrozen / null).
+  const RULES = Object.freeze({ ticks: 1, seconds: 60, strokes: 10, baseWage: 6, minWage: 6, cashCap: 15, scoreStep: 15, minigameId: 'DUNHUANG_PATTERN_CHAIN', version: 'v0.1', cashMapping: 'ZHUWEN_CHENGZHANG_SCORE_TO_CASH_MAPPING', baseline: Object.freeze({ timerMs: 60000, strokes: 10 }) });
   const PHASES = Object.freeze(['晨', '午', '暮']);
   const END_REASONS = Object.freeze(['TIME', 'STROKES', 'NO_MOVE_UNRESOLVED']);
   const COPY = Object.freeze({
@@ -55,9 +56,9 @@
     return view(p);
   }
   const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
-  function payout(o) {   // TEMP_PROTOTYPE_SCORE_TO_CASH_MAPPING, see RULES
+  function payout(o) {   // ZHUWEN_CHENGZHANG_SCORE_TO_CASH_MAPPING, see RULES (the engine definition is used when loaded; the fallback is the same formula)
     if (!o.validStrokes) return { baseWage: 0, extraWage: 0, cash: 0 };
-    const total = Math.min(RULES.cashCap, Math.max(RULES.minWage, RULES.baseWage + Math.floor(o.score / RULES.scorePerCoin)));
+    const eng = E(), total = eng && eng.scoreToCash ? eng.scoreToCash(o.score, o.validStrokes) : Math.min(RULES.cashCap, RULES.minWage + Math.floor((Math.max(0, o.score) - 1) / RULES.scoreStep));
     return { baseWage: RULES.baseWage, extraWage: total - RULES.baseWage, cash: total };
   }
   function finish(p, a) {

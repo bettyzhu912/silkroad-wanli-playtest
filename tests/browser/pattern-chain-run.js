@@ -139,12 +139,12 @@ async function main() {
   st = await playToEnd(5); check('FORMAL ends (STROKES)', st.phase === 'ENDED' && st.endedBy === 'STROKES');
   await until('PatternChain.ui.page==="settle"', 3000); await until('!document.getElementById("reveal-full-img").hidden', 7000); await sleep(150);
   const frows = await c.eval('[...document.querySelectorAll("#settle-stats li")].map(li=>li.querySelector(".lbl").textContent+"="+li.querySelector(".val").textContent)');
-  const fres = await c.eval('JSON.stringify(PatternChain.ui.run.result)').then(JSON.parse); const fcash = fres.primaryMetrics.validStrokes === 0 ? 0 : Math.min(15, Math.max(6, 5 + Math.floor(fres.primaryMetrics.score / 6)));
-  check('FORMAL 所得 row shows the prototype mapping (TEMP_PROTOTYPE_SCORE_TO_CASH_MAPPING: clamp(5 + floor(score/6), 6, 15))', frows[4] === '所得（原型映射）=' + fcash + ' 钱', frows);
+  const fres = await c.eval('JSON.stringify(PatternChain.ui.run.result)').then(JSON.parse); const fcash = fres.primaryMetrics.validStrokes === 0 ? 0 : Math.min(15, 6 + Math.floor((fres.primaryMetrics.score - 1) / 15));
+  check('FORMAL 所得 row shows the frozen ZHUWEN_CHENGZHANG_SCORE_TO_CASH_MAPPING (min(15, 6 + floor((score-1)/15)))', frows[4] === '所得=' + fcash + ' 钱' && fres.economy.cash === fcash, frows);
   check('FORMAL button 结束帮工 only', await c.eval('[...document.querySelectorAll("#settle-buttons button")].map(b=>b.textContent).join("|")'), '结束帮工');
   await shot('13-settle-formal'); await click('#btn-finish'); await sleep(400);
   const host3 = await c.eval('JSON.stringify(PatternChain.host.state)').then(JSON.parse);
-  check('结束帮工: formal record written (prototype cash = mapping, mock cash += cash), advanceTime(1) → 午, modal closed', host3.records.length === 1 && host3.records[0].cash === fcash && host3.records[0].cashMapping === 'TEMP_PROTOTYPE_SCORE_TO_CASH_MAPPING' && host3.records[0].tickBefore === 0 && host3.records[0].tickAfter === 1 && host3.tick === 1 && host3.cash === 100 + fcash && (await c.eval('document.getElementById("modal").hidden')), { tick: host3.tick, rec: host3.records[0] && { cash: host3.records[0].cash, before: host3.records[0].tickBefore, after: host3.records[0].tickAfter } });
+  check('结束帮工: formal record written (cash = frozen mapping, mock cash += cash), advanceTime(1) → 午, modal closed', host3.records.length === 1 && host3.records[0].cash === fcash && host3.records[0].cashMapping === 'ZHUWEN_CHENGZHANG_SCORE_TO_CASH_MAPPING' && host3.records[0].tickBefore === 0 && host3.records[0].tickAfter === 1 && host3.tick === 1 && host3.cash === 100 + fcash && (await c.eval('document.getElementById("modal").hidden')), { tick: host3.tick, rec: host3.records[0] && { cash: host3.records[0].cash, before: host3.records[0].tickBefore, after: host3.records[0].tickAfter } });
   check('city HUD shows 第 1 天 · 午', await c.eval('document.getElementById("city-time").textContent'), '第 1 天 · 午');
   await shot('14-city-after-formal');
   // ---- timeout / zero-clear ----
