@@ -23,13 +23,13 @@ test('AU-2', 'settings schema: defaults (quiet music 0.35), normalize clamps vol
   const env = S.core.emptyEnvelope(); assert(env.preferences.musicEnabled === true && env.preferences.musicVolume === 0.35 && env.preferences.sfxEnabled === true && env.preferences.sfxVolume === 0.7, 'empty envelope carries the audio keys');
   return ['defaults 0.35 / 0.7'];
 });
-test('AU-3', 'trigger map: market transaction commit → one coin_gain (buy / sell / sellAll / provisions; enter / leave silent)', () => {
-  assert(A.decide('market.buy', { kind: 'marketBuy', cashDelta: -20 }, -20, false) === 'coin_gain', 'buy');
-  assert(A.decide('market.sell', { kind: 'marketSell' }, 30, false) === 'coin_gain', 'sell');
+test('AU-3', 'trigger map (locked): market sell commit → one coin_gain whatever the quantity, 一键出售 once; buy / provisions / enter / leave silent', () => {
+  assert(A.decide('market.buy', { kind: 'marketBuy', cashDelta: -20 }, -20, false) === null, 'buy silent (pure spending)');
+  assert(A.decide('market.sell', { kind: 'marketSell', quantity: 1 }, 30, false) === 'coin_gain' && A.decide('market.sell', { kind: 'marketSell', quantity: 5 }, 150, false) === 'coin_gain', 'sell once per commit');
   assert(A.decide('market.sellAll', { kind: 'marketSellAll', items: [1, 2, 3] }, 90, false) === 'coin_gain', 'sellAll once');
-  assert(A.decide('market.provisions', { kind: 'provisionsBought' }, -3, false) === 'coin_gain', 'provisions');
+  assert(A.decide('market.provisions', { kind: 'provisionsBought' }, -3, false) === null, 'provisions silent');
   assert(A.decide('market.enter', { kind: 'marketEntered' }, 0, false) === null && A.decide('market.leave', { kind: 'marketSummary', cashDelta: 40 }, 0, false) === null, 'enter / leave silent');
-  return ['buy / sell / sellAll / provisions → coin_gain'];
+  return ['sell / sellAll → coin_gain once; buy / provisions / leave silent'];
 });
 test('AU-4', 'trigger map: commission accepted → ui_confirm; delivered with copper → coin_gain only (priority), without copper → ui_confirm; pickup / abandon silent', () => {
   assert(A.decide('commission.accept', { kind: 'commissionAccepted' }, 0, false) === 'ui_confirm', 'accept');

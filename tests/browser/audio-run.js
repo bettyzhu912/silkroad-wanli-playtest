@@ -35,7 +35,8 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
     await c.navigate('http://127.0.0.1:' + port + '/'); await sleep(900);
     await ev('new Promise(r=>{const t=setInterval(()=>{if(window.Silk&&Silk.app&&Silk.app.state){clearInterval(t);r()}},100)})');
     await gesture(); let st = await status();
-    check('A init order: manager mounted after the persisted settings, defaults 音乐 开 0.35 / 音效 开 0.7, home screen → BGM not playing (no flash of audio), 3 audio elements', st.mounted && st.prefs.musicEnabled && st.prefs.musicVolume === 0.35 && st.prefs.sfxEnabled && st.prefs.sfxVolume === 0.7 && !st.inGame && st.bgm && st.bgm.paused && st.bgmPlays === 0 && st.elements === 3 && st.bgm.loop, JSON.stringify(st));
+    check('A init order: manager mounted after the persisted settings, defaults 音乐 开 0.35 / 音效 开 0.7; no audio before the first gesture, then the home screen joins the BGM session (one element, loop)', st.mounted && st.prefs.musicEnabled && st.prefs.musicVolume === 0.35 && st.prefs.sfxEnabled && st.prefs.sfxVolume === 0.7 && !st.inGame && st.bgm && !st.bgm.paused && st.bgmPlays === 1 && st.elements === 3 && st.bgm.loop, JSON.stringify(st));
+    await sleep(600); const home0 = await status(); check('A home BGM advancing before the game starts', home0.bgm.currentTime > 0.3, JSON.stringify(home0.bgm));
     // ---- home 设置
     await ev(`document.querySelector('.home-settings').click()`); await sleep(400); let sp = await settingsPanel();
     check('B home 设置: 音乐 开/关 + 音乐音量 slider, 音效 开/关 + 音效音量 slider; no single 声音 switch', sp && sp.rows.join('|') === '音乐=开启|音效=开启' && sp.sliders.join('|') === 'music-volume=35|sfx-volume=70' && !/声音/.test(sp.text), JSON.stringify(sp)); await shot('home-settings');
@@ -46,11 +47,11 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
     // ---- into the game → 更多 → 设置 shows the same state
     await clickText('启程'); await sleep(250); await clickText('自行探索'); await ev('new Promise(r=>{const t=setInterval(()=>{const p=Silk.app.state.progress;if(p&&p.world){clearInterval(t);r()}},100)})'); await sleep(400);
     await ev(`document.querySelector('.hud-tool[data-panel="more"]').click()`); await sleep(300); await clickText('设置'); await sleep(350); sp = await settingsPanel(); st = await status();
-    check('C in-game 更多 → 设置: identical state (音乐 关 30% / 音效 关); music stays off in game', sp && sp.rows.join('|') === '音乐=关闭|音效=关闭' && sp.sliders.join('|') === 'music-volume=30|sfx-volume=70' && st.inGame && st.bgm.paused, JSON.stringify(sp)); await shot('ingame-settings');
+    check('C in-game 更多 → 设置: identical state (音乐 关 30% / 音效 关); music (turned off on the home screen) stays off in game, same element', sp && sp.rows.join('|') === '音乐=关闭|音效=关闭' && sp.sliders.join('|') === 'music-volume=30|sfx-volume=70' && st.inGame && st.bgm.paused && st.elements === 3, JSON.stringify(sp)); await shot('ingame-settings');
     // ---- persistence across reload
     await c.navigate('http://127.0.0.1:' + port + '/'); await sleep(1200); await ev('new Promise(r=>{const t=setInterval(()=>{if(window.Silk&&Silk.app&&Silk.app.state&&Silk.app.state.progress){clearInterval(t);r()}},100)})'); await waitFor('!Silk.app.busy', 8000); await sleep(300); await gesture();
     pf = await prefs(); st = await status();
-    check('D reload: musicEnabled / musicVolume / sfxEnabled / sfxVolume persisted; music off → BGM never started', pf.musicEnabled === false && pf.musicVolume === 0.3 && pf.sfxEnabled === false && pf.sfxVolume === 0.7 && st.bgm.paused && st.bgmPlays === 0, JSON.stringify(pf));
+    check('D reload: musicEnabled / musicVolume / sfxEnabled / sfxVolume persisted; music off → BGM never started after the reload (no flash of audio)', pf.musicEnabled === false && pf.musicVolume === 0.3 && pf.sfxEnabled === false && pf.sfxVolume === 0.7 && st.bgm.paused && st.bgmPlays === 0, JSON.stringify(pf));
     // ---- music on in game → plays, loops, survives panel switches
     await closeAll(); await ev(`document.querySelector('.hud-tool[data-panel="more"]').click()`); await sleep(300); await clickText('设置'); await sleep(300); await toggleRow('音乐'); await busyWait(); await sleep(900); st = await status();
     check('E 音乐 开 (in game) → the one BGM element plays, loop on, volume 0.3, time advancing', st.prefs.musicEnabled && !st.bgm.paused && st.bgm.loop && Math.abs(st.bgm.volume - 0.3) < 1e-6 && st.bgm.currentTime > 0.3 && st.elements === 3, JSON.stringify(st.bgm));
@@ -67,10 +68,12 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
     const buy = async (goodId, qty) => ev(`Silk.ui.dispatch('market.buy',{visitId:Silk.app.state.progress.market.visit.id,goodId:${JSON.stringify(goodId)},quantity:${qty}}).then(r=>r?'ok':'null').catch(e=>'ERR '+e.message)`);
     const ack = async () => { for (let i = 0; i < 3; i++) { const a = await ev(`(()=>{const ar=Silk.app.state.progress.presentation.activeResult;if(ar){Silk.ui.dispatch('result.ack',{resultId:ar.id});return true}return false})()`); await busyWait(); await sleep(150); if (!a) break; } };
     const cashA = await ev('Silk.app.state.progress.cash'); const r1 = await buy('绢帛', 2); await busyWait(); await ack(); cc = await counts();
-    check('F market.buy commit → exactly one coin_gain (cash changed)', r1 === 'ok' && (await ev('Silk.app.state.progress.cash')) < cashA && cc.coin_gain === c1.coin_gain + 1 && cc.ui_confirm === c1.ui_confirm, JSON.stringify({ r1, cc }));
+    check('F market.buy commit (pure spending) → silent', r1 === 'ok' && (await ev('Silk.app.state.progress.cash')) < cashA && cc.coin_gain === c1.coin_gain && cc.ui_confirm === c1.ui_confirm, JSON.stringify({ r1, cc }));
+    const rs = await ev(`Silk.ui.dispatch('market.sell',{visitId:Silk.app.state.progress.market.visit.id,goodId:'绢帛',quantity:1}).then(r=>r?'ok':'null').catch(e=>'ERR '+e.message)`); await busyWait(); await ack(); const c1s = await counts();
+    check('F market.sell commit (1 件) → exactly one coin_gain', rs === 'ok' && c1s.coin_gain === cc.coin_gain + 1 && c1s.ui_confirm === cc.ui_confirm, JSON.stringify({ rs, c1s }));
     const r2 = await buy('纸张', 1); await busyWait(); await ack(); const c2 = await counts();
     const r3 = await ev(`Silk.ui.dispatch('market.sellAll',{visitId:Silk.app.state.progress.market.visit.id}).then(r=>r?'ok':'null').catch(e=>'ERR '+e.message)`); await busyWait(); await ack(); cc = await counts();
-    check('F 一键出售 (two lots) → exactly one coin_gain', r2 === 'ok' && r3 === 'ok' && cc.coin_gain === c2.coin_gain + 1, JSON.stringify({ r2, r3, before: c2, after: cc }));
+    check('F 一键出售 (two lots, several 件) → exactly one coin_gain; the buy before it silent', r2 === 'ok' && r3 === 'ok' && c2.coin_gain === c1s.coin_gain && cc.coin_gain === c2.coin_gain + 1, JSON.stringify({ r2, r3, before: c2, after: cc }));
     await ev(`Silk.ui.dispatch('market.leave',{visitId:Silk.app.state.progress.market.visit.id})`); await busyWait(); await ack(); await sleep(200); const c3 = await counts(); check('F leaving the market (summary) → no sfx', c3.coin_gain === cc.coin_gain && c3.ui_confirm === cc.ui_confirm);
     await closeAll();
     // ---- commission accepted → ui_confirm; newspaper purchase → ui_confirm once, second (owned) silent

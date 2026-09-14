@@ -21,14 +21,14 @@
     out.sfxVolume = clamp01(p.sfxVolume) === null ? DEFAULTS.sfxVolume : clamp01(p.sfxVolume);
     return out;
   }
-  // ---- trigger map (v0.1): semantic events only, one sound per committed command, coin_gain wins over ui_confirm
-  const COIN_ON_GAIN = /^(commission\.deliver|EVENT_CHOOSE|EVENT_RM_RESOLVE|inn\.|CARAVAN_SETTLE|PATTERN_SETTLE|WEAVING_SETTLE|TAVERN_|story\.act)/;
-  const MARKET_TX = /^market\.(buy|sell|sellAll|provisions)$/;
+  // ---- trigger map (v0.1, locked by the user 2026-09-14): coin_gain means copper INCOME / a reward arriving only — market sells (one per successful sell
+  // transaction commit, whatever the quantity; 一键出售 once), commission completion, random / night events, livelihood settlements, 商路奇缘 and other
+  // explicit rewards; buying / provisions / any pure spending and leaving the market never sound. One sound per committed command, coin_gain wins over ui_confirm.
+  const COIN_ON_GAIN = /^(market\.sell|market\.sellAll|commission\.deliver|EVENT_CHOOSE|EVENT_RM_RESOLVE|CARAVAN_SETTLE|PATTERN_SETTLE|WEAVING_SETTLE|story\.act)$|^(inn\.|TAVERN_)/;
   function decide(type, result, cashDelta, replayed) {
     if (replayed) return null;   // an idempotent replay of an already committed command never sounds again
     const r = result || {}, delta = Number.isFinite(cashDelta) ? cashDelta : 0;
-    if (MARKET_TX.test(type) || ['marketBuy', 'marketSell', 'marketSellAll', 'provisionsBought'].includes(r.kind)) return delta !== 0 ? 'coin_gain' : null;   // one transaction commit → one coin_gain (一键出售 = one)
-    if (COIN_ON_GAIN.test(type) && delta > 0) return 'coin_gain';                                                                                          // settlement with real copper income
+    if (COIN_ON_GAIN.test(type) && delta > 0) return 'coin_gain';   // copper income arrived (sell commit / 一键出售 / settlement / reward); buys, provisions, market.leave, loans stay silent
     if (type === 'commission.accept') return 'ui_confirm';                                                                                                  // accepted (the command succeeded, not the click)
     if (type === 'commission.deliver') return r.kind === 'commissionDelivered' ? 'ui_confirm' : null;                                                       // completed without copper
     if (type === 'newspaper.purchase') return r.kind === 'newspaper' && !r.alreadyOwned ? 'ui_confirm' : null;                                              // a new report acquired
@@ -49,14 +49,14 @@
     for (const type of ['pointerdown', 'keydown', 'touchend']) document.addEventListener(type, unlock, { capture: true, passive: true });
     applyMusic();
   }
-  function shouldPlayMusic() { return state.mounted && state.prefs.musicEnabled && state.inGame; }
+  function shouldPlayMusic() { return state.mounted && state.prefs.musicEnabled; }   // one session-level BGM: it may start on the home screen (after the first real gesture) and simply continues into the game
   function applyMusic() {
     const bgm = state.bgm; if (!bgm) return;
     bgm.volume = state.prefs.musicVolume;
     if (shouldPlayMusic()) { if (bgm.paused && state.unlocked) { const p = bgm.play(); if (p && p.catch) p.catch(e => { state.lastError = String(e && e.name || e); if (e && e.name === 'NotAllowedError') state.unlocked = false; }); } }   // autoplay refused → wait for the next real gesture, no prompt
     else if (!bgm.paused) bgm.pause();   // pause keeps currentTime → re-enabling resumes from here
   }
-  // called on every shell render: settings + whether a game session is on (BGM plays from the game, not on the home screen)
+  // called on every shell render: settings + whether a game session is on (informational; the BGM session spans home screen and game)
   function sync(envelope) {
     if (!envelope) return;
     const next = normalize(envelope.preferences); const changed = KEYS.some(k => next[k] !== state.prefs[k]);
