@@ -157,7 +157,7 @@
     const progress=p();if(!progress)return;
     if(progress.world.route){
       ui.sceneCity=null;nodes.scene.classList.add('journey-scene');nodes.scene.setAttribute('aria-label','行进地图');
-      for(const old of nodes.scene.querySelectorAll(':scope > .world-map-button, :scope > .travel-art-caption, :scope > .journey-status'))old.remove();nodes.sceneWorld.replaceChildren();
+      for(const old of nodes.scene.querySelectorAll(':scope > .world-map-button, :scope > .travel-art-caption, :scope > .journey-status'))old.remove();if(S.tod)S.tod.detach();nodes.sceneWorld.replaceChildren();
       renderTravelArt(context(),nodes.sceneWorld,progress.world.route);const cap=nodes.sceneWorld.querySelector('.travel-art-caption');if(cap)nodes.scene.append(cap);nodes.scene.append(mapButton(()=>openSecondary('map')));
       const status=el('div','journey-status');status.setAttribute('aria-live','polite');
       if(ui.error){paragraph(status,ui.error,'inline-error');status.append(button('重试行程',()=>{ui.error='';journeyController?.retry();render(ui.state);}));status.append(button('重新载入存档',()=>location.reload()));}
@@ -168,7 +168,10 @@
     if(ui.sceneCity!==city){
       ui.sceneCity=city;nodes.sceneWorld.replaceChildren();nodes.scene.setAttribute('aria-label',cities[city]+'城市主界面');
       nodes.scene.querySelector(':scope > .world-map-button')?.remove();nodes.scene.append(mapButton(()=>openPanel('map')));
-      const img=el('img','city-background');img.src=asset('B7_city_'+city+'_bg_v0'+(city==='changan'?'2':'1'));img.alt=cities[city]+'城市景观';img.draggable=false;nodes.sceneWorld.append(img);
+      const img=el('img','city-background');img.src=asset('B7_city_'+city+'_bg_v0'+(city==='changan'?'2':'1'));img.alt=cities[city]+'城市景观';img.draggable=false;
+      // B7 TOD Formal Runtime Integration v0.1 (tod.js): the approved three-layer Time-of-Day composite is drawn into a canvas with the same class and box as the image;
+      // the static image stays in the scene as the rollback path (TOD off / no WebGL / asset failure) — geometry, hotspots, HUD and world time are untouched.
+      if(!(S.tod&&S.tod.attach(nodes.sceneWorld,city,img)))nodes.sceneWorld.append(img);
       // r21: the r20 晨 / 午 / 暮 background filter + atmosphere overlay were withdrawn — the background image is rendered untouched (no data-phase, no colour grading); the hotspot hint / halo below stays.
       for(const [id,label,x,y] of hotspots[city]){
         const hot=button('',()=>{if(id==='work'&&city==='dunhuang'){openPanel('dunhuang-work');return;}if(id==='work'&&city!=='changan'){showModal({title:label,body:'敬请期待',actions:[{label:'返回',run:dismissModal}]});return;}openPanel(id);},{className:'city-hotspot text-hotspot',label});
@@ -180,6 +183,7 @@
         nodes.sceneWorld.append(hot);
       }
     }
+    if(S.tod)S.tod.sync(city,S.time.phase(progress)); // read-only world-time phase (0 晨 / 1 午 / 2 暮) → TOD state; debug override lives inside tod.js
     fitScene();
   }
   function fitScene() {
@@ -339,7 +343,7 @@
       ui.secondary=null;ui.back=[];ui.lastResultId=nextResult.id;
     }else if(!nextResult&&ui.lastResultId){if(ui.resultReturn){ui.secondary=ui.resultReturn.secondary;ui.back=ui.resultReturn.back;}ui.lastResultId=null;ui.resultReturn=null;}
     const hasProgress=Boolean(p());nodes.start.hidden=hasProgress;nodes.hud.hidden=!hasProgress;nodes.scene.hidden=!hasProgress;
-    if(!hasProgress){renderStart();}
+    if(!hasProgress){renderStart();if(S.tod)S.tod.detach();}
     else {renderScene();renderHUD();}
     renderPanels();renderResult();renderModals();renderNotices();renderControls();layoutWindows();
     journeyController?.refresh();
@@ -459,6 +463,6 @@
     async function acknowledge(leave){await dispatch('result.ack',{resultId:result.id});if(!ui.error){ui.primary=leave?null:{id:'guifang',data:{}};ui.secondary=null;ui.back=[];render(ui.state);}}
     parts.footer.hidden=false;parts.footer.append(button('继续办理',()=>acknowledge(false),{natural:false}),button('离开柜坊',()=>acknowledge(true),{natural:false}));if(ui.error)paragraph(parts.body,ui.error,'inline-error');
   }
-  S.ui={mount,render,registerPanel,numericStepper,onRender(fn){renderHooks.push(fn);},renderTravelArt,registerMenu(id,spec){registerPanel(id,spec);},registerResult(kind,fn){resultRenderers.set(kind,fn);},openPanel,openSecondary,closePanel,closeSecondary,showModal,dismissModal,dispatch,
+  S.ui={mount,render,registerPanel,numericStepper,onRender(fn){renderHooks.push(fn);},resetScene(){ui.sceneCity=null;},renderTravelArt,registerMenu(id,spec){registerPanel(id,spec);},registerResult(kind,fn){resultRenderers.set(kind,fn);},openPanel,openSecondary,closePanel,closeSecondary,showModal,dismissModal,dispatch,
     getState(){return {primary:ui.primary&&ui.primary.id,secondary:ui.secondary&&ui.secondary.id,secondaryHistory:ui.back.length,blockingModalCount:ui.modals.length?1:0,queuedModals:Math.max(0,ui.modals.length-1),busy:ui.busy,keyboard:ui.keyboard,tutorialCooldown:ui.tutorialCooldown};}};
 })(globalThis.Silk=globalThis.Silk||{});
