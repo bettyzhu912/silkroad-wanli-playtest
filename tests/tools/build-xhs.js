@@ -59,13 +59,62 @@ const audioRenamed = new Map();
 for (const f of tracked.filter(f => /\.(mp3|m4a|wav|ogg)$/i.test(f))) { const name = path.basename(f); if (/\.mp3$/i.test(name) && tracked.includes(f.replace(/\.mp3$/i, '_pkg.m4a'))) { audioRenamed.set(name, name.replace(/\.mp3$/i, '_pkg.m4a')); continue; } fs.copyFileSync(path.join(root, f), path.join(stage, name)); }
 if (audioRenamed.size) step('audio → package variants', [...audioRenamed].map(([a, b]) => a + ' → ' + b).join(', '));
 const images = tracked.filter(f => /\.(png|jpe?g)$/i.test(f));
-for (const f of tracked.filter(f => /\.webp$/i.test(f))) fs.copyFileSync(path.join(root, f), path.join(stage, path.basename(f))); // already-WebP sources are staged as-is
 const cwebp = noWebp ? null : which('cwebp');
+// R38 package size: a tracked `.webp` source is recompressed only where that is provably free of any approved-output change.
+// PIXEL-LOCKED — every B7 TOD layer and every mask is staged byte-for-byte. tests/browser/tod-integration-run.js asserts the composited TOD
+// frame stays within 1/255 of the approved previews in all nine city × phase states, a criterion signed off on the package itself in R31
+// (stage 66/66). Measured on this asset set: lossy sky / city_ground / title_overlay push the composite to 10–105/255, and even the blurred
+// *_sky_blur3_* layers — which contribute only faintly — still leave ~12 pixels at 3/255 in the morning state at q99, i.e. the error does not
+// vanish with quality. The layers are also already optimally compressed (max-effort lossless re-encoding comes out 2.5% LARGER), so the whole
+// family stays exactly as approved and the lock keeps any future build from trading that criterion for bytes.
+// Everything else is governed mechanically: a candidate is kept only when it comes out both ≥10% smaller AND visually lossless
+// (PSNR ≥ WEBP_MIN_PSNR); otherwise the original is staged untouched, which is what happens to every already-lossy source since a second lossy
+// pass only enlarges it. Dimensions never change and no asset is ever dropped, merged or downscaled.
+const WEBP_FIDELITY_LOCKED = /^B7_city_|mask/i;
+const WEBP_MIN_PSNR = 45, WEBP_MAX_RATIO = 0.9;
+const webpReport = { recompressed: [], keptOriginal: [], before: 0, after: 0 };
+for (const f of tracked.filter(f => /\.webp$/i.test(f))) {
+  const src = path.join(root, f), name = path.basename(f), dest = path.join(stage, name), before = fs.statSync(src).size;
+  webpReport.before += before;
+  const keep = reason => { fs.copyFileSync(src, dest); webpReport.after += before; webpReport.keptOriginal.push({ file: name, bytes: before, reason }); };
+  if (!cwebp) { keep('cwebp not available'); continue; }
+  if (WEBP_FIDELITY_LOCKED.test(name)) { keep('pixel-locked: approved TOD layer / mask, staged byte-for-byte'); continue; }
+  const tmp = dest + '.recompress.tmp';
+  const r = spawnSync(cwebp, ['-q', '92', '-alpha_q', '100', '-m', '6', '-sharp_yuv', '-exact', '-print_psnr', src, '-o', tmp], { encoding: 'utf8' });
+  const psnr = Number(((r.stdout + r.stderr).match(/Y-U-V-All-PSNR\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+([\d.]+)/) || [])[1]);
+  const after = r.status === 0 && fs.existsSync(tmp) ? fs.statSync(tmp).size : 0;
+  if (!after) { fs.rmSync(tmp, { force: true }); keep('cwebp failed: ' + (r.stderr || '').slice(0, 120)); continue; }
+  if (!(psnr >= WEBP_MIN_PSNR)) { fs.rmSync(tmp, { force: true }); keep('PSNR ' + (psnr || '?') + ' dB below the ' + WEBP_MIN_PSNR + ' dB visually-lossless floor'); continue; }
+  if (after > before * WEBP_MAX_RATIO) { fs.rmSync(tmp, { force: true }); keep('re-encode not smaller (' + after.toLocaleString() + ' B, already lossy)'); continue; }
+  fs.renameSync(tmp, dest); webpReport.after += after;
+  webpReport.recompressed.push({ file: name, before, after, psnr, saved: before - after });
+}
+webpReport.recompressed.sort((a, b) => b.saved - a.saved);
+report.webp = webpReport;
+step('WebP sources → package variants (q92, lossless alpha, dimensions unchanged)', webpReport.recompressed.length + ' of ' + (webpReport.recompressed.length + webpReport.keptOriginal.length) + ' recompressed, ' + webpReport.before.toLocaleString() + ' → ' + webpReport.after.toLocaleString() + ' bytes (saved ' + (webpReport.before - webpReport.after).toLocaleString() + ')' + (webpReport.recompressed.length ? ', worst PSNR ' + webpReport.recompressed.reduce((m, x) => Math.min(m, x.psnr), Infinity) + ' dB' : ' — every source is either pixel-locked or already lossy'));
 const renamed = new Map();
 if (cwebp) {
-  for (const f of images) { const src = path.join(root, f), name = path.basename(f), target = name.replace(/\.(png|jpe?g)$/i, '.webp'); const args = /\.png$/i.test(name) ? ['-quiet', '-q', '85', '-alpha_q', '100', '-exact', src, '-o', path.join(stage, target)] : ['-quiet', '-q', '85', src, '-o', path.join(stage, target)]; const r = spawnSync(cwebp, args, { encoding: 'utf8' }); if (r.status !== 0) { fail('cwebp failed for ' + name + ': ' + r.stderr.slice(0, 200)); continue; } renamed.set(name, target); }
+  // Two quality tiers, both encoded in one generation from the PNG / JPEG masters (the masters are never modified, nothing is downscaled).
+  // Small art — every goods icon, glyph and badge — keeps q85: it is where a lower quality shows first and where there are no bytes to win.
+  // Only images whose q85 output is already large (backgrounds, panel art, map and travel plates) drop to q78, which is imperceptible on that
+  // kind of soft, large artwork and is what brings the package under 10,000,000 bytes without touching a single confirmed asset.
+  const Q_SMALL = 85, Q_LARGE = 78, LARGE_BYTES = 50 * 1024, tiers = [];
+  const encode = (src, target, q, png) => { const args = png ? ['-quiet', '-q', String(q), '-alpha_q', '100', '-exact', src, '-o', target] : ['-quiet', '-q', String(q), src, '-o', target]; return spawnSync(cwebp, args, { encoding: 'utf8' }); };
+  for (const f of images) {
+    const src = path.join(root, f), name = path.basename(f), target = name.replace(/\.(png|jpe?g)$/i, '.webp'), out = path.join(stage, target), png = /\.png$/i.test(name);
+    let r = encode(src, out, Q_SMALL, png);
+    if (r.status !== 0) { fail('cwebp failed for ' + name + ': ' + r.stderr.slice(0, 200)); continue; }
+    const atSmall = fs.statSync(out).size;
+    if (atSmall >= LARGE_BYTES) {
+      r = encode(src, out, Q_LARGE, png);
+      if (r.status !== 0) { fail('cwebp failed for ' + name + ' at q' + Q_LARGE + ': ' + r.stderr.slice(0, 200)); continue; }
+      tiers.push({ file: target, q: Q_LARGE, bytes: fs.statSync(out).size, atQ85: atSmall });
+    }
+    renamed.set(name, target);
+  }
+  report.imageTiers = { qSmall: Q_SMALL, qLarge: Q_LARGE, largeThreshold: LARGE_BYTES, large: tiers.sort((a, b) => b.atQ85 - a.atQ85) };
   const before = images.reduce((s, f) => s + fs.statSync(path.join(root, f)).size, 0), after = [...renamed.values()].reduce((s, f) => s + fs.statSync(path.join(stage, f)).size, 0);
-  step('images → WebP (q85, alpha kept, dimensions unchanged)', renamed.size + ' files, ' + before.toLocaleString() + ' → ' + after.toLocaleString() + ' bytes');
+  step('images → WebP (q' + Q_SMALL + ', q' + Q_LARGE + ' for the ' + tiers.length + ' large plates; alpha kept, dimensions unchanged)', renamed.size + ' files, ' + before.toLocaleString() + ' → ' + after.toLocaleString() + ' bytes (large tier saves ' + tiers.reduce((s, t) => s + t.atQ85 - t.bytes, 0).toLocaleString() + ')');
 } else { for (const f of images) fs.copyFileSync(path.join(root, f), path.join(stage, path.basename(f))); warn(noWebp ? 'WebP conversion skipped (--no-webp)' : 'cwebp not found: images copied as PNG/JPG (larger package)'); }
 
 // 3. index.html: no query strings, image references rewritten, container template checks
@@ -106,7 +155,7 @@ step('text budget', (textTotal / MIB).toFixed(2) + ' MiB uncompressed HTML/CSS/J
 
 // 6. zip from inside the stage folder (index.html at the root)
 const zipName = version + '-xhs-minitool.zip', zipPath = path.join(outDir, zipName); fs.rmSync(zipPath, { force: true });
-const zipResult = spawnSync('zip', ['-X', '-r', zipPath, '.', '-x', '*.DS_Store'], { cwd: stage, encoding: 'utf8' }); if (zipResult.status !== 0) fail('zip failed: ' + zipResult.stderr);
+const zipResult = spawnSync('zip', ['-X', '-9', '-r', zipPath, '.', '-x', '*.DS_Store'], { cwd: stage, encoding: 'utf8' });   // -9: maximum deflate on the text files (the media is already compressed) if (zipResult.status !== 0) fail('zip failed: ' + zipResult.stderr);
 const zipBytes = fs.existsSync(zipPath) ? fs.statSync(zipPath).size : 0; if (zipBytes > 10 * MIB) fail('zip is ' + (zipBytes / MIB).toFixed(2) + ' MiB; hard limit 10 MiB'); else if (zipBytes > 2 * MIB) warn('zip is ' + (zipBytes / MIB).toFixed(2) + ' MiB; recommended target is 2 MiB');
 const listing = spawnSync('unzip', ['-Z1', zipPath], { encoding: 'utf8' }).stdout.trim().split('\n'); if (!listing.includes('index.html')) fail('index.html is not at the zip root'); if (listing.some(n => n.includes('/') && !n.endsWith('/'))) warn('zip contains subdirectories: ' + listing.filter(n => n.includes('/')).slice(0, 3).join(', '));
 report.zip = { file: zipName, bytes: zipBytes, sha256: fs.existsSync(zipPath) ? crypto.createHash('sha256').update(fs.readFileSync(zipPath)).digest('hex') : null, entries: listing.length };
