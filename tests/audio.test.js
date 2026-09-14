@@ -7,12 +7,21 @@ const S = load().Silk, A = S.audio;
 const results = [];
 function test(id, title, fn) { try { const d = fn() || []; results.push({ id, title, pass: true, details: d }); } catch (e) { results.push({ id, title, pass: false, details: [String(e && e.stack || e)] }); } }
 function assert(c, m) { if (!c) throw new Error('ASSERT: ' + m); }
-test('AU-1', 'registry: one BGM + two SFX, files present in the repo (BGM master + package variant)', () => {
-  const bgmName = process.env.SILK_ROOT ? 'audio_bgm_main_v01_pkg.m4a' : 'audio_bgm_main_v01.mp3';   // the XHS build ships the compact package variant and rewrites the registry
-  assert(A.ASSETS.bgm_main === bgmName && A.ASSETS.ui_confirm === 'sfx_ui_confirm_v01.wav' && A.ASSETS.coin_gain === 'sfx_coin_gain_v01.wav', 'registry ' + A.ASSETS.bgm_main);
-  for (const f of [...Object.values(A.ASSETS), 'audio_bgm_main_v01_pkg.m4a']) assert(fs.existsSync(path.join(ROOT, f)), 'missing ' + f);
+test('AU-1', 'registry: one BGM + two SFX; the source tree carries the files, the XHS package carries none (container accepts no audio type) and declares it', () => {
+  assert(A.ASSETS.bgm_main === 'audio_bgm_main_v01.mp3' && A.ASSETS.ui_confirm === 'sfx_ui_confirm_v01.wav' && A.ASSETS.coin_gain === 'sfx_coin_gain_v01.wav', 'registry ' + JSON.stringify(A.ASSETS));
   assert(A.SFX.length === 2, 'exactly two sfx');
-  return Object.values(A.ASSETS);
+  const packaged = process.env.SILK_ROOT;
+  if (!packaged) {   // source / Pages build: every file is present and audio is available
+    for (const f of [...Object.values(A.ASSETS), 'audio_bgm_main_v01_pkg.m4a']) assert(fs.existsSync(path.join(ROOT, f)), 'missing ' + f);
+    assert(S.audioUnavailable !== true, 'source build keeps audio available');
+    return Object.values(A.ASSETS);
+  }
+  // R39 packaged build: zip-artifact-spec §2 lists no audio extension and §3 forbids data: / blob: media, so the package ships no audio file at all
+  assert(S.audioUnavailable === true, 'the packaged assets.js must declare Silk.audioUnavailable');
+  const strays = fs.readdirSync(packaged).filter(f => /\.(mp3|m4a|wav|ogg|aac)$/i.test(f));
+  assert(strays.length === 0, 'audio files left in the package: ' + strays.join(', '));
+  assert(A.status().available === false && A.status().elements === 0, 'manager reports no audio: ' + JSON.stringify(A.status().available));
+  return ['packaged build: 0 audio files, Silk.audioUnavailable = true'];
 });
 test('AU-2', 'settings schema: defaults (quiet music 0.35), normalize clamps volumes, legacy soundEnabled=false → both off once', () => {
   const d = A.normalize(null); assert(d.musicEnabled && d.sfxEnabled && d.musicVolume === 0.35 && d.sfxVolume === 0.7, 'defaults ' + JSON.stringify(d));

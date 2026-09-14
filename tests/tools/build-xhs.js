@@ -53,11 +53,15 @@ if (!aspectRules) fail('compat.js: ASPECT_RULES list not found');
   report.cssBaseline = { stats: totals, warnings: cssWarnings };
   step('CSS Chrome 61 baseline', Object.entries(totals).map(([k, v]) => k + ' ' + v).join(', ') + (cssWarnings.length ? '; ' + cssWarnings.length + ' approximation(s) noted in XHS_BUILD_INFO.json' : '')); }
 for (const f of tracked.filter(f => /\.woff2?$/i.test(f))) fs.copyFileSync(path.join(root, f), path.join(stage, path.basename(f)));   // R32: self-hosted OFL font subsets of 缀纹成章 (referenced from pattern-chain.css)
-// R34 GLOBAL_AUDIO_SYSTEM_v0.1: audio is staged as-is, except that a tracked `<name>.mp3` with a tracked `<name>_pkg.m4a` sibling ships only the compact package
-// variant (the 10 MiB hard limit cannot carry the 192 kbps master); every script reference to the mp3 name is rewritten to the m4a name below.
-const audioRenamed = new Map();
-for (const f of tracked.filter(f => /\.(mp3|m4a|wav|ogg)$/i.test(f))) { const name = path.basename(f); if (/\.mp3$/i.test(name) && tracked.includes(f.replace(/\.mp3$/i, '_pkg.m4a'))) { audioRenamed.set(name, name.replace(/\.mp3$/i, '_pkg.m4a')); continue; } fs.copyFileSync(path.join(root, f), path.join(stage, name)); }
-if (audioRenamed.size) step('audio → package variants', [...audioRenamed].map(([a, b]) => a + ' → ' + b).join(', '));
+// R39 GLOBAL_AUDIO_SYSTEM_v0.1 in the container: NO audio file is staged. The container's type table (zip-artifact-spec §2) lists html / css / js /
+// png / jpg / jpeg / gif / webp / svg / woff / woff2 / json and no audio extension — upload validation rejects .m4a as it would .mp3 / .wav / .ogg —
+// and the CSP (§3, and the §6 checklist "音视频、字体仅用包内文件") forbids `data:` / `blob:` media for <audio>, so re-encoding the track into a JS
+// string cannot reach the container either. The staged assets.js therefore declares `Silk.audioUnavailable` and audio.js creates no elements: the
+// settings block, persistence, the trigger map and every other v0.1 behaviour stay exactly as they are, with nothing to play and nothing to 404.
+// Pages / desktop / source builds keep the real files. See R39_AUDIO_CONTAINER_BLOCKER for the citations and the options.
+const audioSkipped = tracked.filter(f => /\.(mp3|m4a|wav|ogg|aac)$/i.test(f)).map(f => path.basename(f));
+report.audioExcluded = audioSkipped;
+step('audio → excluded from the package', audioSkipped.length + ' file(s) left out (container allows no audio type; data:/blob: media are CSP-blocked): ' + audioSkipped.join(', '));
 const images = tracked.filter(f => /\.(png|jpe?g)$/i.test(f));
 const cwebp = noWebp ? null : which('cwebp');
 // R38 package size: a tracked `.webp` source is recompressed only where that is provably free of any approved-output change.
@@ -130,14 +134,14 @@ if (/\son[a-z]+="/i.test(html)) fail('index.html: inline event handler attribute
 const rewrite = (text, file) => { if (!renamed.size) return text; if (file === 'assets.js') return text.replace(/(:\s*")([^"]+?)\.(png|jpe?g)"/g, (m, pre, name, ext) => renamed.has(name + '.' + ext) ? pre + renamed.get(name + '.' + ext) + '"' : m); let out = text; for (const [from, to] of renamed) out = out.split(from).join(to); return out; };
 html = rewrite(html, 'index.html'); fs.writeFileSync(path.join(stage, 'index.html'), html);
 for (const name of fs.readdirSync(stage)) { if (/\.(js|css)$/.test(name)) { const p = path.join(stage, name); fs.writeFileSync(p, rewrite(fs.readFileSync(p, 'utf8'), name)); } }
-if (audioRenamed.size) for (const name of fs.readdirSync(stage)) { if (/\.js$/.test(name)) { const p = path.join(stage, name); let t = fs.readFileSync(p, 'utf8'); for (const [a, b] of audioRenamed) t = t.split(a).join(b); fs.writeFileSync(p, t); } }
+{ const p = path.join(stage, 'assets.js'); fs.appendFileSync(p, "\n// R39: the container accepts no audio file type (zip-artifact-spec \u00a72) and blocks data: / blob: media (\u00a73), so this package ships without audio files.\n(globalThis.Silk = globalThis.Silk || {}).audioUnavailable = true;\n"); }
 step('index.html', 'query strings stripped, ' + (renamed.size ? 'image references rewritten to WebP' : 'original image names kept'));
 
 // 5. verification against the container rules
 const staged = new Set(fs.readdirSync(stage));
-const allowed = /\.(html|css|js|png|jpe?g|gif|webp|svg|woff2?|json|mp3|m4a|wav)$/i;   // R34: packaged media (<audio>) is allowed by the container spec
+const allowed = /\.(html|css|js|png|jpe?g|gif|webp|svg|woff2?|json)$/i;   // exactly the zip-artifact-spec \u00a72 table \u2014 no audio type is accepted by the container
 for (const name of staged) { if (!allowed.test(name)) fail('unsupported file type in package: ' + name); if (/\.(map|DS_Store)$/.test(name) || name === 'node_modules') fail('development artifact in package: ' + name); }
-{ const media = [...staged].filter(n => /\.(mp3|m4a|wav)$/i.test(n)); if (media.length) warn('packaged <audio> media (' + media.join(', ') + '): allowed by zip-artifact-spec §3 (音视频 → 包内媒体文件) but absent from the §2 file-type table — confirm in the container'); }
+{ const media = [...staged].filter(n => /\.(mp3|m4a|wav|ogg|aac)$/i.test(n)); if (media.length) fail('audio file in the package \u2014 the container type table accepts none: ' + media.join(', ')); }
 if (!staged.has('index.html')) fail('index.html missing at package root');
 if ([...staged].filter(n => n.endsWith('.html')).length !== 1) fail('exactly one .html entry expected');
 for (const m of html.matchAll(/(?:src|href)="([^"]+)"/g)) { const ref = m[1]; if (/^(https?:)?\/\//.test(ref) || ref.startsWith('/')) fail('index.html absolute/external reference: ' + ref); else if (!staged.has(ref)) fail('index.html references a missing file: ' + ref); }

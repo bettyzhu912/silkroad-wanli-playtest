@@ -38,10 +38,17 @@
   const state = { prefs: normalize(null), inGame: false, unlocked: false, mounted: false, bgm: null, sfx: {}, log: [], counts: { ui_confirm: 0, coin_gain: 0 }, bgmPlays: 0, elements: 0, lastError: null, previewPending: false };
   const hasDOM = () => typeof document !== 'undefined' && typeof Audio !== 'undefined';
   function src(key) { return (S.assets && S.assets[ASSETS[key]]) || ASSETS[key]; }
+  // R39 — the Xiaohongshu package ships without audio FILES: the container's type table (zip-artifact-spec §2) accepts no audio extension at all
+  // (.m4a / .mp3 / .wav / .ogg are rejected by upload validation) and its CSP forbids `data:` / `blob:` media for <audio> (§3 and the §6 checklist:
+  // "音视频、字体仅用包内文件"), so no encoding of the file can reach the container either. That build declares `Silk.audioUnavailable` and the
+  // manager then creates no elements — every other part of v0.1 is untouched: the settings block, persistence, the trigger map and the counters all
+  // behave exactly as before, there is simply nothing to play and nothing to 404. Pages / desktop / source builds are unaffected.
+  const audioAvailable = () => S.audioUnavailable !== true;
   function mount(prefs) {
     state.prefs = normalize(prefs);
     if (state.mounted || !hasDOM()) return;
     state.mounted = true;
+    if (!audioAvailable()) return;   // no packaged media: stay silent, keep every setting and decision path alive
     const bgm = new Audio(); bgm.src = src('bgm_main'); bgm.loop = true; bgm.preload = 'auto'; bgm.volume = state.prefs.musicVolume; bgm.setAttribute('data-audio', 'bgm_main'); bgm.addEventListener('play', () => { state.bgmPlays++; });
     state.bgm = bgm; state.elements++;
     for (const name of SFX) { const a = new Audio(); a.src = src(name); a.preload = 'auto'; a.setAttribute('data-audio', name); state.sfx[name] = a; state.elements++; }
@@ -85,6 +92,6 @@
   function setMusicEnabled(on) { state.prefs.musicEnabled = Boolean(on); applyMusic(); }
   function setSfxEnabled(on) { state.prefs.sfxEnabled = Boolean(on); }
   function preview() { return playSfx('ui_confirm'); }
-  function status() { const b = state.bgm; return { prefs: { ...state.prefs }, inGame: state.inGame, unlocked: state.unlocked, mounted: state.mounted, elements: state.elements, bgm: b ? { paused: b.paused, currentTime: b.currentTime, loop: b.loop, volume: b.volume, src: (b.getAttribute('src') || '').split('/').pop(), readyState: b.readyState } : null, bgmPlays: state.bgmPlays, counts: { ...state.counts }, log: state.log.slice(-10), lastError: state.lastError }; }
+  function status() { const b = state.bgm; return { prefs: { ...state.prefs }, inGame: state.inGame, unlocked: state.unlocked, mounted: state.mounted, available: audioAvailable(), elements: state.elements, bgm: b ? { paused: b.paused, currentTime: b.currentTime, loop: b.loop, volume: b.volume, src: (b.getAttribute('src') || '').split('/').pop(), readyState: b.readyState } : null, bgmPlays: state.bgmPlays, counts: { ...state.counts }, log: state.log.slice(-10), lastError: state.lastError }; }
   S.audio = { ASSETS, SFX, DEFAULTS, KEYS, normalize, decide, mount, sync, playSfx, onCommitted, setMusicVolume, setSfxVolume, setMusicEnabled, setSfxEnabled, preview, status, playBGM() { state.unlocked = true; applyMusic(); }, pauseBGM() { if (state.bgm && !state.bgm.paused) state.bgm.pause(); }, _state: state };
 })(globalThis.Silk = globalThis.Silk || {});
