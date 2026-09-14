@@ -22,7 +22,7 @@
     khotan: [['inn','客舍',383,718],['market','市场',559,858],['guifang','柜坊',432,990],['inspect','商情',161,1001],['depart','出发',536,1074],['work','营生',337,1323]]
   };
 
-  const titles = { pack:'行囊', commission:'委托', message:'消息', merchant_business:'商号', more:'更多', guifang:'柜坊', inn:'客舍', market:'市场', work:'营生', 'dunhuang-work':'营生', caravan:'驼队装货', inspect:'商情', depart:'出发', map:'地图', funds:'资金总览', reputation:'商誉详情', time:'时间与商期', help:'玩法说明', settings:'设置', notification:'系统通知', archive:'丝路之录' };
+  const titles = { pack:'行囊', commission:'委托', message:'消息', merchant_business:'商号', more:'更多', guifang:'柜坊', inn:'客舍', market:'市场', work:'营生', 'dunhuang-work':'营生', 'khotan-work':'营生', caravan:'驼队装货', 'pattern-chain':'缀纹成章', weaving:'于阗织坊', inspect:'商情', depart:'出发', map:'地图', funds:'资金总览', reputation:'商誉详情', time:'时间与商期', help:'玩法说明', settings:'设置', notification:'系统通知', archive:'丝路之录' };
   const icons = { pack:'pack', commission:'commission', message:'message', merchant_business:'merchant_business', more:'more', money:'money', reputation:'reputation', time:'time_calendar', close:'close', help:'help', settings:'settings', notification:'notification', archive:'silkroad_archive', inspect:'inspect' };
   function el(tag, className, text) { const e=document.createElement(tag); if(className)e.className=className; if(text!==undefined)e.textContent=String(text); return e; }
   function asset(name) { const found=S.assets && S.assets[name]; if(!found)throw new Error('CURRENT asset mapping missing: '+name); return found; }
@@ -126,7 +126,7 @@
   function closePanel() {
     if(ui.busy||activeResult()||workResult())return;
     if(p()?.world.route||p()?.eventSession&&['AWAITING_CHOICE','AWAITING_SKILL'].includes(p().eventSession.status))return;
-    if(ui.primary&&ui.primary.id==='caravan'&&S.caravanUI&&S.caravanUI.interceptClose&&S.caravanUI.interceptClose())return;
+    {const host=ui.primary&&({caravan:S.caravanUI,'pattern-chain':S.patternChainUI,weaving:S.weavingUI})[ui.primary.id];if(host&&host.interceptClose&&host.interceptClose())return;}
     const work=activeWork();if(work){if(work.kind==='tavern'&&work.mode==='TRIAL'){dispatch('TAVERN_ABORT',{sessionId:work.id}).then(()=>{if(!ui.error){ui.primary=null;render(ui.state);}});}return;}
     if(ui.primary&&ui.primary.id==='market'&&p()&&p().market.visit&&!p().market.visit.settled){dispatch('market.leave',{visitId:p().market.visit.id}).then(()=>{if(!ui.error){ui.primary=null;ui.secondary=null;render(ui.state);}});return;}
     captureInputs();ui.primary=null;ui.secondary=null;ui.back=[];ui.error='';ui.tutorialCooldown=false;renderPanels();renderNotices();if(ui.focusReturn&&ui.focusReturn.isConnected)ui.focusReturn.focus({preventScroll:true});
@@ -138,8 +138,9 @@
     showModal({id:'reset-first',title:'重新开始游戏？',body:'重新开始后，你当前的商旅进度、钱财、行囊、商誉、委托、商号及其他游戏进度都会清除。游戏设置会保留。',actions:[{label:'取消',run:dismissModal},{label:'继续',run:()=>{ui.modals[0]={id:'reset-final',title:'最后确认',body:'当前游戏进度将被永久清除，无法恢复。确认重新开始吗？',actions:[{label:'返回',run:dismissModal},{label:'确认重新开始',danger:true,run:()=>dispatch('game.reset')}]};renderModals();}}]});
   }
   function activeResult() {return p()&&p().presentation&&p().presentation.activeResult||null;}
-  function activeWork() {const work=p()&&p().work;if(!work)return null;for(const [kind,session] of [['tavern',work.tavern],['routeGame',work.routeGame],['caravan',work.caravan]]){if(session&&!session.result&&!['FINISHED','COMPLETE','COMPLETED','ABORTED','SETTLED'].includes(session.phase))return {...session,kind};}return null;}
-  function workResult() {const work=p()&&p().work;if(!work)return null;const session=work.tavern;if(session&&session.result&&session.result.completionStatus==='COMPLETED'&&!session.resultAcknowledged)return session;const caravan=work.caravan;if(caravan&&caravan.result&&!caravan.settled)return {...caravan,kind:'caravan'};return null;}
+  function activeWork() {const work=p()&&p().work;if(!work)return null;for(const [kind,session] of [['tavern',work.tavern],['routeGame',work.routeGame],['caravan',work.caravan],['pattern',work.pattern],['weaving',work.weaving]]){if(session&&!session.result&&!['FINISHED','COMPLETE','COMPLETED','ABORTED','SETTLED'].includes(session.phase))return {...session,kind};}return null;}
+  function workResult() {const work=p()&&p().work;if(!work)return null;const session=work.tavern;if(session&&session.result&&session.result.completionStatus==='COMPLETED'&&!session.resultAcknowledged)return session;for(const kind of ['caravan','pattern','weaving']){const s=work[kind];if(s&&s.result&&!s.settled)return {...s,kind};}return null;}
+  const workPanels={tavern:'work',caravan:'caravan',pattern:'pattern-chain',weaving:'weaving'};   // livelihood session kind → the panel that owns it
   function isFinanceResult(result=activeResult()) {return Boolean(result&&['deposit','withdraw','borrow','repay','issueVoucher','redeemVoucher'].includes(result.type));}
   function isEventResult(result=activeResult()) {return result?.kind==='event';}
   function isInnResult(result=activeResult()) {return result?.kind==='innFeedback';}
@@ -174,10 +175,10 @@
       if(!(S.tod&&S.tod.attach(nodes.sceneWorld,city,img)))nodes.sceneWorld.append(img);
       // r21: the r20 晨 / 午 / 暮 background filter + atmosphere overlay were withdrawn — the background image is rendered untouched (no data-phase, no colour grading); the hotspot hint / halo below stays.
       for(const [id,label,x,y] of hotspots[city]){
-        const hot=button('',()=>{if(id==='work'&&city==='dunhuang'){openPanel('dunhuang-work');return;}if(id==='work'&&city!=='changan'){showModal({title:label,body:'敬请期待',actions:[{label:'返回',run:dismissModal}]});return;}openPanel(id);},{className:'city-hotspot text-hotspot',label});
+        const hot=button('',()=>{if(id==='work'&&city==='dunhuang'){openPanel('dunhuang-work');return;}if(id==='work'&&city==='khotan'){openPanel('khotan-work');return;}openPanel(id);},{className:'city-hotspot text-hotspot',label});
         hot.dataset.hotspot=id;hot.dataset.artX=x;hot.dataset.artY=y;hot.style.left=(x/cityArt.w*100)+'%';hot.style.top=(y/cityArt.h*100)+'%';
-        // availability is the existing click rule: 营生 outside 长安 / 敦煌 only answers 敬请期待 → static, weakened hint, no breathing
-        hot.dataset.availability=(id==='work'&&city!=='changan'&&city!=='dunhuang')?'unavailable':'available';
+        // R32: 营生 is open in all three cities (长安 酒肆诗令 / 敦煌 驼队装货 + 缀纹成章 / 于阗 于阗织坊) — every entry is available; the former 敬请期待 rule is gone
+        hot.dataset.availability='available';
         {const halo=el('span','hotspot-halo');halo.setAttribute('aria-hidden','true');halo.style.animationDelay=(-([0,1.3,2.5,0.7,1.9,3.1,0.4][hotspots[city].findIndex(h=>h[0]===id)]||0))+'s';hot.append(halo);}
         {const plaque=el('span','hotspot-visual '+(['guifang','inn'].includes(id)?'global-plaque':'b7-plaque'));const frame=el('img','plaque-frame');frame.src=asset(['guifang','inn'].includes(id)?'global_scene_hotspot_label_frame_v01':'city_marker_frame_v01');frame.alt='';plaque.append(frame,el('span','hotspot-label',label));hot.append(plaque);}
         nodes.sceneWorld.append(hot);
@@ -259,14 +260,15 @@
     if(!ui.primary&&!activeResult()&&['returned_at_dusk_pending_rest','return_tasks'].includes(p()?.trip?.phase)){ui.primary={id:'trip',data:{}};if(p().trip.phase==='return_tasks')ui.secondary={id:'return-tasks',data:{}};}
     const work=activeWork();if(!work&&!activeResult()&&!workResult()&&p()?.world.route)ui.primary=null;
     if(!work&&p()?.eventSession&&['AWAITING_CHOICE','AWAITING_SKILL'].includes(p().eventSession.status))ui.primary={id:'event',data:{}};
-    if(work){ui.primary={id:work.kind==='tavern'?'work':work.kind==='caravan'?'caravan':'route-minigame',data:{}};ui.secondary=null;ui.back=[];}
-    const pendingResult=workResult();if(pendingResult){ui.primary={id:pendingResult.kind==='caravan'?'caravan':'work',data:{}};ui.secondary=null;ui.back=[];}
+    if(work){ui.primary={id:workPanels[work.kind]||'route-minigame',data:{}};ui.secondary=null;ui.back=[];}
+    const pendingResult=workResult();if(pendingResult){ui.primary={id:workPanels[pendingResult.kind]||'work',data:{}};ui.secondary=null;ui.back=[];}
     if(isFinanceResult()){ui.primary={id:'guifang',data:{}};ui.secondary=null;ui.back=[];}
     if(isEventResult())ui.primary={id:'event',data:{}};
     if(isInnResult()){ui.primary={id:'inn',data:{}};ui.secondary=null;ui.back=[];}
     nodes.primary.hidden=!ui.primary;nodes.secondary.hidden=!ui.secondary;
     // Round 29: the five HUD windows (art shell) get no translucent mask behind them — the layer still blocks the scene
     nodes.primary.classList.toggle('art-shell-layer',Boolean(ui.primary)&&['pack','commission','message','merchant_business','more'].includes(ui.primary.id));
+    nodes.primary.classList.toggle('minigame-modal-layer',Boolean(ui.primary)&&['pattern-chain','weaving'].includes(ui.primary.id));   // R32: the two 360×620 minigame modals get a darker backdrop
     if(ui.primary){if(isFinanceResult())renderFinanceResult(nodes.primaryParts,activeResult());else if(isEventResult()||isInnResult())renderResultContent(nodes.primaryParts,activeResult());else renderPanelContent(ui.primary,nodes.primaryParts,false);}
     if(ui.secondary)renderPanelContent(ui.secondary,nodes.secondaryParts,true);
     renderHUD();renderControls();journeyController?.refresh();

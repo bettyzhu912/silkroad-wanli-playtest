@@ -44,9 +44,12 @@
       const tavernActive = p.work?.tavern && (!p.work.tavern.result || p.work.tavern.result.completionStatus === 'COMPLETED' && !p.work.tavern.resultAcknowledged);
       const routeGameActive = p.work?.routeGame && !p.work.routeGame.result;
       const caravanActive = Boolean(S.caravan?.isActive && S.caravan.isActive(p));
+      const patternActive = Boolean(S.patternChain?.isActive && S.patternChain.isActive(p)), weavingActive = Boolean(S.weaving?.isActive && S.weaving.isActive(p));
       if (tavernActive && !safeUI) ensure(command.type.startsWith('TAVERN_'), 'MINIGAME_ACTIVE', '请先完成当前诗令');
       if (routeGameActive && !safeUI) ensure(command.type.startsWith('RM_'), 'MINIGAME_ACTIVE', '请先处理当前路途小游戏');
       if (caravanActive && !safeUI) ensure(command.type.startsWith('CARAVAN_'), 'MINIGAME_ACTIVE', '请先完成当前驼队装货');
+      if (patternActive && !safeUI) ensure(command.type.startsWith('PATTERN_'), 'MINIGAME_ACTIVE', '请先完成当前缀纹帮工');
+      if (weavingActive && !safeUI) ensure(command.type.startsWith('WEAVING_'), 'MINIGAME_ACTIVE', '请先完成当前织坊帮工');
       if (p.eventSession && ['AWAITING_CHOICE', 'AWAITING_SKILL'].includes(p.eventSession.status) && !safeUI) ensure(command.type.startsWith('EVENT_') || command.type.startsWith('RM_'), 'EVENT_PENDING', '请先处理当前事件');
       const tracked = command.type.startsWith('finance.') || command.type.startsWith('merchant.');
       const before = tracked ? { cash:p.cash, finance:S.finance?.snapshot(p) } : null;

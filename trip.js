@@ -131,7 +131,7 @@
     const completed=p.commissions.results.filter(r=>r.tripId===trip.id&&['completed','delivered'].includes(r.status));
     const failures=p.commissions.results.filter(r=>r.tripId===trip.id&&r.status==='failed');
     const money=S.finance.snapshot(p);
-    const categories={provisions:'补给支出',inn:'住宿费用',innWait:'候时支出',innTalk:'闲谈支出',newspaper:'商报支出',tavern:'营生收入',caravan:'营生收入·驼队装货',event:'随机事件收支',story:'商路奇缘推进／奖励',merchant:'商号办理'};
+    const categories={provisions:'补给支出',inn:'住宿费用',innWait:'候时支出',innTalk:'闲谈支出',newspaper:'商报支出',tavern:'营生收入',caravan:'营生收入·驼队装货',pattern:'营生收入·缀纹成章',weaving:'营生收入·于阗织坊',event:'随机事件收支',story:'商路奇缘推进／奖励',merchant:'商号办理'};
     const other=Object.entries(categories).flatMap(([type,label])=>{const items=records.filter(r=>r.type===type);return items.length?[{type,label,occurred:true,amount:items.reduce((n,r)=>n+(r.amount??r.cashDelta??0),0),records:clone(items)}]:[];});
     const financeEntries=records.filter(r=>r.type==='finance');
     for(const [type,label,operations]of [['deposits','存款变化',['finance.deposit','finance.withdraw']],['loans','贷款变化',['finance.borrow','finance.repay']],['vouchers','飞钱变化',['finance.issueVoucher','finance.redeemVoucher']]]){

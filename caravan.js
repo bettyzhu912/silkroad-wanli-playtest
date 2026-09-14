@@ -24,6 +24,7 @@
     const w = p.work; if (!w) return false;
     if (w.tavern && (!w.tavern.result || w.tavern.result.completionStatus === 'COMPLETED' && !w.tavern.resultAcknowledged)) return true;
     if (w.routeGame && !w.routeGame.result) return true;
+    if (S.patternChain && S.patternChain.isActive && S.patternChain.isActive(p)) return true;
     return Boolean(S.weaving && S.weaving.isActive && S.weaving.isActive(p));
   }
   // FORMAL entry follows the frozen P0 rule (formal_entry): visible unless 暮, enabled only at 晨 — 晨 + 2 ticks ends exactly at 暮.

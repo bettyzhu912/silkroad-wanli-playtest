@@ -62,12 +62,12 @@ const check = (name, ok, detail) => { checks.push({ name, ok: Boolean(ok), detai
     await clickText('离开市场'); await sleep(500); s = await st();
     const resumed = await ev(`(()=>{const scene=document.querySelector('.city-scene');const a=scene.querySelector('.hotspot-halo').getAnimations()[0];return {inert:scene.inert,play:a?a.playState:null}})()`);
     check('B leaving the market (no trade) returns to the city with 0 tick; breathing resumes', s.tick === before.tick && !resumed.inert && resumed.play === 'running', JSON.stringify({ tick: [before.tick, s.tick], resumed }));
-    // unavailable entry: 营生 outside 长安 / 敦煌 (existing 敬请期待 rule) — static, weakened, label readable
+    // R32: 营生 is open in every city (于阗 → 于阗织坊); the former 敬请期待 rule is gone — the 于阗 entry breathes like the other entries, label readable
     await ev(`(()=>{const p=Silk.app.state.progress;p.world.city='khotan';Silk.ui.render(Silk.app.state);return true})()`); await sleep(400);
     const kh = await ev(HALO); const work = kh.find(h => h.id === 'work');
     const workLabel = await ev(`(()=>{const l=document.querySelector('.city-hotspot[data-hotspot="work"] .hotspot-label');const cs=getComputedStyle(l);return {color:cs.color,opacity:cs.opacity,text:l.textContent}})()`);
-    check('B unavailable entry (于阗 营生): no breathing, weaker static halo, label still readable', work && work.availability === 'unavailable' && work.name === 'none' && work.opacity <= .2 && kh.filter(h => h.id !== 'work').every(h => h.name === 'hotspotBreath') && workLabel.opacity === '1' && workLabel.text === '营生', JSON.stringify({ work: work && [work.availability, work.name, work.opacity], label: workLabel }));
-    await c.screenshot(path.join(outDir, 'khotan-unavailable-work.png'));
+    check('B 于阗 营生 entry available (R32): breathing halo like every other entry, label readable', work && work.availability === 'available' && work.name === 'hotspotBreath' && kh.every(h => h.name === 'hotspotBreath') && workLabel.opacity === '1' && workLabel.text === '营生', JSON.stringify({ work: work && [work.availability, work.name, work.opacity], label: workLabel }));
+    await c.screenshot(path.join(outDir, 'khotan-work-available.png'));
     await ev(`(()=>{const p=Silk.app.state.progress;p.world.city='changan';Silk.ui.render(Silk.app.state);return true})()`); await sleep(400);
     // ---------------- C. HUD
     const hud = await ev(`(()=>{const tools=[...document.querySelectorAll('.hud-tool')];return tools.map(t=>{const i=t.querySelector('.ui-icon');const cs=getComputedStyle(i);return {id:t.dataset.panel,filter:cs.filter,anims:t.getAnimations({subtree:true}).length,disabled:t.disabled}})})()`);

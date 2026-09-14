@@ -188,18 +188,10 @@ return `<section class="settlement art-page art-settle" style="--art-bg:url('${o
     dom.shell.addEventListener('click', onClick);
     window.addEventListener('resize', () => { if (dom.shell && dom.shell.isConnected) { ui.lastKey = ''; render(); } });
   }
-  S.ui.registerPanel('dunhuang-work', {
-    title: '营生',
-    render(c, b) {
-      const av = S.caravan.availability(c.p), C = COPY();
-      const card = c.el('section', 'caravan-job-card');
-      card.append(c.el('h3', '', C.entryTitle), c.el('p', 'caravan-job-desc', C.entryDescription));
-      const meta = c.el('div', 'caravan-job-meta'); meta.append(c.el('span', '', C.entryTime), c.el('span', '', C.entryPay)); card.append(meta);
-      const artBox = c.el('div', 'caravan-job-art'); artBox.style.backgroundImage = `url('${asset('caravan_camel_v0')}')`; artBox.setAttribute('role', 'img'); artBox.setAttribute('aria-label', '骆驼'); card.append(artBox);
-      if (!av.canStartFormal && av.reason) card.append(c.el('p', 'caravan-job-note', av.reason + (av.canTrial ? '（仍可试玩）' : '')));
-      card.append(c.button(C.enter, () => c.openPanel('caravan')));
-      b.append(card);
-    }
+  // R32: the 敦煌 营生 list (dunhuang-work panel) lives in livelihood-ui.js; this card is the same job card the list has shown since R7.
+  S.livelihood.register('dunhuang', {
+    id: 'caravan', panel: 'caravan', title: COPY().entryTitle, description: COPY().entryDescription, time: COPY().entryTime, pay: COPY().entryPay, enter: COPY().enter,
+    art: { key: 'caravan_camel_v0', className: '', label: '骆驼' }, availability: p => S.caravan.availability(p)
   });
   S.ui.registerPanel('caravan', {
     title: COPY().entryTitle,

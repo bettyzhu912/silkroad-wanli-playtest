@@ -438,6 +438,8 @@
     const tavern = p.work?.tavern; if (tavern && (!tavern.result || tavern.result.completionStatus === 'COMPLETED' && !tavern.resultAcknowledged)) return true;
     if (p.work?.routeGame && !p.work.routeGame.result) return true;
     if (S.caravan?.isActive && S.caravan.isActive(p)) return true;
+    if (S.patternChain?.isActive && S.patternChain.isActive(p)) return true;
+    if (S.weaving?.isActive && S.weaving.isActive(p)) return true;
     if (p.market?.visit && !p.market.visit.settled) return true;
     return false;
   }
