@@ -9,11 +9,11 @@
   const ensure = (...args) => S.util.ensure(...args);
   const clone = value => S.util.clone(value);
   const E = () => S.patternChainEngine || (S.patternChainEngine = (typeof PatternChainEngine !== 'undefined' ? PatternChainEngine : null));
-  // TEMP_CASH_MAPPING_v0 (integration round R32): the score → cash mapping was left unfrozen by Master v1.1 (C3); the main game needs a
-  // wage to pay, so this table applies the frozen HALF_DAY economy bounds of Master §2.2 (base 5, normal completion ≥ 6 = base + 1,
-  // cap 15) to the score: base 5 once ≥ 1 valid stroke, extra = floor(score / 6) clamped so that total ∈ [6, 15]; a run without a valid
-  // stroke pays 0 (like a caravan run without a batch). One table, no tiers (performanceTier stays unfrozen / null). Awaiting confirmation.
-  const RULES = Object.freeze({ ticks: 1, seconds: 60, strokes: 10, baseWage: 5, minWage: 6, cashCap: 15, scorePerCoin: 6, minigameId: 'DUNHUANG_PATTERN_CHAIN', version: 'v0.1', cashMapping: 'TEMP_CASH_MAPPING_v0' });
+  // TEMP_PROTOTYPE_SCORE_TO_CASH_MAPPING (user decision 2026-09-14, R33): the score → cash mapping is confirmed as a PROTOTYPE mapping only —
+  // validStrokes == 0 → 0 cash, otherwise clamp(5 + floor(score / 6), 6, 15) (base 5 + extra, inside the frozen HALF_DAY bounds of Master §2.2).
+  // It is NOT the final main-game economy mapping: the main game pays by it provisionally so that the wallet integration works, and the
+  // final mapping must be re-confirmed (only this table changes then). No tiers (performanceTier stays unfrozen / null).
+  const RULES = Object.freeze({ ticks: 1, seconds: 60, strokes: 10, baseWage: 5, minWage: 6, cashCap: 15, scorePerCoin: 6, minigameId: 'DUNHUANG_PATTERN_CHAIN', version: 'v0.1', cashMapping: 'TEMP_PROTOTYPE_SCORE_TO_CASH_MAPPING' });
   const PHASES = Object.freeze(['晨', '午', '暮']);
   const END_REASONS = Object.freeze(['TIME', 'STROKES', 'NO_MOVE_UNRESOLVED']);
   const COPY = Object.freeze({
@@ -55,7 +55,7 @@
     return view(p);
   }
   const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
-  function payout(o) {   // TEMP_CASH_MAPPING_v0, see RULES
+  function payout(o) {   // TEMP_PROTOTYPE_SCORE_TO_CASH_MAPPING, see RULES
     if (!o.validStrokes) return { baseWage: 0, extraWage: 0, cash: 0 };
     const total = Math.min(RULES.cashCap, Math.max(RULES.minWage, RULES.baseWage + Math.floor(o.score / RULES.scorePerCoin)));
     return { baseWage: RULES.baseWage, extraWage: total - RULES.baseWage, cash: total };

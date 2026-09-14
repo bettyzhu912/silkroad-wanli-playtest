@@ -84,14 +84,14 @@ test('LV-B2', '缀纹成章收工校验：非法原因 / 越界指标 / 不自�
   const wrong = d.tryRun('PATTERN_FINISH', { sessionId: 'x', outcome: pcOutcome() }); assert(!wrong.ok && wrong.code === 'PATTERN_SESSION', 'session id checked');
   return ['7 invalid outcomes refused'];
 });
-test('LV-B3', '缀纹成章工钱（TEMP_CASH_MAPPING_v0）：0 有效笔 → 0；有效笔 ≥ 1 → 5 + ⌊score/6⌋ 夹在 [6, 15]（冻结的 HALF_DAY 上下限）', () => {
+test('LV-B3', '缀纹成章工钱（TEMP_PROTOTYPE_SCORE_TO_CASH_MAPPING）：0 有效笔 → 0；有效笔 ≥ 1 → 5 + ⌊score/6⌋ 夹在 [6, 15]（冻结的 HALF_DAY 上下限）', () => {
   const pay = S.patternChain.payout;
   assert(pay({ validStrokes: 0, score: 0 }).cash === 0, 'zero-clear → 0');
   assert(pay({ validStrokes: 1, score: 3 }).cash === 6 && pay({ validStrokes: 1, score: 3 }).baseWage === 5 && pay({ validStrokes: 1, score: 3 }).extraWage === 1, 'one 3-chain → 6 (base 5 + 1)');
   assert(pay({ validStrokes: 10, score: 30 }).cash === 10, 'score 30 → 10'); assert(pay({ validStrokes: 10, score: 54 }).cash === 14, 'score 54 → 14');
   assert(pay({ validStrokes: 10, score: 60 }).cash === 15 && pay({ validStrokes: 10, score: 400 }).cash === 15, 'cap 15');
   for (let s = 0; s <= 200; s++) { const c = pay({ validStrokes: 5, score: s }).cash; assert(c >= 6 && c <= 15, 'bounds at score ' + s); }
-  assert(S.patternChain.RULES.cashMapping === 'TEMP_CASH_MAPPING_v0' && S.patternChain.RULES.ticks === 1, 'rules tagged');
+  assert(S.patternChain.RULES.cashMapping === 'TEMP_PROTOTYPE_SCORE_TO_CASH_MAPPING' && S.patternChain.RULES.ticks === 1, 'rules tagged');
   return ['0 → 0; 3 → 6; 30 → 10; 54 → 14; ≥ 60 → 15'];
 });
 test('LV-C1', '缀纹成章正式局（真实引擎对局）：收工写入会话（钱未变）→ 结算一次付钱 + 1 时段 + journal；重复结算幂等', () => {

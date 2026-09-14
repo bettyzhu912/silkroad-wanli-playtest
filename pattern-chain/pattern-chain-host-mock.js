@@ -20,9 +20,13 @@
     timeLabel() { return '第 ' + host.day() + ' 天 · ' + host.phaseName(); },
     canStartFormal() { return E.CONFIG.formalStartPhases.includes(state.tick % 3); }, // HALF_DAY：晨 / 午可开始，暮不可
     advanceTime(ticks) { state.tick += ticks; save(); return state.tick; },       // ≙ 主游戏 S.time.advance(p, count)
-    commitFormal(result) { // 正式营生：先完成结算记录，再推进世界时间；cash mapping 未冻结 → cash = null（待结算）
-      const rec = { at: new Date().toISOString(), mode: 'FORMAL', workDuration: E.CONFIG.workDuration, jobId: 'MOCK_JOB_ID_UNFROZEN', tickBefore: state.tick, cash: null, cashNote: result.economy.cashNote, result };
-      state.records.push(rec); state.lastResult = result; state.lastRecord = rec;
+    // TEMP_PROTOTYPE_SCORE_TO_CASH_MAPPING (user decision 2026-09-14): validStrokes == 0 → 0; otherwise clamp(5 + floor(score / 6), 6, 15).
+    // A prototype mapping for the standalone only — not the final main-game economy mapping (to be re-confirmed for the main game).
+    scoreToCash(result) { const m = result.primaryMetrics; return m.validStrokes === 0 ? 0 : Math.min(15, Math.max(6, 5 + Math.floor(m.score / 6))); },
+    commitFormal(result) { // 正式营生：先完成结算记录（原型映射的模拟现金），再推进世界时间
+      const cash = host.scoreToCash(result);
+      const rec = { at: new Date().toISOString(), mode: 'FORMAL', workDuration: E.CONFIG.workDuration, jobId: 'MOCK_JOB_ID_UNFROZEN', tickBefore: state.tick, cash, cashMapping: 'TEMP_PROTOTYPE_SCORE_TO_CASH_MAPPING', cashNote: '原型映射（TEMP_PROTOTYPE_SCORE_TO_CASH_MAPPING），非最终主游戏经济', result };
+      state.cash += cash; state.records.push(rec); state.lastResult = result; state.lastRecord = rec;
       host.advanceTime(result.economy.timeCostTicks); rec.tickAfter = state.tick; save(); return rec;
     },
     recordTrial(result) { state.trials++; state.lastResult = result; save(); },   // 0 real cash / 0 world time / 0 trip delta / 不写正式历史
